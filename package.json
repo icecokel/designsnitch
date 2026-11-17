@@ -1,0 +1,28 @@
+{
+  "name": "designsnitch",
+  "version": "0.0.0",
+  "description": "AI가 만든 UI 코드에서 디자인 시스템을 벗어난 곳을 찾는 CLI와 ESLint 플러그인",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": "./src/index.js",
+  "files": [
+    "bin",
+    "src",
+    "skills"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@typescript-eslint/parser": "^8.73.0",
+    "eslint": ">=9",
+    "postcss": "^8.4.0"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0"
+  },
+  "bin": {
+    "designsnitch": "./bin/designsnitch.js"
+  }
+}

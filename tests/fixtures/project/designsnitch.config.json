@@ -1,0 +1,7 @@
+{
+  "tokens": "./app/globals.css",
+  "components": {
+    "path": "./components/ui",
+    "replaces": { "button": "Button" }
+  }
+}
