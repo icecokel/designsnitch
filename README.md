@@ -219,6 +219,17 @@ npm install
 npm test
 ```
 
+### 릴리스
+
+main에 병합하는 것만으로는 배포되지 않습니다. 버전 태그를 푸시하면 GitHub Actions가 테스트를 돌린 뒤 npm에 배포합니다.
+
+```sh
+npm version patch        # package.json 버전을 올리고, 커밋과 v0.1.1 태그를 만듭니다
+git push --follow-tags   # 커밋과 태그를 푸시하면 배포가 시작됩니다
+```
+
+태그와 `package.json`의 버전이 다르거나, 태그가 붙은 커밋이 main에 없으면 배포하지 않습니다.
+
 ## 왜 필요한가
 
 AI 에이전트가 만든 UI는 얼핏 보면 그럴듯하지만, 자세히 보면 조금씩 틀려 있는 경우가 많습니다.
