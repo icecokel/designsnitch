@@ -57,6 +57,25 @@ ruleTester.run("use-ds-component", rule, {
       ],
     },
     {
+      name: "대체 컴포넌트가 여러 개면 모두 알려준다",
+      code: `<button />`,
+      settings: {
+        designsnitch: {
+          tokens: "tests/fixtures/tokens.css",
+          components: {
+            path: "components/ui",
+            replaces: { button: ["SolidButton", "GlassButton", "IconButton"] },
+          },
+        },
+      },
+      errors: [
+        {
+          message:
+            "<button> 대신 디자인 시스템 컴포넌트를 사용하세요: SolidButton, GlassButton, IconButton (components/ui)",
+        },
+      ],
+    },
+    {
       name: "경로 이름이 앞부분만 같은 디렉터리는 디자인 시스템이 아니다",
       code: `<dialog />`,
       filename: "components/ui-legacy/Modal.jsx",

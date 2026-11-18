@@ -37,7 +37,10 @@ describe("designsnitch check", () => {
 
   it("경로를 주면 그 안만 검사하고, 위반이 없으면 0으로 끝난다", async () => {
     const { exitCode, stdout } = await runCli(["check", "components"]);
-    expect(stdout).toBe("위반이 없습니다. (파일 1개 검사)\n");
+    expect(stdout).toBe(
+      "디자인 시스템: 색 토큰 3개, radius 토큰 1개, 폰트 크기 토큰 0개, 컴포넌트 1개\n\n" +
+        "위반이 없습니다. (파일 1개 검사)\n",
+    );
     expect(exitCode).toBe(0);
   });
 

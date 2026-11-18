@@ -1,6 +1,7 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadConfig } from "../src/config.js";
+import { tempProject } from "./temp-project.js";
 
 const project = path.resolve("tests/fixtures/project");
 
@@ -26,5 +27,33 @@ describe("loadConfig", () => {
     expect(() => loadConfig(project, "../broken.config.json")).toThrow(
       "broken.config.json",
     );
+  });
+
+  it("replaces 는 컴포넌트 하나 또는 여러 개를 받는다", () => {
+    const cwd = tempProject({
+      "designsnitch.config.json": JSON.stringify({
+        tokens: "tokens.css",
+        components: {
+          path: "ui",
+          replaces: { button: ["SolidButton", "GlassButton"], input: "Input" },
+        },
+      }),
+    });
+    expect(loadConfig(cwd).components.replaces).toEqual({
+      button: ["SolidButton", "GlassButton"],
+      input: "Input",
+    });
+  });
+
+  it.each([
+    ["components 에 path 가 없음", { replaces: { button: "Button" } }, '"components.path"'],
+    ["components 에 replaces 가 없음", { path: "ui" }, '"components.replaces"'],
+    ["replaces 의 값이 문자열이나 문자열 배열이 아님", { path: "ui", replaces: { button: 1 } }, '"components.replaces.button"'],
+    ["replaces 의 값이 빈 배열", { path: "ui", replaces: { button: [] } }, '"components.replaces.button"'],
+  ])("%s 이면 어느 항목이 잘못됐는지 알려준다", (_name, components, expected) => {
+    const cwd = tempProject({
+      "designsnitch.config.json": JSON.stringify({ tokens: "tokens.css", components }),
+    });
+    expect(() => loadConfig(cwd)).toThrow(expected);
   });
 });

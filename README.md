@@ -12,7 +12,7 @@ AI가 만든 UI 코드에서 디자인이 틀린 곳을 찾아내는 도구입�
 
 첫 지원 대상은 **React/Next.js + Tailwind CSS** 프로젝트입니다.
 
-> **상태:** MVP. 아직 npm에 올리지 않았습니다. [지금 되는 것](#지금-되는-것) 아래의 나머지 내용은 목표 설계이며, 정해지지 않은 부분은 [미정 사항](#미정-사항)에 모아 두었습니다.
+> **상태:** MVP(0.1.x). [지금 되는 것](#지금-되는-것) 아래의 나머지 내용은 목표 설계이며, 정해지지 않은 부분은 [미정 사항](#미정-사항)에 모아 두었습니다.
 
 ## 지금 되는 것
 
@@ -28,22 +28,26 @@ Tailwind 클래스에 값을 직접 쓴 곳(`bg-[#3B82F6]`, `p-[16px]`)과 raw �
 
 ### 설치
 
-이 저장소를 받아서 로컬 경로로 설치합니다.
-
 ```sh
-npm install --save-dev /path/to/designsnitch
+npm install --save-dev designsnitch
 ```
+
+Node.js 22 이상이 필요합니다.
 
 ### 설정
 
-프로젝트 루트에 `designsnitch.config.json`을 만듭니다.
+프로젝트 루트에 `designsnitch.config.json`을 만듭니다. [에이전트 스킬](#에이전트-스킬)을 쓰면 에이전트가 저장소를 읽어서 이 파일을 만듭니다.
 
 ```json
 {
   "tokens": "./app/globals.css",
   "components": {
     "path": "./components/ui",
-    "replaces": { "button": "Button", "input": "Input", "select": "Select", "dialog": "Dialog" }
+    "replaces": {
+      "button": ["SolidButton", "IconButton"],
+      "input": "Input",
+      "dialog": "Dialog"
+    }
   }
 }
 ```
@@ -52,7 +56,7 @@ npm install --save-dev /path/to/designsnitch
 | --- | --- |
 | `tokens` | 토큰이 정의된 CSS 파일입니다. 필수입니다. |
 | `components.path` | 디자인 시스템 컴포넌트가 있는 경로입니다. 이 안에서는 raw 태그를 써도 됩니다. |
-| `components.replaces` | raw 태그와 그것을 대체하는 컴포넌트입니다. |
+| `components.replaces` | raw 태그와 그것을 대체하는 컴포넌트입니다. 컴포넌트가 여러 개면 배열로 적습니다. |
 
 `components`를 생략하면 컴포넌트 검사를 하지 않습니다.
 
@@ -60,7 +64,7 @@ npm install --save-dev /path/to/designsnitch
 
 | 변수 | 쓰임 | 없을 때 |
 | --- | --- | --- |
-| `--color-*` (값이 hex인 것) | 색 | 모든 hex가 경고가 됩니다 |
+| `--color-*` | 색. 값이 hex이거나, `var()`로 hex 값을 가진 변수를 가리켜야 합니다. | 모든 hex가 경고가 됩니다 |
 | `--spacing` | 간격 단위 | Tailwind 기본값 `0.25rem`을 씁니다 |
 | `--radius-*` | radius | radius를 검사하지 않습니다 |
 | `--text-*` | 폰트 크기 | 폰트 크기를 검사하지 않습니다 |
@@ -85,6 +89,8 @@ npx designsnitch check --format json        # CI나 AI 에이전트용
 ```
 
 ```
+디자인 시스템: 색 토큰 2개, radius 토큰 2개, 폰트 크기 토큰 2개, 컴포넌트 2개
+
 src/PayButton.tsx
   5:6  오류  <button> 대신 디자인 시스템 컴포넌트를 사용하세요: Button (./components/ui)  (use-ds-component)
   7:10  오류  rounded-[6px]의 값은 radius 토큰에 있습니다. 대신 사용: rounded-md  (scale-use-token)
@@ -96,10 +102,20 @@ src/PayButton.tsx
 오류 4개, 경고 2개 (파일 3개 검사)
 ```
 
-`--format json`은 같은 결과를 구조화해서 냅니다. `found`는 위반한 코드 조각이고, `candidates`는 대신 쓸 클래스나 컴포넌트입니다.
+첫 줄은 설정에서 읽어 낸 토큰과 컴포넌트의 개수입니다. 경로를 잘못 적으면 여기서 0개로 드러납니다. 색 토큰을 하나도 읽지 못하면 `주의:`로 시작하는 줄이 함께 나옵니다.
+
+`--format json`은 같은 결과를 구조화해서 냅니다.
 
 ```json
 {
+  "designSystem": {
+    "colorTokens": 2,
+    "radiusTokens": 2,
+    "textTokens": 2,
+    "components": 2,
+    "replacedTags": 2
+  },
+  "problems": [],
   "summary": { "files": 3, "errors": 4, "warnings": 2 },
   "violations": [
     {
@@ -118,11 +134,18 @@ src/PayButton.tsx
 }
 ```
 
+| 필드 | 내용 |
+| --- | --- |
+| `designSystem` | 설정에서 읽어 낸 토큰과 컴포넌트의 개수 |
+| `problems` | 결과를 믿기 어렵게 만드는 설정 문제. 정상이면 빈 배열입니다. |
+| `violations[].found` | 위반한 코드 조각 |
+| `violations[].candidates` | 대신 쓸 클래스나 컴포넌트. 없으면 빈 배열입니다. |
+
 | 종료 코드 | 의미 |
 | --- | --- |
 | 0 | 오류 없음 (경고만 있어도 0) |
 | 1 | 오류 있음 |
-| 2 | 실행하지 못함 (설정 파일이나 토큰 CSS가 없음, 잘못된 인자) |
+| 2 | 실행하지 못함 (설정 파일, 토큰 CSS, 컴포넌트 경로가 없음, 잘못된 인자) |
 
 검사는 프로젝트의 ESLint 설정과 무관하게 돌아갑니다. `.js`, `.jsx`, `.ts`, `.tsx` 파일을 보고, `node_modules`, `.next`, `dist`, `build`, `out`, `coverage`는 건너뜁니다.
 
@@ -146,10 +169,13 @@ cp -r node_modules/designsnitch/skills/designsnitch .claude/skills/
 
 스킬은 에이전트에게 다음을 지시합니다.
 
-1. UI 코드를 수정한 뒤 `designsnitch check --format json`을 실행합니다.
-2. 오류이고 후보가 하나뿐인 위반만 고칩니다.
-3. 후보가 여러 개이거나 경고인 것은 고치지 않고, 후보와 맥락을 사람에게 보여줍니다.
-4. 다시 검사합니다.
+1. 설정 파일이 없으면 저장소에서 토큰 CSS와 공용 컴포넌트 경로를 찾아 `designsnitch.config.json`을 만들고, 검사를 실행해 읽어 낸 개수를 확인한 뒤 사람에게 보여줍니다.
+2. UI 코드를 수정한 뒤 `designsnitch check --format json`을 실행합니다.
+3. 오류이고 후보가 하나뿐인 위반만 고칩니다.
+4. 후보가 여러 개이거나 경고인 것은 고치지 않고, 후보와 맥락을 사람에게 보여줍니다.
+5. 다시 검사합니다.
+
+설정 파일은 판정 기준이므로, 에이전트는 없을 때 새로 만들 수만 있고 이미 있는 설정은 사람에게 묻지 않고 고치지 않습니다.
 
 ### ESLint 플러그인으로 쓰기
 
@@ -178,9 +204,10 @@ export default [
 
 ### 아직 안 되는 것
 
-- hex가 아닌 색(`rgb()`, `hsl()`, `oklch()`)과 `var()`로 다른 변수를 가리키는 토큰
+- hex가 아닌 색(`rgb()`, `hsl()`, `oklch()`)
 - Tailwind 기본 테마의 값. 프로젝트의 토큰 CSS에 적힌 값만 읽습니다.
-- 테마별 값 구분, 색의 가장 가까운 토큰 제시
+- 색의 가장 가까운 토큰 제시
+- 어느 테마의 값인지 알려주기. 토큰이 테마마다 다른 값을 가지면 그 값들을 모두 토큰의 값으로 보지만, 어느 테마인지는 구분하지 않습니다.
 - 인라인 스타일
 - 직접 만든 컴포넌트와 디자인 시스템 컴포넌트의 스타일 비교
 - 스킬을 설치해 주는 명령
@@ -326,11 +353,11 @@ src/features/checkout/ConfirmButton.tsx:4:10  오류
 
 ### 남은 것
 
-1. hex가 아닌 색과 `var()` 참조 토큰 읽기
+1. hex가 아닌 색 읽기
 2. Tailwind 기본 테마 값 읽기
 3. 인라인 스타일 검사
 4. 직접 만든 컴포넌트와 디자인 시스템 컴포넌트 비교. 오탐 기준이 잡히기 전에는 오류로 처리하지 않고 경고나 후보로만 보여줍니다.
-5. 스킬 설치 명령과 npm 배포
+5. 스킬 설치 명령
 
 ## 범위 밖
 
@@ -349,4 +376,4 @@ src/features/checkout/ConfirmButton.tsx:4:10  오류
 
 ## 라이선스
 
-TODO
+[MIT](./LICENSE)

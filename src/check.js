@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import tsParser from "@typescript-eslint/parser";
 import { ESLint } from "eslint";
@@ -28,12 +29,32 @@ const RULE_PREFIX = "designsnitch/";
  * @param {string} options.cwd 프로젝트 디렉터리
  * @param {ReturnType<typeof import("./config.js").loadConfig>} options.config
  * @param {string[]} [options.paths] 검사할 파일이나 디렉터리 (cwd 기준)
- * @returns {Promise<{ summary: { files: number, errors: number, warnings: number }, violations: Violation[] }>}
+ * @returns {Promise<{
+ *   designSystem: { colorTokens: number, radiusTokens: number, textTokens: number, components: number, replacedTags: number },
+ *   problems: string[],
+ *   summary: { files: number, errors: number, warnings: number },
+ *   violations: Violation[],
+ * }>} designSystem 은 설정에서 읽어 낸 것의 개수, problems 는 결과를 믿기 어렵게 만드는 설정 문제
  */
 export async function check({ cwd, config, paths = ["."] }) {
   const settings = { designsnitch: config };
-  // 토큰 CSS 에 문제가 있으면 파일을 검사하기 전에 알린다.
-  loadTokens(settings, cwd);
+  // 설정에 문제가 있으면 파일을 검사하기 전에 알린다.
+  const tokens = loadTokens(settings, cwd);
+  if (config.components) {
+    const dir = path.resolve(cwd, config.components.path);
+    if (!fs.existsSync(dir)) {
+      throw new Error(`디자인 시스템 컴포넌트 경로를 찾을 수 없습니다: ${dir}`);
+    }
+  }
+  const designSystem = describeDesignSystem(tokens, config);
+  const problems = [];
+  if (designSystem.colorTokens === 0) {
+    problems.push(
+      `색 토큰을 하나도 읽지 못했습니다: ${config.tokens}. ` +
+        "--color-* 변수의 값이 hex이거나 var()로 hex를 가리켜야 읽을 수 있습니다. " +
+        '지금은 모든 hex가 "토큰에 없음" 경고로 나옵니다.',
+    );
+  }
 
   const eslint = new ESLint({
     cwd,
@@ -66,12 +87,26 @@ export async function check({ cwd, config, paths = ["."] }) {
   });
 
   return {
+    designSystem,
+    problems,
     summary: {
       files: results.length,
       errors: violations.filter((v) => v.severity === "error").length,
       warnings: violations.filter((v) => v.severity === "warning").length,
     },
     violations,
+  };
+}
+
+function describeDesignSystem(tokens, config) {
+  const countNames = (map) => new Set([...map.values()].flat()).size;
+  const replaces = Object.values(config.components?.replaces ?? {});
+  return {
+    colorTokens: countNames(tokens.colors),
+    radiusTokens: countNames(tokens.scale.radius),
+    textTokens: countNames(tokens.scale.text),
+    components: new Set(replaces.flat()).size,
+    replacedTags: replaces.length,
   };
 }
 
@@ -93,8 +128,7 @@ function toViolation(file, source, message, config) {
   let candidates = (message.suggestions ?? []).map((suggestion) => suggestion.fix.text);
   if (rule === "use-ds-component") {
     // 컴포넌트는 import 까지 바꿔야 해서 제안(자동 교체)이 없다. 설정에서 후보를 찾는다.
-    const component = config.components?.replaces?.[found];
-    candidates = component ? [component] : [];
+    candidates = [config.components?.replaces?.[found] ?? []].flat();
   }
 
   return {

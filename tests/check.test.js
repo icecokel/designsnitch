@@ -10,6 +10,14 @@ describe("check", () => {
   it("프로젝트를 검사해서 위반 목록과 요약을 돌려준다", async () => {
     const result = await check({ cwd, config: loadConfig(cwd) });
 
+    expect(result.designSystem).toEqual({
+      colorTokens: 3,
+      radiusTokens: 1,
+      textTokens: 0,
+      components: 1,
+      replacedTags: 1,
+    });
+    expect(result.problems).toEqual([]);
     expect(result.summary).toEqual({ files: 3, errors: 3, warnings: 1 });
     expect(result.violations).toEqual([
       {
@@ -67,7 +75,7 @@ describe("check", () => {
 
   it("경로를 주면 그 안만 검사한다", async () => {
     const result = await check({ cwd, config: loadConfig(cwd), paths: ["components"] });
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       summary: { files: 1, errors: 0, warnings: 0 },
       violations: [],
     });
@@ -92,7 +100,7 @@ describe("프로젝트 코드에 있는 주석과 문법 오류", () => {
         `/* eslint-disable @next/next/no-img-element */`,
       ].join("\n"),
     });
-    expect(result).toEqual({ summary: { files: 1, errors: 0, warnings: 0 }, violations: [] });
+    expect(result).toMatchObject({ summary: { files: 1, errors: 0, warnings: 0 }, violations: [] });
   });
 
   it("eslint-disable 주석으로 예외를 둔 줄은 보고하지 않는다", async () => {
@@ -122,5 +130,69 @@ describe("프로젝트 코드에 있는 주석과 문법 오류", () => {
       found: "",
       candidates: [],
     });
+  });
+});
+
+describe("설정을 읽은 결과", () => {
+  const checkProject = (files) => {
+    const cwd = tempProject(files);
+    return check({ cwd, config: loadConfig(cwd) });
+  };
+
+  it("대체 컴포넌트가 여러 개면 모두 후보로 돌려준다", async () => {
+    const result = await checkProject({
+      "designsnitch.config.json": JSON.stringify({
+        tokens: "tokens.css",
+        components: {
+          path: "ui",
+          replaces: { button: ["SolidButton", "GlassButton"], input: "Input" },
+        },
+      }),
+      "tokens.css": `@theme { --color-primary: #3B82F6; }`,
+      "ui/solid-button.tsx": `export const SolidButton = () => <button />;`,
+      "src/Pay.tsx": `export const Pay = () => <button>결제</button>;`,
+    });
+    expect(result.designSystem).toMatchObject({ components: 3, replacedTags: 2 });
+    expect(result.violations).toMatchObject([
+      { rule: "use-ds-component", found: "button", candidates: ["SolidButton", "GlassButton"] },
+    ]);
+  });
+
+  it("components 설정이 없으면 컴포넌트 수는 0이다", async () => {
+    const result = await checkProject({
+      "designsnitch.config.json": `{ "tokens": "tokens.css" }`,
+      "tokens.css": `@theme { --color-primary: #3B82F6; --text-sm: 0.875rem; }`,
+    });
+    expect(result.designSystem).toEqual({
+      colorTokens: 1,
+      radiusTokens: 0,
+      textTokens: 1,
+      components: 0,
+      replacedTags: 0,
+    });
+  });
+
+  it("색 토큰을 하나도 읽지 못하면 problems 로 알린다", async () => {
+    const result = await checkProject({
+      "designsnitch.config.json": `{ "tokens": "tokens.css" }`,
+      "tokens.css": `@theme { --color-primary: oklch(0.6 0.2 250); }`,
+      "src/Card.tsx": `export const Card = () => <div className="bg-[#3B82F6]" />;`,
+    });
+    expect(result.designSystem.colorTokens).toBe(0);
+    expect(result.problems).toHaveLength(1);
+    expect(result.problems[0]).toContain("색 토큰을 하나도 읽지 못했습니다");
+    expect(result.problems[0]).toContain("tokens.css");
+  });
+
+  it("디자인 시스템 컴포넌트 경로가 없으면 검사하지 않고 알린다", async () => {
+    await expect(
+      checkProject({
+        "designsnitch.config.json": JSON.stringify({
+          tokens: "tokens.css",
+          components: { path: "components/ui", replaces: { button: "Button" } },
+        }),
+        "tokens.css": `@theme { --color-primary: #3B82F6; }`,
+      }),
+    ).rejects.toThrow("components/ui");
   });
 });

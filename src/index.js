@@ -5,7 +5,7 @@ import scaleUseToken from "./rules/scale-use-token.js";
 import useDsComponent from "./rules/use-ds-component.js";
 
 const plugin = {
-  meta: { name: "designsnitch", version: "0.0.0" },
+  meta: { name: "designsnitch", version: "0.1.0" },
   rules: {
     "color-use-token": colorUseToken,
     "color-unknown": colorUnknown,

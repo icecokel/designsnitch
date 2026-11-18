@@ -28,7 +28,12 @@ export default {
         context.report({
           node: node.name,
           messageId: "useComponent",
-          data: { tag, component: components.replaces[tag], path: components.path },
+          data: {
+            tag,
+            // 대체 컴포넌트는 하나(문자열)일 수도 여러 개(배열)일 수도 있다.
+            component: [components.replaces[tag]].flat().join(", "),
+            path: components.path,
+          },
         });
       },
     };
