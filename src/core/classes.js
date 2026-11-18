@@ -40,3 +40,27 @@ export function findArbitraryLengths(text) {
     px: parseLength(match[2]),
   }));
 }
+
+const COLOR_UTILITY =
+  "bg|text|border(?:-[trblxyse])?|ring(?:-offset)?|outline|divide|fill|stroke|from|via|to|decoration|accent|caret|shadow|placeholder";
+const PALETTE_HUE =
+  "slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose";
+// 예: bg-blue-500, border-t-red-50, text-white
+const PALETTE_CLASS = new RegExp(
+  `(?<![\\w-])(${COLOR_UTILITY})-((?:${PALETTE_HUE})-(?:50|[1-9]00|950)|black|white)(?![\\w-])`,
+  "g",
+);
+
+/**
+ * 문자열에서 Tailwind 기본 팔레트 색을 쓴 클래스를 찾는다.
+ * @param {string} text
+ * @returns {{ index: number, text: string, utility: string, name: string }[]}
+ */
+export function findPaletteClasses(text) {
+  return [...text.matchAll(PALETTE_CLASS)].map((match) => ({
+    index: match.index,
+    text: match[0],
+    utility: match[1],
+    name: match[2],
+  }));
+}

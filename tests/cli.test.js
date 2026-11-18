@@ -2,6 +2,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { check } from "../src/check.js";
 import { run } from "../src/cli.js";
+import { collectColors } from "../src/colors.js";
 import { loadConfig } from "../src/config.js";
 import { tempProject } from "./temp-project.js";
 
@@ -85,16 +86,77 @@ describe("잘못 쓴 경우", () => {
   });
 
   it("모르는 명령이나 형식이면 사용법을 알리고 2로 끝난다", async () => {
-    for (const argv of [["lint"], ["check", "--format", "xml"], []]) {
+    for (const argv of [["lint"], ["constructor"], ["check", "--format", "xml"], []]) {
       const { exitCode, stderr } = await runCli(argv);
-      expect(stderr).toContain("사용법: designsnitch check");
+      expect(stderr).toContain("사용법: designsnitch <명령>");
       expect(exitCode).toBe(2);
     }
   });
 
   it("--help 는 사용법을 보여주고 0으로 끝난다", async () => {
     const { exitCode, stdout } = await runCli(["--help"]);
-    expect(stdout).toContain("사용법: designsnitch check");
+    expect(stdout).toContain("사용법: designsnitch <명령>");
     expect(exitCode).toBe(0);
+  });
+});
+
+describe("designsnitch colors", () => {
+  const files = {
+    "src/Card.jsx": `export const Card = () => <div className="bg-[#3B82F6] text-[#FFF] bg-blue-500" style={{ color: "#3B82F6" }} />;`,
+  };
+
+  it("설정 파일이 없어도 코드에서 쓰는 색을 보여주고 0으로 끝난다", async () => {
+    const cwd = tempProject(files);
+    const { exitCode, stdout, stderr } = await runCli(["colors"], cwd);
+    expect(stdout).toBe(
+      [
+        "코드에서 쓰는 색: hex 2개, 기본 팔레트 1개 (사용 4곳, 파일 1개 검사)",
+        "",
+        "hex 색",
+        "  #3b82f6  2곳  파일 1개  bg 1, 문자열 1",
+        "  #ffffff  1곳  파일 1개  text 1",
+        "",
+        "Tailwind 기본 팔레트",
+        "  blue-500  1곳  파일 1개  bg 1",
+        "",
+      ].join("\n"),
+    );
+    expect(stderr).toBe("");
+    expect(exitCode).toBe(0);
+  });
+
+  it("--format json 은 수집 결과를 JSON 으로 낸다", async () => {
+    const cwd = tempProject(files);
+    const { stdout } = await runCli(["colors", "--format", "json"], cwd);
+    expect(JSON.parse(stdout)).toEqual(await collectColors({ cwd }));
+  });
+
+  it("설정 파일이 있으면 색마다 이미 있는 토큰을 알려준다", async () => {
+    const cwd = tempProject({
+      ...files,
+      "designsnitch.config.json": `{ "tokens": "tokens.css" }`,
+      "tokens.css": `@theme { --color-primary: #3B82F6; --color-brand: #3b82f6; }`,
+    });
+    const { stdout } = await runCli(["colors"], cwd);
+    expect(stdout).toContain("  #3b82f6  2곳  파일 1개  bg 1, 문자열 1  토큰: --color-primary, --color-brand");
+    expect(stdout).toContain("  #ffffff  1곳  파일 1개  text 1  토큰 없음");
+  });
+
+  it("경로를 주면 그 안만 본다", async () => {
+    const cwd = tempProject({ ...files, "lib/x.js": `export const c = "bg-[#000000]";` });
+    const { stdout } = await runCli(["colors", "lib", "--format", "json"], cwd);
+    expect(JSON.parse(stdout).colors.map((c) => c.color)).toEqual(["#000000"]);
+  });
+
+  it("색이 없으면 없다고 알린다", async () => {
+    const cwd = tempProject({ "src/a.js": `export const a = 1;` });
+    const { stdout } = await runCli(["colors"], cwd);
+    expect(stdout).toBe("코드에서 색을 찾지 못했습니다. (파일 1개 검사)\n");
+  });
+
+  it("--config 로 지정한 파일이 없으면 2로 끝난다", async () => {
+    const { exitCode, stderr } = await runCli(["colors", "--config", "nope.json"], tempProject(files));
+    expect(stderr).toContain("설정 파일이 없습니다");
+    expect(exitCode).toBe(2);
   });
 });

@@ -1,12 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
-import tsParser from "@typescript-eslint/parser";
-import { ESLint } from "eslint";
+import { createEngine } from "./engine.js";
 import plugin from "./index.js";
 import { loadTokens } from "./rules/load-tokens.js";
 
-const FILES = ["**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"];
-const IGNORES = ["**/.next/**", "**/dist/**", "**/build/**", "**/out/**", "**/coverage/**"];
 const RULE_PREFIX = "designsnitch/";
 
 /**
@@ -56,25 +53,7 @@ export async function check({ cwd, config, paths = ["."] }) {
     );
   }
 
-  const eslint = new ESLint({
-    cwd,
-    overrideConfigFile: true,
-    errorOnUnmatchedPattern: false,
-    overrideConfig: [
-      { ignores: IGNORES },
-      {
-        ...plugin.configs.recommended,
-        files: FILES,
-        languageOptions: {
-          parser: tsParser,
-          parserOptions: { ecmaFeatures: { jsx: true } },
-        },
-        // 프로젝트 코드에는 다른 규칙용 eslint-disable 주석이 있을 수 있다.
-        linterOptions: { reportUnusedDisableDirectives: "off" },
-        settings,
-      },
-    ],
-  });
+  const eslint = createEngine({ cwd, config: { ...plugin.configs.recommended, settings } });
 
   const results = await eslint.lintFiles(paths);
   results.sort((a, b) => a.filePath.localeCompare(b.filePath));

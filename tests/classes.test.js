@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findArbitraryColors, tokenToClass } from "../src/core/classes.js";
+import { findArbitraryColors, findPaletteClasses, tokenToClass } from "../src/core/classes.js";
 
 describe("findArbitraryColors", () => {
   it("임의 값 색 클래스를 위치와 함께 찾는다", () => {
@@ -32,5 +32,30 @@ describe("tokenToClass", () => {
   it("유틸리티와 토큰 이름으로 클래스를 만든다", () => {
     expect(tokenToClass("bg", "--color-primary-500")).toBe("bg-primary-500");
     expect(tokenToClass("ring-offset", "--color-surface")).toBe("ring-offset-surface");
+  });
+});
+
+describe("findPaletteClasses", () => {
+  it("Tailwind 기본 팔레트 색을 쓴 클래스를 찾는다", () => {
+    expect(findPaletteClasses("p-4 bg-blue-500 text-gray-700")).toEqual([
+      { index: 4, text: "bg-blue-500", utility: "bg", name: "blue-500" },
+      { index: 16, text: "text-gray-700", utility: "text", name: "gray-700" },
+    ]);
+  });
+
+  it("variant, 하이픈이 있는 유틸리티, 투명도, black과 white를 처리한다", () => {
+    const found = findPaletteClasses("hover:border-t-red-50 bg-white/80 text-black ring-offset-slate-950");
+    expect(found.map(({ utility, name }) => `${utility} ${name}`)).toEqual([
+      "border-t red-50",
+      "bg white",
+      "text black",
+      "ring-offset slate-950",
+    ]);
+  });
+
+  it("색이 아닌 클래스와 토큰 클래스는 잡지 않는다", () => {
+    expect(
+      findPaletteClasses("whitespace-nowrap text-sm bg-primary-500 grid-cols-12 bg-[#fff] text-gray-7000"),
+    ).toEqual([]);
   });
 });

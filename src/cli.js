@@ -1,22 +1,44 @@
+import fs from "node:fs";
+import path from "node:path";
 import { parseArgs } from "node:util";
 import { check } from "./check.js";
-import { loadConfig } from "./config.js";
-import { formatText } from "./format.js";
+import { collectColors } from "./colors.js";
+import { CONFIG_FILE, loadConfig } from "./config.js";
+import { formatColorsText, formatText } from "./format.js";
+import { loadTokens } from "./rules/load-tokens.js";
 
-const USAGE = `사용법: designsnitch check [경로...] [--format text|json] [--config 파일]
+const USAGE = `사용법: designsnitch <명령> [경로...] [--format text|json] [--config 파일]
 
-프로젝트의 UI 코드가 디자인 시스템을 따르는지 검사합니다.
+명령
+  check     UI 코드가 디자인 시스템을 따르는지 검사합니다.
+  colors    코드에서 쓰는 색을 모아 보여줍니다. 설정 파일이 없어도 됩니다.
 
-  경로        검사할 파일이나 디렉터리 (기본: 현재 디렉터리)
+옵션
+  경로        볼 파일이나 디렉터리 (기본: 현재 디렉터리)
   --format    출력 형식. text(기본) 또는 json
   --config    설정 파일 경로 (기본: designsnitch.config.json)
 
-종료 코드: 0 오류 없음, 1 오류 있음, 2 실행하지 못함
+check 의 종료 코드: 0 오류 없음, 1 오류 있음, 2 실행하지 못함
 `;
 
-const FORMATS = {
-  text: formatText,
-  json: (result) => `${JSON.stringify(result, null, 2)}\n`,
+const json = (result) => `${JSON.stringify(result, null, 2)}\n`;
+
+const COMMANDS = {
+  async check({ cwd, paths, configPath }) {
+    const config = loadConfig(cwd, configPath);
+    const result = await check({ cwd, config, paths });
+    return { result, formats: { text: formatText, json }, exitCode: result.summary.errors > 0 ? 1 : 0 };
+  },
+
+  // 설정 파일은 선택이다. 있으면 색마다 이미 있는 토큰을 붙인다.
+  async colors({ cwd, paths, configPath }) {
+    const hasConfig = configPath !== undefined || fs.existsSync(path.resolve(cwd, CONFIG_FILE));
+    const tokens = hasConfig
+      ? loadTokens({ designsnitch: loadConfig(cwd, configPath) }, cwd).colors
+      : undefined;
+    const result = await collectColors({ cwd, paths, tokens });
+    return { result, formats: { text: formatColorsText, json }, exitCode: 0 };
+  },
 };
 
 /**
@@ -46,22 +68,26 @@ export async function run(argv, { cwd, stdout, stderr }) {
     return 0;
   }
 
-  const [command, ...paths] = args.positionals;
-  const format = FORMATS[args.values.format];
-  if (command !== "check" || !format) {
+  const [name, ...paths] = args.positionals;
+  const command = Object.hasOwn(COMMANDS, name ?? "") ? COMMANDS[name] : undefined;
+  const { format } = args.values;
+  if (!command || !["text", "json"].includes(format)) {
     stderr.write(USAGE);
     return 2;
   }
 
-  let result;
+  let outcome;
   try {
-    const config = loadConfig(cwd, args.values.config);
-    result = await check({ cwd, config, paths: paths.length > 0 ? paths : undefined });
+    outcome = await command({
+      cwd,
+      paths: paths.length > 0 ? paths : undefined,
+      configPath: args.values.config,
+    });
   } catch (error) {
     stderr.write(`${error.message}\n`);
     return 2;
   }
 
-  stdout.write(format(result));
-  return result.summary.errors > 0 ? 1 : 0;
+  stdout.write(outcome.formats[format](outcome.result));
+  return outcome.exitCode;
 }

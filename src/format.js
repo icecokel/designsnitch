@@ -44,3 +44,34 @@ function describe({ colorTokens, radiusTokens, textTokens, components }) {
     components > 0 ? `컴포넌트 ${components}개` : "컴포넌트 설정 없음",
   ].join(", ");
 }
+
+/**
+ * 색 수집 결과를 사람이 읽는 글로 만든다.
+ * @param {Awaited<ReturnType<typeof import("./colors.js").collectColors>>} result
+ */
+export function formatColorsText({ summary, colors, palette }) {
+  if (colors.length === 0 && palette.length === 0) {
+    return `코드에서 색을 찾지 못했습니다. (파일 ${summary.files}개 검사)\n`;
+  }
+
+  const usage = ({ uses, files, utilities, literals }) => {
+    const where = Object.entries(utilities).map(([utility, count]) => `${utility} ${count}`);
+    if (literals) where.push(`문자열 ${literals}`);
+    return `${uses}곳  파일 ${files}개  ${where.join(", ")}`;
+  };
+  // 설정 파일이 있을 때만 tokens 가 붙는다.
+  const tokenNote = ({ tokens }) =>
+    tokens === undefined ? "" : tokens.length > 0 ? `  토큰: ${tokens.join(", ")}` : "  토큰 없음";
+
+  const lines = [
+    `코드에서 쓰는 색: hex ${summary.colors}개, 기본 팔레트 ${summary.paletteColors}개 (사용 ${summary.uses}곳, 파일 ${summary.files}개 검사)`,
+    "",
+  ];
+  if (colors.length > 0) {
+    lines.push("hex 색", ...colors.map((c) => `  ${c.color}  ${usage(c)}${tokenNote(c)}`), "");
+  }
+  if (palette.length > 0) {
+    lines.push("Tailwind 기본 팔레트", ...palette.map((p) => `  ${p.name}  ${usage(p)}`), "");
+  }
+  return lines.join("\n");
+}
