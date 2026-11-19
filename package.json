@@ -23,7 +23,7 @@
     "vitest": "^3.0.0"
   },
   "bin": {
-    "designsnitch": "./bin/designsnitch.js"
+    "designsnitch": "bin/designsnitch.js"
   },
   "engines": {
     "node": ">=22"
