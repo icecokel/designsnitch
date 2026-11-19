@@ -1,6 +1,6 @@
 {
   "name": "designsnitch",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "AI가 만든 UI 코드에서 디자인 시스템을 벗어난 곳을 찾는 CLI와 ESLint 플러그인",
   "type": "module",
   "main": "./src/index.js",
