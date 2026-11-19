@@ -1,22 +1,20 @@
 import { findArbitraryColors, tokenToClass } from "../core/classes.js";
 import { normalizeHex } from "../core/color.js";
 import { loadTokens } from "./load-tokens.js";
-import { REPLACE_MESSAGES, suggestClasses } from "./suggest.js";
+import { ruleMessages, suggestClasses, TEXT } from "./suggest.js";
 import { visitStrings } from "./visit-strings.js";
 
 /** @type {import("eslint").Rule.RuleModule} */
 export default {
   meta: {
     type: "problem",
-    docs: { description: "토큰이 있는 색을 hex로 쓰지 않는다" },
+    docs: { description: "Use the token instead of writing its color as a hex value" },
     hasSuggestions: true,
     schema: [],
-    messages: {
-      ...REPLACE_MESSAGES,
-      useToken: "{{found}}의 색은 토큰 {{tokens}}의 값입니다. 대신 사용: {{classes}}",
-    },
+    messages: { useToken: TEXT, replace: TEXT },
   },
   create(context) {
+    const m = ruleMessages(context);
     const { colors } = loadTokens(context.settings, context.cwd);
 
     return visitStrings(context, findArbitraryColors, (found, { loc, range }) => {
@@ -27,11 +25,13 @@ export default {
         loc,
         messageId: "useToken",
         data: {
-          found: found.text,
-          tokens: tokenNames.join(", "),
-          classes: classes.join(", "),
+          text: m.useToken({
+            found: found.text,
+            tokens: tokenNames.join(", "),
+            candidates: classes.join(", "),
+          }),
         },
-        suggest: suggestClasses(range, classes),
+        suggest: suggestClasses(range, classes, m),
       });
     });
   },

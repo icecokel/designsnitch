@@ -5,6 +5,7 @@ import { findCssColors } from "./core/css.js";
 import { createEngine } from "./engine.js";
 import { splitPaths } from "./files.js";
 import plugin from "./index.js";
+import { messages, resolveLang } from "./messages.js";
 import { loadTokens } from "./rules/load-tokens.js";
 
 const RULE_PREFIX = "designsnitch/";
@@ -33,6 +34,7 @@ const RULE_PREFIX = "designsnitch/";
  * @param {string} options.cwd 프로젝트 디렉터리
  * @param {ReturnType<typeof import("./config.js").loadConfig>} options.config
  * @param {string[]} [options.paths] 검사할 파일이나 디렉터리 (cwd 기준)
+ * @param {"en" | "ko"} [options.lang] 문장의 언어. 없으면 설정의 lang, 환경 변수, 영어 순으로 정한다
  * @returns {Promise<{
  *   designSystem: { colorTokens: number, components: number, replacedTags: number },
  *   problems: string[],
@@ -42,24 +44,23 @@ const RULE_PREFIX = "designsnitch/";
  * }>} designSystem 은 설정에서 읽어 낸 것의 개수, problems 는 결과를 믿기 어렵게 만드는 설정 문제,
  *   next 는 이 결과를 받은 에이전트가 순서대로 할 일
  */
-export async function check({ cwd, config, paths = ["."] }) {
-  const settings = { designsnitch: config };
+export async function check({ cwd, config, paths = ["."], lang }) {
+  lang = resolveLang(lang, config.lang);
+  const m = messages(lang);
+  // 규칙도 같은 언어를 쓰도록 설정에 실어 보낸다.
+  const settings = { designsnitch: { ...config, lang } };
   // 설정에 문제가 있으면 파일을 검사하기 전에 알린다.
   const tokens = loadTokens(settings, cwd);
   if (config.components) {
     const dir = path.resolve(cwd, config.components.path);
     if (!fs.existsSync(dir)) {
-      throw new Error(`디자인 시스템 컴포넌트 경로를 찾을 수 없습니다: ${dir}`);
+      throw new Error(m.componentsDirMissing({ dir }));
     }
   }
   const designSystem = describeDesignSystem(tokens, config);
   const problems = [];
   if (designSystem.colorTokens === 0) {
-    problems.push(
-      `색 토큰을 하나도 읽지 못했습니다: ${config.tokens}. ` +
-        "--color-* 변수의 값이 hex이거나 var()로 hex를 가리켜야 읽을 수 있습니다. " +
-        '지금은 모든 hex가 "토큰에 없음" 경고로 나옵니다.',
-    );
+    problems.push(m.noColorTokens({ tokens: config.tokens }));
   }
 
   const { scriptPaths, cssFiles } = splitPaths(cwd, paths);
@@ -74,7 +75,7 @@ export async function check({ cwd, config, paths = ["."] }) {
       .map((message) => toViolation(file, result.source, message, config));
   });
   const cssViolations = cssFiles.flatMap((file) =>
-    checkCss(file, fs.readFileSync(path.resolve(cwd, file), "utf8"), tokens.colors),
+    checkCss(file, fs.readFileSync(path.resolve(cwd, file), "utf8"), tokens.colors, m),
   );
 
   const violations = [...scriptViolations, ...cssViolations]
@@ -84,7 +85,7 @@ export async function check({ cwd, config, paths = ["."] }) {
   return {
     designSystem,
     problems,
-    next: nextSteps(designSystem, violations),
+    next: nextSteps(designSystem, violations, lang),
     summary: {
       files: results.length + cssFiles.length,
       errors: violations.filter((v) => v.severity === "error").length,
@@ -98,7 +99,7 @@ export async function check({ cwd, config, paths = ["."] }) {
  * CSS 파일 하나의 hex 색을 토큰과 비교한다. 대체 후보는 var(--토큰) 이다.
  * @returns {Violation[]}
  */
-function checkCss(file, source, colorTokens) {
+function checkCss(file, source, colorTokens, m) {
   let colors;
   try {
     colors = findCssColors(source);
@@ -131,12 +132,16 @@ function checkCss(file, source, colorTokens) {
           ? {
               rule: "color-use-token",
               severity: "error",
-              message: `${value}의 색은 토큰 ${tokenNames.join(", ")}의 값입니다. 대신 사용: ${candidates.join(", ")}`,
+              message: m.useToken({
+                found: value,
+                tokens: tokenNames.join(", "),
+                candidates: candidates.join(", "),
+              }),
             }
           : {
               rule: "color-unknown",
               severity: "warning",
-              message: `${value}의 색은 토큰에 없습니다.`,
+              message: m.unknownCssColor({ value }),
             }),
         found: value,
         candidates,
@@ -153,9 +158,11 @@ function actionFor({ rule, severity, candidates }) {
  * 결과를 받은 에이전트가 무엇부터 해야 하는지를 순서대로 적는다.
  * @param {{ colorTokens: number }} designSystem
  * @param {Violation[]} violations action 이 붙은 위반들
+ * @param {"en" | "ko"} [lang]
  * @returns {string[]}
  */
-export function nextSteps(designSystem, violations) {
+export function nextSteps(designSystem, violations, lang) {
+  const m = messages(lang);
   const noColorTokens = designSystem.colorTokens === 0;
   // 색 토큰이 없으면 색 위반은 하나씩 다룰 일이 아니라 토큰을 정하는 일 하나로 묶인다.
   const actionable = noColorTokens
@@ -165,23 +172,13 @@ export function nextSteps(designSystem, violations) {
   const [repair, replace, ask] = ["repair", "replace", "ask"].map(count);
   const steps = [];
 
-  if (noColorTokens) {
-    steps.push(
-      "색 토큰이 없어서 색을 판정할 기준이 없습니다. 색을 고치기 전에 `designsnitch colors`로 쓰이는 색을 모아 토큰부터 정하세요.",
-    );
-  }
-  if (repair > 0) steps.push(`action이 repair인 ${repair}건은 그 파일의 문법 오류부터 고치세요.`);
-  if (replace > 0) {
-    steps.push(`action이 replace인 ${replace}건은 found를 candidates의 값으로 바꾸세요.`);
-  }
-  if (ask > 0) {
-    steps.push(
-      `action이 ask인 ${ask}건은 바꾸지 말고 사용자에게 물으세요. 물을 때는 \`designsnitch colors\`로 그 색이 몇 곳에서 어떻게 쓰이는지 확인해서 근거로 함께 주세요.`,
-    );
-  }
-  if (repair + replace > 0) steps.push("고친 뒤 같은 명령을 다시 실행하세요.");
+  if (noColorTokens) steps.push(m.nextNoTokens());
+  if (repair > 0) steps.push(m.nextRepair(repair));
+  if (replace > 0) steps.push(m.nextReplace(replace));
+  if (ask > 0) steps.push(m.nextAsk(ask));
+  if (repair + replace > 0) steps.push(m.nextRerun());
 
-  return steps.length > 0 ? steps : ["위반이 없습니다."];
+  return steps.length > 0 ? steps : [m.nextNone()];
 }
 
 function describeDesignSystem(tokens, config) {

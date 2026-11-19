@@ -1,0 +1,227 @@
+/**
+ * 사람과 에이전트가 읽는 문장을 한곳에 모은다. 영어가 기본이고 한국어를 고를 수 있다.
+ * 규칙 이름, JSON 필드 이름, 출력의 구조는 언어와 무관하다.
+ */
+
+export const LANGS = ["en", "ko"];
+
+/** @returns {lang is "en" | "ko"} */
+export const isLang = (lang) => LANGS.includes(lang);
+
+/**
+ * 쓸 언어를 정한다. 앞의 것이 우선한다: 직접 준 값, 환경 변수 DESIGNSNITCH_LANG, 영어.
+ * @param {...unknown} candidates 우선순위 순서의 후보. 알 수 없는 값은 건너뛴다
+ * @returns {"en" | "ko"}
+ */
+export function resolveLang(...candidates) {
+  return [...candidates, process.env.DESIGNSNITCH_LANG, "en"].find(isLang);
+}
+
+/** @param {"en" | "ko"} [lang] */
+export function messages(lang) {
+  return resolveLang(lang) === "ko" ? ko : en;
+}
+
+const count = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+// "1 needs", "2 need"
+const needs = (n) => (n === 1 ? "needs" : "need");
+
+const en = {
+  // 규칙
+  useToken: ({ found, tokens, candidates }) =>
+    `${found} has the same color as ${tokens}. Use instead: ${candidates}`,
+  unknownColor: ({ found }) => `The color of ${found} is not in the tokens.`,
+  unknownCssColor: ({ value }) => `The color ${value} is not in the tokens.`,
+  useComponent: ({ tag, component, path }) =>
+    `Use a design system component instead of <${tag}>: ${component} (${path})`,
+  replaceWith: ({ className }) => `Replace with ${className}`,
+
+  // 실행하지 못했을 때
+  tokensSettingMissing: () =>
+    "designsnitch: set settings.designsnitch.tokens to the path of the token CSS file.",
+  tokensFileMissing: ({ file }) => `designsnitch: token CSS file not found: ${file}`,
+  tokensUnreadable: ({ file, line, column, reason }) =>
+    `designsnitch: could not read the token CSS: ${file}:${line}:${column} ${reason}`,
+  componentsDirMissing: ({ dir }) => `Design system component directory not found: ${dir}`,
+  configMissing: ({ file, example }) =>
+    `Config file not found: ${file}\n` +
+    `Create it with content like this. The designsnitch-setup skill can write it by reading the repository.\n${example}`,
+  configUnreadable: ({ file, reason }) => `Could not read the config file: ${file}\n${reason}`,
+  configNoTokens: ({ file }) =>
+    `The config file has no "tokens" (the path of the token CSS file): ${file}`,
+  configNoComponentsPath: ({ file }) =>
+    `The config file has no "components.path" (the design system component directory): ${file}`,
+  configNoReplaces: ({ file }) =>
+    `The config file has no "components.replaces" (raw tags and the components that replace them): ${file}`,
+  configBadReplace: ({ tag, file }) =>
+    `"components.replaces.${tag}" in the config file must be a component name or an array of names: ${file}`,
+  configBadLang: ({ file }) => `"lang" in the config file must be "en" or "ko": ${file}`,
+  settingsUnreadable: ({ file }) => `Could not read ${file}. Fix the JSON and run again.`,
+
+  // check
+  noColorTokens: ({ tokens }) =>
+    `No color token could be read from ${tokens}. ` +
+    "A --color-* variable is read when its value is a hex color or a var() that leads to one. " +
+    'Until then every hex color is reported as "not in the tokens".',
+  nextNoTokens: () =>
+    "There are no color tokens, so there is nothing to judge colors against. Before fixing any color, collect the colors in use with `designsnitch colors` and decide the tokens.",
+  nextRepair: (n) => `action "repair" (${n}): fix the syntax error in that file first.`,
+  nextReplace: (n) => `action "replace" (${n}): replace found with the value in candidates.`,
+  nextAsk: (n) =>
+    `action "ask" (${n}): do not change these. Ask the user, and include how often and for what each color is used, which \`designsnitch colors\` shows.`,
+  nextRerun: () => "After fixing, run the same command again.",
+  nextNone: () => "No violations.",
+
+  // 사람용 출력
+  designSystem: ({ colorTokens, components }) =>
+    `Design system: ${count(colorTokens, "color token")}, ` +
+    (components > 0 ? count(components, "component") : "no components configured"),
+  notice: (problem) => `Note: ${problem}`,
+  severity: { error: "error", warning: "warning" },
+  summary: ({ errors, warnings, files }) =>
+    `${count(errors, "error")}, ${count(warnings, "warning")} (${count(files, "file")} checked)`,
+  actions: ({ replace, ask, repair }) =>
+    [
+      `${replace} can be replaced right away`,
+      `${ask} ${needs(ask)} a person's decision`,
+      ...(repair > 0 ? [`${repair} ${needs(repair)} a syntax fix`] : []),
+    ].join(", "),
+  noViolations: ({ files }) => `No violations. (${count(files, "file")} checked)`,
+
+  // colors
+  colorsNone: ({ files }) => `No colors found in the code. (${count(files, "file")} checked)`,
+  colorsSummary: ({ colors, paletteColors, uses, files }) =>
+    `Colors used in the code: ${colors} hex, ${paletteColors} from the default palette (${count(uses, "use")}, ${count(files, "file")} checked)`,
+  hexTitle: "Hex colors",
+  paletteTitle: "Tailwind default palette",
+  usage: ({ uses, files }) => `${count(uses, "use")}  ${count(files, "file")}`,
+  literals: (n) => `string ${n}`,
+  css: (n) => `CSS ${n}`,
+  tokenNote: (tokens) => (tokens.length > 0 ? `token: ${tokens.join(", ")}` : "no token"),
+
+  // hook
+  hookHeader: (n) => `designsnitch: ${count(n, "design system error")} in the files you just changed.`,
+  nextTitle: "What to do next",
+
+  // install
+  skillsCopied: (n) => `Copied ${count(n, "skill")} to .claude/skills.`,
+  hookRegistered: ({ file }) => `Registered the hook in ${file}.`,
+  hookAlready: ({ file }) => `The hook is already registered in ${file}.`,
+  installPackage: () =>
+    "Install the package in the project so the hook runs quickly every time: npm install --save-dev designsnitch",
+  askAgent: ({ configFile }) =>
+    `Ask your coding agent: "Set up designsnitch in this project." It finds the token CSS and the shared components, writes ${configFile}, and puts the rules into ESLint.`,
+
+  cliUsage: `Usage: designsnitch <command> [paths...] [--format text|json] [--config file] [--lang en|ko]
+
+Commands
+  check     Checks that UI code follows the design system.
+  colors    Lists the colors the code uses. Works without a config file.
+  hook      Called from a coding agent's hook. Exits with 2 when a file just changed has errors.
+  install   Installs the skills and the agent hook into the project (.claude).
+
+Options
+  paths       Files or directories to look at (default: the current directory)
+  --format    Output format: text (default) or json
+  --config    Path of the config file (default: designsnitch.config.json)
+  --lang      Language of the messages: en (default) or ko
+
+Exit codes of check: 0 no errors, 1 errors found, 2 could not run
+`,
+};
+
+const ko = {
+  useToken: ({ found, tokens, candidates }) =>
+    `${found}의 색은 토큰 ${tokens}의 값입니다. 대신 사용: ${candidates}`,
+  unknownColor: ({ found }) => `${found}의 색은 토큰에 없습니다.`,
+  unknownCssColor: ({ value }) => `${value}의 색은 토큰에 없습니다.`,
+  useComponent: ({ tag, component, path }) =>
+    `<${tag}> 대신 디자인 시스템 컴포넌트를 사용하세요: ${component} (${path})`,
+  replaceWith: ({ className }) => `${className}(으)로 바꾸기`,
+
+  tokensSettingMissing: () =>
+    "designsnitch: settings.designsnitch.tokens 에 토큰 CSS 파일 경로를 설정하세요.",
+  tokensFileMissing: ({ file }) => `designsnitch: 토큰 CSS 파일을 찾을 수 없습니다: ${file}`,
+  tokensUnreadable: ({ file, line, column, reason }) =>
+    `designsnitch: 토큰 CSS를 읽을 수 없습니다: ${file}:${line}:${column} ${reason}`,
+  componentsDirMissing: ({ dir }) => `디자인 시스템 컴포넌트 경로를 찾을 수 없습니다: ${dir}`,
+  configMissing: ({ file, example }) =>
+    `설정 파일이 없습니다: ${file}\n` +
+    `다음과 같은 내용으로 만드세요. designsnitch-setup 스킬을 따르면 저장소를 읽어서 만들 수 있습니다.\n${example}`,
+  configUnreadable: ({ file, reason }) => `설정 파일을 읽을 수 없습니다: ${file}\n${reason}`,
+  configNoTokens: ({ file }) => `설정 파일에 "tokens"(토큰 CSS 파일 경로)가 없습니다: ${file}`,
+  configNoComponentsPath: ({ file }) =>
+    `설정 파일의 "components.path"(디자인 시스템 컴포넌트 경로)가 없습니다: ${file}`,
+  configNoReplaces: ({ file }) =>
+    `설정 파일의 "components.replaces"(raw 태그와 대체 컴포넌트)가 없습니다: ${file}`,
+  configBadReplace: ({ tag, file }) =>
+    `설정 파일의 "components.replaces.${tag}"는 컴포넌트 이름이거나 이름의 배열이어야 합니다: ${file}`,
+  configBadLang: ({ file }) => `설정 파일의 "lang"은 "en"이나 "ko"여야 합니다: ${file}`,
+  settingsUnreadable: ({ file }) => `${file} 을 읽을 수 없습니다. JSON 형식을 고친 뒤 다시 실행하세요.`,
+
+  noColorTokens: ({ tokens }) =>
+    `색 토큰을 하나도 읽지 못했습니다: ${tokens}. ` +
+    "--color-* 변수의 값이 hex이거나 var()로 hex를 가리켜야 읽을 수 있습니다. " +
+    '지금은 모든 hex가 "토큰에 없음" 경고로 나옵니다.',
+  nextNoTokens: () =>
+    "색 토큰이 없어서 색을 판정할 기준이 없습니다. 색을 고치기 전에 `designsnitch colors`로 쓰이는 색을 모아 토큰부터 정하세요.",
+  nextRepair: (n) => `action이 repair인 ${n}건은 그 파일의 문법 오류부터 고치세요.`,
+  nextReplace: (n) => `action이 replace인 ${n}건은 found를 candidates의 값으로 바꾸세요.`,
+  nextAsk: (n) =>
+    `action이 ask인 ${n}건은 바꾸지 말고 사용자에게 물으세요. 물을 때는 \`designsnitch colors\`로 그 색이 몇 곳에서 어떻게 쓰이는지 확인해서 근거로 함께 주세요.`,
+  nextRerun: () => "고친 뒤 같은 명령을 다시 실행하세요.",
+  nextNone: () => "위반이 없습니다.",
+
+  designSystem: ({ colorTokens, components }) =>
+    `디자인 시스템: 색 토큰 ${colorTokens}개, ` +
+    (components > 0 ? `컴포넌트 ${components}개` : "컴포넌트 설정 없음"),
+  notice: (problem) => `주의: ${problem}`,
+  severity: { error: "오류", warning: "경고" },
+  summary: ({ errors, warnings, files }) =>
+    `오류 ${errors}개, 경고 ${warnings}개 (파일 ${files}개 검사)`,
+  actions: ({ replace, ask, repair }) =>
+    [
+      `바로 바꿀 수 있는 것 ${replace}건`,
+      `사람이 정해야 하는 것 ${ask}건`,
+      ...(repair > 0 ? [`문법을 고쳐야 하는 것 ${repair}건`] : []),
+    ].join(", "),
+  noViolations: ({ files }) => `위반이 없습니다. (파일 ${files}개 검사)`,
+
+  colorsNone: ({ files }) => `코드에서 색을 찾지 못했습니다. (파일 ${files}개 검사)`,
+  colorsSummary: ({ colors, paletteColors, uses, files }) =>
+    `코드에서 쓰는 색: hex ${colors}개, 기본 팔레트 ${paletteColors}개 (사용 ${uses}곳, 파일 ${files}개 검사)`,
+  hexTitle: "hex 색",
+  paletteTitle: "Tailwind 기본 팔레트",
+  usage: ({ uses, files }) => `${uses}곳  파일 ${files}개`,
+  literals: (n) => `문자열 ${n}`,
+  css: (n) => `CSS ${n}`,
+  tokenNote: (tokens) => (tokens.length > 0 ? `토큰: ${tokens.join(", ")}` : "토큰 없음"),
+
+  hookHeader: (n) => `designsnitch: 방금 고친 파일에 디자인 시스템 오류가 ${n}건 있습니다.`,
+  nextTitle: "다음에 할 일",
+
+  skillsCopied: (n) => `스킬 ${n}개를 .claude/skills 에 복사했습니다.`,
+  hookRegistered: ({ file }) => `훅을 ${file} 에 등록했습니다.`,
+  hookAlready: ({ file }) => `훅은 이미 ${file} 에 등록되어 있습니다.`,
+  installPackage: () =>
+    "훅이 매번 빠르게 돌도록 프로젝트에 설치하세요: npm install --save-dev designsnitch",
+  askAgent: ({ configFile }) =>
+    `코딩 에이전트에게 "이 프로젝트에 designsnitch를 설정해 줘"라고 요청하세요. 토큰 CSS와 공용 컴포넌트를 찾아 ${configFile} 을 만들고 ESLint에 규칙을 넣습니다.`,
+
+  cliUsage: `사용법: designsnitch <명령> [경로...] [--format text|json] [--config 파일] [--lang en|ko]
+
+명령
+  check     UI 코드가 디자인 시스템을 따르는지 검사합니다.
+  colors    코드에서 쓰는 색을 모아 보여줍니다. 설정 파일이 없어도 됩니다.
+  hook      코딩 에이전트의 훅에서 부릅니다. 방금 고친 파일에 오류가 있으면 2로 끝납니다.
+  install   스킬과 에이전트 훅을 프로젝트(.claude)에 설치합니다.
+
+옵션
+  경로        볼 파일이나 디렉터리 (기본: 현재 디렉터리)
+  --format    출력 형식. text(기본) 또는 json
+  --config    설정 파일 경로 (기본: designsnitch.config.json)
+  --lang      메시지의 언어. en(기본) 또는 ko
+
+check 의 종료 코드: 0 오류 없음, 1 오류 있음, 2 실행하지 못함
+`,
+};

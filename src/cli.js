@@ -7,52 +7,39 @@ import { CONFIG_FILE, loadConfig } from "./config.js";
 import { formatColorsText, formatText } from "./format.js";
 import { runHook } from "./hook.js";
 import { install } from "./install.js";
+import { isLang, messages, resolveLang } from "./messages.js";
 import { loadTokens } from "./rules/load-tokens.js";
-
-const USAGE = `사용법: designsnitch <명령> [경로...] [--format text|json] [--config 파일]
-
-명령
-  check     UI 코드가 디자인 시스템을 따르는지 검사합니다.
-  colors    코드에서 쓰는 색을 모아 보여줍니다. 설정 파일이 없어도 됩니다.
-  hook      코딩 에이전트의 훅에서 부릅니다. 방금 고친 파일에 오류가 있으면 2로 끝납니다.
-  install   스킬과 에이전트 훅을 프로젝트(.claude)에 설치합니다.
-
-옵션
-  경로        볼 파일이나 디렉터리 (기본: 현재 디렉터리)
-  --format    출력 형식. text(기본) 또는 json
-  --config    설정 파일 경로 (기본: designsnitch.config.json)
-
-check 의 종료 코드: 0 오류 없음, 1 오류 있음, 2 실행하지 못함
-`;
 
 const json = (result) => `${JSON.stringify(result, null, 2)}\n`;
 
-// 명령은 내보낼 글과 종료 코드를 돌려준다.
+// 명령은 내보낼 글과 종료 코드를 돌려준다. flagLang 은 --lang 으로 준 언어다(없으면 undefined).
 const COMMANDS = {
-  async check({ cwd, paths, configPath, format }) {
-    const result = await check({ cwd, config: loadConfig(cwd, configPath), paths });
+  async check({ cwd, paths, configPath, format, flagLang }) {
+    const config = loadConfig(cwd, configPath, resolveLang(flagLang));
+    const lang = resolveLang(flagLang, config.lang);
+    const result = await check({ cwd, config, paths, lang });
     return {
-      stdout: format === "json" ? json(result) : formatText(result),
+      stdout: format === "json" ? json(result) : formatText(result, lang),
       exitCode: result.summary.errors > 0 ? 1 : 0,
     };
   },
 
   // 설정 파일은 선택이다. 있으면 색마다 이미 있는 토큰을 붙인다.
-  async colors({ cwd, paths, configPath, format }) {
+  async colors({ cwd, paths, configPath, format, flagLang }) {
     const hasConfig = configPath !== undefined || fs.existsSync(path.resolve(cwd, CONFIG_FILE));
-    const tokens = hasConfig
-      ? loadTokens({ designsnitch: loadConfig(cwd, configPath) }, cwd).colors
-      : undefined;
+    const config = hasConfig ? loadConfig(cwd, configPath, resolveLang(flagLang)) : undefined;
+    const lang = resolveLang(flagLang, config?.lang);
+    const tokens = config ? loadTokens({ designsnitch: { ...config, lang } }, cwd).colors : undefined;
     const result = await collectColors({ cwd, paths, tokens });
-    return { stdout: format === "json" ? json(result) : formatColorsText(result), exitCode: 0 };
+    return { stdout: format === "json" ? json(result) : formatColorsText(result, lang), exitCode: 0 };
   },
 
-  hook({ cwd, configPath, stdin }) {
-    return runHook({ cwd, input: stdin, configPath });
+  hook({ cwd, configPath, stdin, flagLang }) {
+    return runHook({ cwd, input: stdin, configPath, lang: flagLang });
   },
 
-  install({ cwd }) {
-    return install({ cwd });
+  install({ cwd, flagLang }) {
+    return install({ cwd, lang: resolveLang(flagLang) });
   },
 };
 
@@ -71,24 +58,29 @@ export async function run(argv, { cwd, stdin, stdout, stderr }) {
       options: {
         format: { type: "string", default: "text" },
         config: { type: "string" },
+        lang: { type: "string" },
         help: { type: "boolean", short: "h" },
       },
     });
   } catch (error) {
-    stderr.write(`${error.message}\n\n${USAGE}`);
+    stderr.write(`${error.message}\n\n${messages().cliUsage}`);
     return 2;
   }
 
+  const flagLang = args.values.lang;
+  const usage = messages(resolveLang(flagLang)).cliUsage;
+
   if (args.values.help) {
-    stdout.write(USAGE);
+    stdout.write(usage);
     return 0;
   }
 
   const [name, ...paths] = args.positionals;
   const command = Object.hasOwn(COMMANDS, name ?? "") ? COMMANDS[name] : undefined;
   const { format } = args.values;
-  if (!command || !["text", "json"].includes(format)) {
-    stderr.write(USAGE);
+  const validLang = flagLang === undefined || isLang(flagLang);
+  if (!command || !["text", "json"].includes(format) || !validLang) {
+    stderr.write(usage);
     return 2;
   }
 
@@ -100,6 +92,7 @@ export async function run(argv, { cwd, stdin, stdout, stderr }) {
       configPath: args.values.config,
       format,
       stdin,
+      flagLang,
     });
   } catch (error) {
     stderr.write(`${error.message}\n`);

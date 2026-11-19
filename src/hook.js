@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { check, nextSteps } from "./check.js";
 import { CONFIG_FILE, loadConfig } from "./config.js";
+import { messages, resolveLang } from "./messages.js";
 
 const CHECKABLE = /\.(?:[cm]?[jt]s|[jt]sx|css)$/;
 const STOP_EVENTS = new Set(["Stop", "SubagentStop"]);
@@ -19,9 +20,10 @@ const STOP_EVENTS = new Set(["Stop", "SubagentStop"]);
  * @param {string} options.cwd 프로젝트 디렉터리
  * @param {string} [options.input] 훅이 stdin 으로 준 JSON. 비어 있거나 JSON 이 아니어도 된다
  * @param {string} [options.configPath]
+ * @param {"en" | "ko"} [options.lang] 없으면 설정의 lang, 환경 변수, 영어 순으로 정한다
  * @returns {Promise<{ stderr: string, exitCode: 0 | 2 }>}
  */
-export async function runHook({ cwd, input = "", configPath = CONFIG_FILE }) {
+export async function runHook({ cwd, input = "", configPath = CONFIG_FILE, lang }) {
   const pass = { stderr: "", exitCode: 0 };
   const event = parse(input);
   const stopping = STOP_EVENTS.has(event.hook_event_name);
@@ -39,7 +41,9 @@ export async function runHook({ cwd, input = "", configPath = CONFIG_FILE }) {
 
   let result;
   try {
-    result = await check({ cwd, config: loadConfig(cwd, configPath), paths: files });
+    const config = loadConfig(cwd, configPath, resolveLang(lang));
+    lang = resolveLang(lang, config.lang);
+    result = await check({ cwd, config, paths: files, lang });
   } catch (error) {
     return { stderr: `${error.message}\n`, exitCode: 2 };
   }
@@ -48,13 +52,14 @@ export async function runHook({ cwd, input = "", configPath = CONFIG_FILE }) {
   const blocking = stopping ? errors.filter((v) => v.action !== "ask") : errors;
   if (blocking.length === 0) return pass;
 
+  const m = messages(lang);
   const lines = [
-    `designsnitch: 방금 고친 파일에 디자인 시스템 오류가 ${errors.length}건 있습니다.`,
+    m.hookHeader(errors.length),
     "",
     ...errors.map((v) => `${v.file}:${v.line}:${v.column}  ${v.message}  [${v.action}]`),
     "",
-    "다음에 할 일",
-    ...nextSteps(result.designSystem, errors).map((step) => `- ${step}`),
+    m.nextTitle,
+    ...nextSteps(result.designSystem, errors, lang).map((step) => `- ${step}`),
     "",
   ];
   return { stderr: lines.join("\n"), exitCode: 2 };

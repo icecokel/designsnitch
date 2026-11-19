@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { parseColorTokens } from "../core/tokens.js";
+import { messages, resolveLang } from "../messages.js";
 
 /**
  * @typedef {object} Tokens
@@ -16,19 +17,16 @@ const cache = new Map();
  * @returns {Tokens}
  */
 export function loadTokens(settings, cwd) {
+  const m = messages(resolveLang(settings?.designsnitch?.lang));
   const tokensPath = settings?.designsnitch?.tokens;
-  if (typeof tokensPath !== "string") {
-    throw new Error(
-      "designsnitch: settings.designsnitch.tokens 에 토큰 CSS 파일 경로를 설정하세요.",
-    );
-  }
+  if (typeof tokensPath !== "string") throw new Error(m.tokensSettingMissing());
 
   const file = path.resolve(cwd, tokensPath);
   let stat;
   try {
     stat = fs.statSync(file);
   } catch {
-    throw new Error(`designsnitch: 토큰 CSS 파일을 찾을 수 없습니다: ${file}`);
+    throw new Error(m.tokensFileMissing({ file }));
   }
 
   const cached = cache.get(file);
@@ -40,7 +38,12 @@ export function loadTokens(settings, cwd) {
   } catch (error) {
     // 기준이 되는 파일이 깨져 있으면 무엇도 판정할 수 없다. 어디가 깨졌는지 알려준다.
     throw new Error(
-      `designsnitch: 토큰 CSS를 읽을 수 없습니다: ${file}:${error.line ?? 1}:${error.column ?? 1} ${error.reason ?? error.message}`,
+      m.tokensUnreadable({
+        file,
+        line: error.line ?? 1,
+        column: error.column ?? 1,
+        reason: error.reason ?? error.message,
+      }),
     );
   }
   const tokens = { colors };
