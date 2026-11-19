@@ -23,17 +23,46 @@ It has four parts.
 
 It supports **React/Next.js projects that use Tailwind CSS v4**.
 
-> **Status:** MVP (0.1.x). CLI messages are in Korean for now. The JSON output carries the same information in language-neutral fields.
+> **Status:** MVP (0.2.x). CLI messages are in Korean for now. The JSON output carries the same information in language-neutral fields.
+
+## Getting started
+
+```sh
+npm install --save-dev designsnitch
+npx designsnitch install
+```
+
+The second command copies the agent skills into `.claude/skills` and registers the agent hook in `.claude/settings.json`. It targets Claude Code for now. Node.js 22 or later is required.
+
+Then ask your coding agent:
+
+> Set up designsnitch in this project.
+
+The agent follows the `designsnitch-setup` skill and does the rest.
+
+1. It checks that the project is supported.
+2. It finds the token CSS and the shared component directory, and writes `designsnitch.config.json`.
+3. If the project has no color tokens, it collects the colors the code uses and proposes tokens. Nothing is written until you approve.
+4. It puts the rules into ESLint, installing ESLint if the project has none.
+5. It shows you what it chose and what the first check found.
+
+From then on:
+
+- The agent is told about errors right after it edits a file, and cannot finish while errors it can fix remain.
+- Errors fail the lint step, and show up in the editor.
+- `npx designsnitch check` reports where the code stands at any time.
+
+To do any of this without an agent, see [Setting up by hand](#setting-up-by-hand).
 
 ## Why
 
-UI code written by an AI agent usually looks fine at a glance and is slightly off when you look closely.
+When there is no standard, every screen makes its own choices. An AI agent makes them quickly and plausibly, and they add up.
 
-- The primary color is hard-coded as `bg-[#3B82F6]` instead of the token, so that spot keeps its color when the theme changes.
-- A button color is almost the primary color, but not quite.
-- The design system has a `Button`, but the code builds a new one from `<button>`, a little shorter and without a focus style.
+- The same blue is `#3B82F6` on one screen and `#3B82F5` on another.
+- A color is written by hand in a hundred places, so changing the brand color or adding dark mode means finding every one of them.
+- Each screen builds its own button from `<button>`, each a little different, some without a focus style.
 
-These differences are hard to catch by eye in review. designsnitch finds them by analyzing the code.
+The result is a codebase that is hard to manage and a product that is hard to keep consistent. And with no standard, there is nothing to check new code against. designsnitch helps you set a standard from what the code already does, and then holds new code to it.
 
 ## What it catches
 
@@ -52,15 +81,24 @@ Severity follows one rule.
 
 Every error comes with what to use instead: a class or component in JS and TS files, and `var(--token)` in CSS files.
 
-## Quick start
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `designsnitch install` | Copies the skills and registers the agent hook in the project. |
+| `designsnitch colors` | Lists the colors the code uses. Works without a config file. |
+| `designsnitch check` | Checks code against the standard and says what to do with each violation. |
+| `designsnitch hook` | Called from the agent's hook. Checks the files the agent just changed. |
+
+`check` and `colors` take paths, `--format json`, and `--config <file>`.
+
+## Setting up by hand
 
 ```sh
 npm install --save-dev designsnitch
 ```
 
-Node.js 22 or later is required.
-
-Create `designsnitch.config.json` in the project root. If you use the [agent skills](#agent-skills), the agent reads the repository and writes this file for you.
+Create `designsnitch.config.json` in the project root.
 
 ```json
 {
@@ -83,6 +121,8 @@ npx designsnitch check                      # the whole project
 npx designsnitch check src/PayButton.tsx    # some files only
 npx designsnitch check --format json        # for CI and AI agents
 ```
+
+The fields are described in [Configuration](#configuration). To block violations, add the rules to [ESLint](#eslint) and register the [agent hook](#agent-hook).
 
 ## Starting without tokens
 
@@ -236,12 +276,7 @@ In a CSS file, put this comment on the line before the declaration.
 
 ## Agent skills
 
-The skills are in the `skills/` directory of the package. Copy them into your agent's skill directory. For Claude Code:
-
-```sh
-mkdir -p .claude/skills
-cp -r node_modules/designsnitch/skills/* .claude/skills/
-```
+`npx designsnitch install` copies the skills into `.claude/skills`. Run it again after upgrading the package to get the current versions. The skills are in the `skills/` directory of the package if you want to copy them somewhere else.
 
 Each skill does one job.
 
@@ -294,7 +329,7 @@ The CLI and the skills put an AI agent in a position to do the right thing. Bloc
 
 ### Agent hook
 
-A skill is advice that an agent may not follow. A hook is run by the agent's runtime every time. For Claude Code, put this in `.claude/settings.json`.
+A skill is advice that an agent may not follow. A hook is run by the agent's runtime every time. `npx designsnitch install` registers it for Claude Code. This is what it adds to `.claude/settings.json`.
 
 ```json
 {
@@ -351,7 +386,7 @@ designsnitch does not flag default palette classes such as `bg-blue-500`. If the
 - Spacing, font size and radius. They were left out of this version on purpose.
 - Classes inside `@apply`
 - Comparing a hand-made component's styles with the design system component
-- A command that installs the skills and the hook
+- Installing the skills and the hook for agents other than Claude Code
 
 Comparing a screen with a design file such as Figma is out of scope. The standard is the design system alone.
 

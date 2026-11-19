@@ -24,7 +24,15 @@ A skill is advice: an agent may or may not follow it. A hook is run by the agent
 
 ## 1. Register the hook in Claude Code
 
-Add this to `.claude/settings.json` in the project root. Create the file if it does not exist. If it already has a `hooks` section, add these entries to it and keep the existing ones.
+Run the installer. It adds the hook to `.claude/settings.json`, keeps any hooks and settings that are already there, and can be run again safely.
+
+```sh
+npx designsnitch install
+```
+
+It also copies the designsnitch skills into `.claude/skills`, replacing older copies of them.
+
+If you need to do it by hand, this is what it adds to `.claude/settings.json`.
 
 ```json
 {
@@ -44,7 +52,7 @@ Add this to `.claude/settings.json` in the project root. Create the file if it d
 }
 ```
 
-`.claude/settings.json` is shared with the team through git. Use `.claude/settings.local.json` instead if the user wants the hook only for themselves.
+`.claude/settings.json` is shared with the team through git, so the hook applies to everyone who uses Claude Code in this project. If the user wants the hook only for themselves, do not run the installer: add the entries above to `.claude/settings.local.json` by hand.
 
 ## 2. Other agents
 

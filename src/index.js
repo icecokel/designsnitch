@@ -1,9 +1,12 @@
+import { createRequire } from "node:module";
 import colorUnknown from "./rules/color-unknown.js";
 import colorUseToken from "./rules/color-use-token.js";
 import useDsComponent from "./rules/use-ds-component.js";
 
+const { version } = createRequire(import.meta.url)("../package.json");
+
 const plugin = {
-  meta: { name: "designsnitch", version: "0.1.0" },
+  meta: { name: "designsnitch", version },
   rules: {
     "color-use-token": colorUseToken,
     "color-unknown": colorUnknown,

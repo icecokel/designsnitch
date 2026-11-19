@@ -6,6 +6,7 @@ import { collectColors } from "./colors.js";
 import { CONFIG_FILE, loadConfig } from "./config.js";
 import { formatColorsText, formatText } from "./format.js";
 import { runHook } from "./hook.js";
+import { install } from "./install.js";
 import { loadTokens } from "./rules/load-tokens.js";
 
 const USAGE = `사용법: designsnitch <명령> [경로...] [--format text|json] [--config 파일]
@@ -14,6 +15,7 @@ const USAGE = `사용법: designsnitch <명령> [경로...] [--format text|json]
   check     UI 코드가 디자인 시스템을 따르는지 검사합니다.
   colors    코드에서 쓰는 색을 모아 보여줍니다. 설정 파일이 없어도 됩니다.
   hook      코딩 에이전트의 훅에서 부릅니다. 방금 고친 파일에 오류가 있으면 2로 끝납니다.
+  install   스킬과 에이전트 훅을 프로젝트(.claude)에 설치합니다.
 
 옵션
   경로        볼 파일이나 디렉터리 (기본: 현재 디렉터리)
@@ -47,6 +49,10 @@ const COMMANDS = {
 
   hook({ cwd, configPath, stdin }) {
     return runHook({ cwd, input: stdin, configPath });
+  },
+
+  install({ cwd }) {
+    return install({ cwd });
   },
 };
 
