@@ -63,9 +63,13 @@ Fix the config until these hold. Ignore the violations for now: fixing them is t
 
 Follow the `designsnitch-eslint` skill now. It puts the rules into the project's ESLint, and installs ESLint if the project has none. Setup is not finished until this is done: the config file alone does not block anything.
 
-## 7. Show the user
+## 7. Register the agent hook
 
-Show the config file and say which CSS file and directory you chose, and why. Give the counts from `designSystem`, the number of errors and warnings the first check found, and what was added to ESLint.
+Follow the `designsnitch-hooks` skill. The hook tells the coding agent about errors right after it edits a file, and keeps it from finishing while errors it can fix remain. The ESLint plugin blocks at lint time. The hook blocks while the code is being written.
+
+## 8. Show the user
+
+Show the config file and say which CSS file and directory you chose, and why. Give the counts from `designSystem`, the number of errors and warnings the first check found, and what was added to ESLint and to the agent's hooks.
 
 If you were unsure about a choice, say so and give the alternative. For example, if two directories both look like the shared component directory, name both and say why you picked one.
 

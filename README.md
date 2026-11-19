@@ -12,13 +12,14 @@ It works inside the code, with no designer or Figma file required.
 
 Deciding what the standard is stays with the developer. The tool's job is to bring what is needed to make that decision.
 
-It has three parts.
+It has four parts.
 
-| Part | What it does |
+| Part | What it is for |
 | --- | --- |
-| Check engine | Parses the code and finds violations with their locations and replacement candidates. |
-| CLI | `designsnitch check` runs the check, and `designsnitch colors` lists the colors the code uses. Both print a readable report or JSON. |
+| CLI | A tool for the AI agent. It collects the colors in use, checks code, and says what to do with each violation. |
 | Agent skills | Tell an AI agent how to set the project up, when to run the CLI, what to fix, and what to ask a person about. |
+| ESLint plugin | Blocks and warns. The same rules show up as errors and warnings in the editor and in the lint step. |
+| Agent hook | Blocks while the code is being written. The agent is told about errors after each edit and cannot finish while errors it can fix remain. |
 
 It supports **React/Next.js projects that use Tailwind CSS v4**.
 
@@ -163,9 +164,10 @@ src/PayButton.tsx
   8:26  경고  bg-[#3B82F5]의 색은 토큰에 없습니다.  (color-unknown)
 
 오류 2개, 경고 1개 (파일 3개 검사)
+바로 바꿀 수 있는 것 2건, 사람이 정해야 하는 것 1건
 ```
 
-The first line shows how many tokens and components were read from the config. A wrong path shows up here as a zero. If no color token could be read, a line starting with `주의:` (notice) explains why. `오류` means error and `경고` means warning.
+The first line shows how many tokens and components were read from the config. A wrong path shows up here as a zero. If no color token could be read, a line starting with `주의:` (notice) explains why. `오류` means error and `경고` means warning. The last line says how many violations can be replaced right away (`바로 바꿀 수 있는 것`) and how many need a person's decision (`사람이 정해야 하는 것`).
 
 `--format json` prints the same result as structured data.
 
@@ -173,6 +175,11 @@ The first line shows how many tokens and components were read from the config. A
 {
   "designSystem": { "colorTokens": 2, "components": 2, "replacedTags": 2 },
   "problems": [],
+  "next": [
+    "action이 replace인 2건은 found를 candidates의 값으로 바꾸세요.",
+    "action이 ask인 1건은 바꾸지 말고 사용자에게 물으세요. ...",
+    "고친 뒤 같은 명령을 다시 실행하세요."
+  ],
   "summary": { "files": 3, "errors": 2, "warnings": 1 },
   "violations": [
     {
@@ -185,7 +192,8 @@ The first line shows how many tokens and components were read from the config. A
       "severity": "error",
       "message": "bg-[#3B82F6]의 색은 토큰 --color-primary-500의 값입니다. 대신 사용: bg-primary-500",
       "found": "bg-[#3B82F6]",
-      "candidates": ["bg-primary-500"]
+      "candidates": ["bg-primary-500"],
+      "action": "replace"
     }
   ]
 }
@@ -197,6 +205,8 @@ The first line shows how many tokens and components were read from the config. A
 | `problems` | Config problems that make the result unreliable. Empty when everything is fine. |
 | `violations[].found` | The offending piece of code |
 | `violations[].candidates` | The classes or components to use instead. Empty when there are none. |
+| `violations[].action` | How to handle the violation. `replace`: an error with exactly one candidate, so replace `found` with it. `ask`: a person has to decide (several candidates, or a color with no token). `repair`: the file could not be parsed. |
+| `next` | What an agent should do with this result, in order |
 
 | Exit code | Meaning |
 | --- | --- |
@@ -237,10 +247,11 @@ Each skill does one job.
 
 | Skill | When the agent uses it | What it does |
 | --- | --- | --- |
-| `designsnitch-check` | After changing UI code | Runs the check, fixes the errors that have exactly one candidate, and shows a person the rest. |
-| `designsnitch-setup` | When the config file is missing | Finds the token CSS and the shared component directory in the codebase, writes `designsnitch.config.json`, verifies what was read, and then wires the ESLint plugin. |
+| `designsnitch-check` | After changing UI code | Runs the check, replaces what can be replaced, and asks a person about the rest with the facts needed to decide. |
+| `designsnitch-setup` | When the config file is missing | Finds the token CSS and the shared component directory in the codebase, writes `designsnitch.config.json`, verifies what was read, and then wires the ESLint plugin and the agent hook. |
 | `designsnitch-palette` | When the project has no color tokens | Collects the colors in use with `designsnitch colors`, proposes tokens, and writes them after a person approves. |
-| `designsnitch-eslint` | As the last step of setup | Puts the rules into the project's ESLint, and installs ESLint if the project has none. Asks first if the project already has errors. |
+| `designsnitch-hooks` | As part of setup | Registers `designsnitch hook` with the coding agent, so it is told about errors after each edit and cannot finish while fixable errors remain. |
+| `designsnitch-eslint` | As part of setup | Puts the rules into the project's ESLint, and installs ESLint if the project has none. Asks first if the project already has errors. |
 
 The skills share a few rules. The agent does not pick one of several candidates on its own, does not silence a rule to make the check pass, and does not change an existing config file or token without asking. The config file and the tokens are the standard the code is judged against.
 
@@ -272,6 +283,56 @@ export default [
 
 The same set of rules is available as `designsnitch.configs.recommended`. In a project that already has many violations, the error-level rules will make the existing lint step fail, so run `designsnitch check` first to see how many there are. Replacement candidates appear as ESLint suggestions, which editors show as quick fixes. CSS files are checked by the CLI only, not through ESLint.
 
+## Blocking violations
+
+The CLI and the skills put an AI agent in a position to do the right thing. Blocking is done in two other places.
+
+| Where | When it catches a violation | How |
+| --- | --- | --- |
+| ESLint plugin | In the editor and in the lint step | Errors fail the lint step. Run lint in CI and require it to pass, and nothing with an error can be merged. |
+| Agent hook | While the agent is writing code | `designsnitch hook` runs after each edit and before the agent finishes. |
+
+### Agent hook
+
+A skill is advice that an agent may not follow. A hook is run by the agent's runtime every time. For Claude Code, put this in `.claude/settings.json`.
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [{ "type": "command", "command": "npx designsnitch hook" }]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [{ "type": "command", "command": "npx designsnitch hook" }]
+      }
+    ]
+  }
+}
+```
+
+`designsnitch hook` checks only the files the agent just changed.
+
+- After an edit, if the file has errors, the agent receives them along with what to do next.
+- When the agent is about to finish, it is stopped if errors it can fix itself remain. Errors that need a person's decision do not stop it, because it has to stop in order to ask.
+- Warnings never block, and violations in files the agent did not touch are left alone.
+
+The command reads an optional JSON object from stdin (`tool_input.file_path`, `hook_event_name`, `stop_hook_active`), exits with 2 and writes to stderr when it blocks, and falls back to the files git reports as changed when no file is given. Other agents with command hooks that follow these conventions can use it too. The `designsnitch-hooks` skill sets this up.
+
+### Tailwind's default palette
+
+designsnitch does not flag default palette classes such as `bg-blue-500`. If the project should only use its own tokens, Tailwind v4 can remove the default palette, and then those classes stop working at all.
+
+```css
+@theme {
+  --color-*: initial;
+  --color-primary-500: #3B82F6;
+}
+```
+
 ## Scope
 
 - **Where it looks in JS and TS:** string literals and template literals. This covers `className` and the arguments of `cn()`, `clsx()` and `cva()`. Comments are ignored.
@@ -290,7 +351,7 @@ The same set of rules is available as `designsnitch.configs.recommended`. In a p
 - Spacing, font size and radius. They were left out of this version on purpose.
 - Classes inside `@apply`
 - Comparing a hand-made component's styles with the design system component
-- A command that installs the skill
+- A command that installs the skills and the hook
 
 Comparing a screen with a design file such as Figma is out of scope. The standard is the design system alone.
 
@@ -304,6 +365,7 @@ The split between a skill and a tool that does the work follows Modern Web Guida
 | Rules | `src/rules` | Find strings and JSX tags in the AST, ask the core, and report violations with candidates. Written as ESLint rules. |
 | Check engine | `src/check.js` | Runs the rules on a project and turns the results into a list of violations. Uses ESLint internally to parse and walk the code. |
 | CLI | `src/cli.js` | Reads arguments and the config file, calls the engine, and prints the result. |
+| Hook | `src/hook.js` | Checks the files an agent just changed and decides whether to block. |
 | Skills | `skills/` | Instructions for the agent, one skill per job. |
 
 ## Development

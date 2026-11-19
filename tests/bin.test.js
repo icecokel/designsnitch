@@ -32,4 +32,22 @@ describe("bin/designsnitch.js", () => {
     expect(result.status).toBe(2);
     expect(result.stderr).toContain("설정 파일이 없습니다");
   });
+
+  it("hook 명령은 표준 입력의 JSON 을 읽어 고친 파일을 검사한다", () => {
+    const cwd = tempProject({
+      "designsnitch.config.json": `{ "tokens": "tokens.css" }`,
+      "tokens.css": `@theme { --color-primary: #3B82F6; }`,
+      "src/a.jsx": `export const A = () => <div className="bg-[#3B82F6]" />;`,
+    });
+    const result = spawnSync("node", [bin, "hook"], {
+      cwd,
+      encoding: "utf8",
+      input: JSON.stringify({ hook_event_name: "PostToolUse", tool_input: { file_path: "src/a.jsx" } }),
+    });
+    expect(result.status).toBe(2);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("src/a.jsx:1:40");
+    expect(result.stderr).toContain("bg-primary");
+  });
 });
+
