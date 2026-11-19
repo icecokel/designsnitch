@@ -194,3 +194,31 @@ describe("designsnitch hook: Gemini CLI", () => {
   });
 });
 
+describe("designsnitch hook: Grok Build (camelCase 입력)", () => {
+  function repo(changed) {
+    const cwd = tempProject(base);
+    git(cwd, "init", "-q");
+    git(cwd, "add", "-A");
+    git(cwd, "commit", "-q", "-m", "init");
+    for (const [name, content] of Object.entries(changed)) {
+      fs.mkdirSync(path.dirname(path.join(cwd, name)), { recursive: true });
+      fs.writeFileSync(path.join(cwd, name), content);
+    }
+    return cwd;
+  }
+
+  it("hookEventName 과 toolInput.file_path 를 알아듣는다", async () => {
+    const cwd = repo({ "src/a.tsx": REPLACE, "src/c.tsx": REPLACE });
+    const { exitCode, stderr } = await hook(cwd, { hookEventName: "PostToolUse", toolName: "Edit", toolInput: { file_path: "src/a.tsx" } });
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain("src/a.tsx:1:40");
+    // 고친 파일이 주어졌으므로 다른 파일은 보지 않는다.
+    expect(stderr).not.toContain("src/c.tsx");
+  });
+
+  it("hookEventName 이 Stop 이면 작업을 끝내려 할 때로 본다", async () => {
+    expect((await hook(repo({ "src/b.tsx": ASK }), { hookEventName: "Stop" })).exitCode).toBe(0);
+    expect((await hook(repo({ "src/a.tsx": REPLACE }), { hookEventName: "Stop" })).exitCode).toBe(2);
+  });
+});
+

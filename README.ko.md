@@ -39,9 +39,17 @@ npx designsnitch install
 | Claude Code | `npx designsnitch install` | `.claude/skills` | `.claude/settings.json` |
 | Codex | `npx designsnitch install --agent codex` | `.agents/skills` | `.codex/hooks.json` |
 | Gemini CLI | `npx designsnitch install --agent gemini` | `.agents/skills` | `.gemini/settings.json` |
+| Grok Build | `npx designsnitch install --agent grok` | `.grok/skills` | `.grok/hooks/designsnitch.json` |
 | 모두 | `npx designsnitch install --agent all` | | |
 
-Codex와 Gemini CLI는 새 프로젝트 훅을 승인한 뒤에만 실행합니다. 프로젝트에서 에이전트를 열고, 요청이 나오면 승인하세요.
+Codex, Gemini CLI, Grok Build는 새 프로젝트 훅을 승인하거나 프로젝트를 신뢰한 뒤에만 실행합니다. 프로젝트에서 에이전트를 열고, 요청이 나오면 승인하세요. Grok Build에서는 `/hooks-trust`를 쓰거나 `--trust`로 시작합니다.
+
+| 에이전트 | 훅을 확인한 방법 |
+| --- | --- |
+| Claude Code | 실제 에이전트로 돌려 봤습니다. hex 색을 썼다가 훅의 안내를 받고 토큰 클래스로 바꿨습니다. |
+| Codex | 실제 에이전트로 돌려 봤습니다. 결과가 같았습니다. |
+| Gemini CLI | **테스트하지 못했습니다.** 공식 Gemini CLI 문서를 기준으로 만들었습니다. |
+| Grok Build | **테스트하지 못했습니다.** 공식 xAI 문서를 기준으로 만들었습니다. [에이전트 훅](#에이전트-훅)의 안내를 보세요. |
 
 스킬은 공개 표준인 Agent Skills 형식이라, 이 형식을 지원하는 에이전트라면 어디서든 쓸 수 있습니다. 표준 설치 도구가 에이전트마다 맞는 위치에 넣어 줍니다: `npx skills add icecokel/designsnitch`. 이 도구는 스킬만 설치하고 훅은 설치하지 않습니다.
 
@@ -96,7 +104,7 @@ Codex와 Gemini CLI는 새 프로젝트 훅을 승인한 뒤에만 실행합니�
 
 | 명령 | 하는 일 |
 | --- | --- |
-| `designsnitch install` | 스킬을 복사하고 에이전트 훅을 프로젝트에 등록합니다. `--agent claude`(기본), `codex`, `gemini`, `all`을 받습니다. |
+| `designsnitch install` | 스킬을 복사하고 에이전트 훅을 프로젝트에 등록합니다. `--agent claude`(기본), `codex`, `gemini`, `grok`, `all`을 받습니다. |
 | `designsnitch colors` | 코드가 쓰는 색을 모아 보여줍니다. 설정 파일이 없어도 됩니다. |
 | `designsnitch check` | 코드를 기준에 비춰 검사하고, 위반마다 무엇을 하면 되는지 알려줍니다. |
 | `designsnitch hook` | 에이전트의 훅에서 부릅니다. 에이전트가 방금 바꾼 파일을 검사합니다. |
@@ -295,7 +303,7 @@ CSS 파일에서는 선언 바로 앞줄에 이 주석을 답니다.
 
 ## 에이전트 스킬
 
-`npx designsnitch install`은 Claude Code용으로 스킬을 `.claude/skills`에 복사하고, `--agent codex`나 `--agent gemini`를 붙이면 Codex와 Gemini CLI가 읽는 `.agents/skills`에 복사합니다. 패키지를 올린 뒤에는 다시 실행해서 스킬을 최신으로 맞추세요. 다른 곳에 복사하려면 패키지의 `skills/` 디렉터리에 있는 것을 쓰면 됩니다.
+`npx designsnitch install`은 Claude Code용으로 스킬을 `.claude/skills`에 복사하고, `--agent codex`나 `--agent gemini`를 붙이면 Codex와 Gemini CLI가 읽는 `.agents/skills`에, `--agent grok`을 붙이면 Grok Build가 읽는 `.grok/skills`에 복사합니다. 패키지를 올린 뒤에는 다시 실행해서 스킬을 최신으로 맞추세요. 다른 곳에 복사하려면 패키지의 `skills/` 디렉터리에 있는 것을 쓰면 됩니다.
 
 스킬 하나가 일 하나를 맡습니다.
 
@@ -376,9 +384,11 @@ CLI와 스킬은 AI 에이전트가 제대로 할 수 있는 상태를 만들어
 
 Codex에는 `npx designsnitch install --agent codex`가 같은 두 훅을 `.codex/hooks.json`에 씁니다. 파일 수정 쪽은 `apply_patch`에 걸립니다. Codex는 셸 명령으로 파일을 고치는 일이 많은데, 그런 수정은 이 조건에 걸리지 않습니다. 대신 Codex가 작업을 끝내려 할 때 잡힙니다. 그때 훅이 git에서 바뀐 파일을 모두 검사하기 때문입니다.
 
-Gemini CLI에는 `npx designsnitch install --agent gemini`가 훅을 `.gemini/settings.json`에 씁니다. 이벤트 이름이 다릅니다. 파일 수정 직후는 `write_file`과 `replace`에 걸리는 `AfterTool`이고, 답하기 직전은 `AfterAgent`입니다. `AfterAgent`에서 종료 코드 2를 받으면 Gemini CLI는 오류를 피드백 삼아 다시 시도합니다. 공식 Gemini CLI 문서를 기준으로 만들었고, Gemini CLI에서 직접 돌려 보지는 않았습니다.
+Gemini CLI에는 `npx designsnitch install --agent gemini`가 훅을 `.gemini/settings.json`에 씁니다. 이벤트 이름이 다릅니다. 파일 수정 직후는 `write_file`과 `replace`에 걸리는 `AfterTool`이고, 답하기 직전은 `AfterAgent`입니다. `AfterAgent`에서 종료 코드 2를 받으면 Gemini CLI는 오류를 피드백 삼아 다시 시도합니다. 공식 Gemini CLI 문서를 기준으로 만들었고, Gemini CLI에서 테스트하지 못했습니다.
 
-이 명령은 표준 입력으로 JSON을 받을 수 있습니다(`tool_input.file_path`, `hook_event_name`, `stop_hook_active`). 막을 때는 종료 코드 2로 끝나며 stderr에 내용을 쓰고, 파일이 주어지지 않으면 git에서 바뀐 파일을 검사합니다. 같은 방식의 명령 훅을 지원하는 다른 에이전트에서도 쓸 수 있습니다. `designsnitch-hooks` 스킬이 이 설정을 해 줍니다.
+Grok Build에는 `npx designsnitch install --agent grok`이 `PostToolUse`와 `Stop` 훅을 `.grok/hooks/designsnitch.json`에 씁니다. 공식 xAI 문서를 기준으로 만들었고 Grok Build에서 테스트하지 못했습니다. 불확실한 점이 하나 있습니다. 문서는 `PreToolUse`만 막는 이벤트라고 하고, 도구 실행 뒤나 작업을 끝낼 때 종료 코드 2가 무엇을 하는지는 적지 않았습니다. 그래서 Grok Build에서는 오류를 알리기만 하고 에이전트를 멈추지 못할 수 있습니다. 또 Grok Build는 Claude Code의 `.claude/settings.json`도 읽기 때문에, `--agent all`로 설치하면 Grok Build에서 훅이 두 번 돌 수 있습니다. 해는 없습니다.
+
+이 명령은 표준 입력으로 JSON을 받을 수 있습니다(`tool_input.file_path`, `hook_event_name`, `stop_hook_active`, 또는 Grok Build가 보내는 camelCase 형식의 같은 필드). 막을 때는 종료 코드 2로 끝나며 stderr에 내용을 쓰고, 파일이 주어지지 않으면 git에서 바뀐 파일을 검사합니다. 같은 방식의 명령 훅을 지원하는 다른 에이전트에서도 쓸 수 있습니다. `designsnitch-hooks` 스킬이 이 설정을 해 줍니다.
 
 ### Tailwind 기본 팔레트
 
@@ -409,7 +419,7 @@ designsnitch는 `bg-blue-500` 같은 기본 팔레트 클래스를 위반으로 
 - 간격, 폰트 크기, radius. 이번 버전에서는 일부러 뺐습니다.
 - `@apply` 안의 클래스
 - 직접 만든 컴포넌트와 디자인 시스템 컴포넌트의 스타일 비교
-- Claude Code, Codex, Gemini CLI가 아닌 에이전트에 훅 설치하기
+- Claude Code, Codex, Gemini CLI, Grok Build가 아닌 에이전트에 훅 설치하기
 
 Figma 같은 시안 파일과 화면을 비교하는 일은 범위 밖입니다. 기준은 디자인 시스템 하나입니다.
 

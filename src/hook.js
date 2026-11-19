@@ -27,13 +27,16 @@ const STOP_EVENTS = new Set(["Stop", "SubagentStop", "AfterAgent"]);
 export async function runHook({ cwd, input = "", configPath = CONFIG_FILE, lang }) {
   const pass = { stderr: "", exitCode: 0 };
   const event = parse(input);
-  const stopping = STOP_EVENTS.has(event.hook_event_name);
+  // Claude Code, Codex, Gemini CLI 는 snake_case, Grok Build 는 camelCase 로 보낸다.
+  const eventName = event.hook_event_name ?? event.hookEventName;
+  const toolInput = event.tool_input ?? event.toolInput;
+  const stopping = STOP_EVENTS.has(eventName);
 
   // 이미 한 번 막아서 에이전트가 고치는 중이면 다시 막지 않는다.
-  if (stopping && event.stop_hook_active) return pass;
+  if (stopping && (event.stop_hook_active ?? event.stopHookActive)) return pass;
   if (!fs.existsSync(path.resolve(cwd, configPath))) return pass;
 
-  const edited = event.tool_input?.file_path;
+  const edited = toolInput?.file_path ?? toolInput?.filePath;
   const files = (typeof edited === "string" ? [edited] : changedFiles(cwd))
     .map((file) => path.resolve(cwd, file))
     .filter((file) => isInside(cwd, file) && CHECKABLE.test(file) && fs.existsSync(file))

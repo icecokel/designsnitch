@@ -174,7 +174,7 @@ describe("designsnitch install --agent codex", () => {
     expect(stdout).not.toContain("Codex는 신뢰한 프로젝트에서");
   });
 
-  it("--agent all 은 Claude Code, Codex, Gemini CLI 에 모두 설치한다", async () => {
+  it("--agent all 은 Claude Code, Codex, Gemini CLI, Grok Build 에 모두 설치한다", async () => {
     const cwd = tempProject({ "package.json": installed });
     const { stdout } = await install(cwd, "--agent", "all");
     expect(fs.readdirSync(path.join(cwd, ".claude/skills")).sort()).toEqual(SKILLS);
@@ -182,13 +182,16 @@ describe("designsnitch install --agent codex", () => {
     expect(readSettings(cwd).hooks.Stop).toEqual([{ hooks: [HOOK] }]);
     expect(readHooks(cwd).hooks.Stop).toEqual([{ hooks: [CODEX_HOOK] }]);
     expect(Object.keys(readGemini(cwd).hooks)).toEqual(["AfterTool", "AfterAgent"]);
+    expect(fs.existsSync(path.join(cwd, ".grok/hooks/designsnitch.json"))).toBe(true);
     // Codex 와 Gemini CLI 는 같은 .agents/skills 를 읽으므로 한 번만 복사한다.
-    expect(stdout.split("\n").slice(0, 5)).toEqual([
+    expect(stdout.split("\n").slice(0, 7)).toEqual([
       "스킬 5개를 .claude/skills 에 복사했습니다.",
       "훅을 .claude/settings.json 에 등록했습니다.",
       "스킬 5개를 .agents/skills 에 복사했습니다.",
       "훅을 .codex/hooks.json 에 등록했습니다.",
       "훅을 .gemini/settings.json 에 등록했습니다.",
+      "스킬 5개를 .grok/skills 에 복사했습니다.",
+      "훅을 .grok/hooks/designsnitch.json 에 등록했습니다.",
     ]);
   });
 
@@ -204,7 +207,7 @@ describe("designsnitch install --agent codex", () => {
     const cwd = tempProject({ "package.json": installed });
     const { exitCode, stderr } = await install(cwd, "--agent", "cursor");
     expect(exitCode).toBe(2);
-    expect(stderr).toContain("--agent claude|codex|gemini|all");
+    expect(stderr).toContain("--agent claude|codex|gemini|grok|all");
     expect(fs.existsSync(path.join(cwd, ".claude"))).toBe(false);
   });
 
@@ -270,6 +273,57 @@ describe("designsnitch install --agent gemini", () => {
     const { stdout } = await install(tempProject({ "package.json": installed }), "--agent", "gemini", "--lang", "en");
     expect(stdout).toContain(
       "- Gemini CLI warns before it runs a new project hook. Open Gemini CLI in this project and allow the hook. If you have turned on folder trust, trust this folder too.",
+    );
+  });
+});
+
+describe("designsnitch install --agent grok", () => {
+  const GROK_HOOK = { type: "command", command: "npx designsnitch hook", timeout: 60 };
+  const readGrok = (cwd) => JSON.parse(fs.readFileSync(path.join(cwd, ".grok/hooks/designsnitch.json"), "utf8"));
+  const installed = `{ "devDependencies": { "designsnitch": "^0.3.0" } }`;
+
+  it("스킬을 .grok/skills 에 복사하고 훅을 .grok/hooks/designsnitch.json 에 등록한다", async () => {
+    const cwd = tempProject({ "package.json": installed });
+    const { exitCode, stdout, stderr } = await install(cwd, "--agent", "grok");
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe("");
+    expect(fs.readdirSync(path.join(cwd, ".grok/skills")).sort()).toEqual(SKILLS);
+    expect(readGrok(cwd)).toEqual({
+      hooks: {
+        PostToolUse: [{ matcher: "Edit|Write|MultiEdit", hooks: [GROK_HOOK] }],
+        Stop: [{ hooks: [GROK_HOOK] }],
+      },
+    });
+    expect(stdout).toBe(
+      [
+        "스킬 5개를 .grok/skills 에 복사했습니다.",
+        "훅을 .grok/hooks/designsnitch.json 에 등록했습니다.",
+        "",
+        "다음에 할 일",
+        "- Grok Build는 신뢰한 프로젝트의 훅만 실행합니다. 이 프로젝트에서 Grok Build를 열고 /hooks-trust 로 신뢰하거나 --trust 로 시작하세요.",
+        "- 코딩 에이전트에게 \"이 프로젝트에 designsnitch를 설정해 줘\"라고 요청하세요. 토큰 CSS와 공용 컴포넌트를 찾아 designsnitch.config.json 을 만들고 ESLint에 규칙을 넣습니다.",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("두 번 실행해도 중복되지 않고, 같은 폴더의 다른 훅 파일은 건드리지 않는다", async () => {
+    const other = { hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: "echo guard" }] }] } };
+    const cwd = tempProject({ "package.json": installed, ".grok/hooks/safety.json": JSON.stringify(other) });
+    await install(cwd, "--agent", "grok");
+    const { stdout } = await install(cwd, "--agent", "grok");
+
+    expect(readGrok(cwd).hooks.PostToolUse).toHaveLength(1);
+    expect(readGrok(cwd).hooks.Stop).toHaveLength(1);
+    expect(JSON.parse(fs.readFileSync(path.join(cwd, ".grok/hooks/safety.json"), "utf8"))).toEqual(other);
+    expect(stdout).toContain("훅은 이미 .grok/hooks/designsnitch.json 에 등록되어 있습니다.");
+  });
+
+  it("영어로도 안내한다", async () => {
+    const { stdout } = await install(tempProject({ "package.json": installed }), "--agent", "grok", "--lang", "en");
+    expect(stdout).toContain(
+      "- Grok Build runs project hooks only in a trusted project. Open Grok Build in this project and trust it with /hooks-trust, or start it with --trust.",
     );
   });
 });

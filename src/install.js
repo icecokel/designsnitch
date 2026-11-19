@@ -44,6 +44,18 @@ const AGENTS = {
     // 새 프로젝트 훅은 실행하기 전에 경고하고 허용을 받는다.
     approval: "geminiTrust",
   },
+  // docs.x.ai 의 공식 문서 기준. 훅은 .grok/hooks/*.json 어느 파일에 둬도 된다. timeout 은 초다.
+  // Claude Code 의 도구 이름(Edit, Write)은 Grok 의 도구로 자동으로 연결된다고 문서에 적혀 있다.
+  grok: {
+    skillsDir: ".grok/skills",
+    hooksFile: ".grok/hooks/designsnitch.json",
+    editEvent: "PostToolUse",
+    stopEvent: "Stop",
+    editTools: "Edit|Write|MultiEdit",
+    hook: { type: "command", command: HOOK_COMMAND, timeout: 60 },
+    // 신뢰한 프로젝트의 훅만 실행한다(/hooks-trust 또는 --trust).
+    approval: "grokTrust",
+  },
 };
 
 export const AGENT_CHOICES = [...Object.keys(AGENTS), "all"];
@@ -51,7 +63,7 @@ export const AGENT_CHOICES = [...Object.keys(AGENTS), "all"];
 /**
  * 프로젝트에 스킬과 에이전트 훅을 설치한다.
  * 여러 번 실행해도 된다. 스킬은 최신으로 덮어쓰고, 훅은 없을 때만 더한다.
- * @param {{ cwd: string, lang?: "en" | "ko", agent?: "claude" | "codex" | "gemini" | "all" }} options
+ * @param {{ cwd: string, lang?: "en" | "ko", agent?: "claude" | "codex" | "gemini" | "grok" | "all" }} options
  * @returns {{ stdout: string, exitCode: 0 }}
  * @throws {Error} 훅을 등록할 파일을 읽을 수 없을 때. 이때는 아무것도 바꾸지 않는다
  */
