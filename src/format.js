@@ -27,10 +27,18 @@ export function formatText({ designSystem, problems, summary, violations }) {
     ].join("\n"),
   );
 
+  const count = (action) => violations.filter((v) => v.action === action).length;
+  const actions = [
+    `바로 바꿀 수 있는 것 ${count("replace")}건`,
+    `사람이 정해야 하는 것 ${count("ask")}건`,
+    ...(count("repair") > 0 ? [`문법을 고쳐야 하는 것 ${count("repair")}건`] : []),
+  ].join(", ");
+
   return [
     ...header,
     ...sections,
     `오류 ${summary.errors}개, 경고 ${summary.warnings}개 (파일 ${summary.files}개 검사)`,
+    actions,
     "",
   ].join("\n");
 }

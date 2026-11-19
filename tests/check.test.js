@@ -26,6 +26,7 @@ describe("check", () => {
         message: "<button> 대신 디자인 시스템 컴포넌트를 사용하세요: Button (./components/ui)",
         found: "button",
         candidates: ["Button"],
+        action: "replace",
       },
       {
         file: "src/PayButton.tsx",
@@ -39,6 +40,7 @@ describe("check", () => {
           "bg-[#3B82F6]의 색은 토큰 --color-primary-500의 값입니다. 대신 사용: bg-primary-500",
         found: "bg-[#3B82F6]",
         candidates: ["bg-primary-500"],
+        action: "replace",
       },
       {
         file: "src/PayButton.tsx",
@@ -52,6 +54,7 @@ describe("check", () => {
           "text-[#FFF]의 색은 토큰 --color-white, --color-surface의 값입니다. 대신 사용: text-white, text-surface",
         found: "text-[#FFF]",
         candidates: ["text-white", "text-surface"],
+        action: "ask",
       },
     ]);
   });
@@ -113,6 +116,7 @@ describe("프로젝트 코드에 있는 주석과 문법 오류", () => {
       severity: "error",
       found: "",
       candidates: [],
+      action: "repair",
     });
   });
 });
@@ -208,6 +212,7 @@ describe("CSS 파일", () => {
         message: "#FFF의 색은 토큰 --color-surface의 값입니다. 대신 사용: var(--color-surface)",
         found: "#FFF",
         candidates: ["var(--color-surface)"],
+        action: "replace",
       },
       {
         file: "src/card.module.css",
@@ -221,6 +226,7 @@ describe("CSS 파일", () => {
           "#3B82F6의 색은 토큰 --color-primary-500, --color-brand의 값입니다. 대신 사용: var(--color-primary-500), var(--color-brand)",
         found: "#3B82F6",
         candidates: ["var(--color-primary-500)", "var(--color-brand)"],
+        action: "ask",
       },
       {
         file: "src/card.module.css",
@@ -233,6 +239,7 @@ describe("CSS 파일", () => {
         message: "#3B82F5의 색은 토큰에 없습니다.",
         found: "#3B82F5",
         candidates: [],
+        action: "ask",
       },
     ]);
   });
@@ -282,6 +289,57 @@ describe("CSS 파일", () => {
       severity: "error",
       found: "",
       candidates: [],
+      action: "repair",
     });
+  });
+});
+
+describe("다음에 할 일 (next)", () => {
+  const base = {
+    "designsnitch.config.json": JSON.stringify({
+      tokens: "tokens.css",
+      components: { path: "ui", replaces: { button: ["SolidButton", "GhostButton"] } },
+    }),
+    "tokens.css": `@theme { --color-primary: #3B82F6; }`,
+    "ui/solid-button.tsx": `export const SolidButton = () => null;`,
+  };
+  const checkProject = (files, overrides = {}) => {
+    const cwd = tempProject({ ...base, ...overrides, ...files });
+    return check({ cwd, config: loadConfig(cwd) });
+  };
+
+  it("위반이 없으면 할 일이 없다고 알린다", async () => {
+    const result = await checkProject({ "src/a.tsx": `export const A = () => <div className="bg-primary" />;` });
+    expect(result.next).toEqual(["위반이 없습니다."]);
+  });
+
+  it("바로 바꿀 것, 사람에게 물을 것, 문법을 고칠 것을 나눠서 순서대로 알린다", async () => {
+    const result = await checkProject({
+      "src/a.tsx": `export const A = () => <button className="bg-[#3B82F6] text-[#123456]" />;`,
+      "src/broken.tsx": `export const B = () => <div`,
+    });
+    expect(result.violations.map(({ rule, action }) => `${rule}:${action}`)).toEqual([
+      "use-ds-component:ask",
+      "color-use-token:replace",
+      "color-unknown:ask",
+      "parse-error:repair",
+    ]);
+    expect(result.next).toEqual([
+      "action이 repair인 1건은 그 파일의 문법 오류부터 고치세요.",
+      "action이 replace인 1건은 found를 candidates의 값으로 바꾸세요.",
+      "action이 ask인 2건은 바꾸지 말고 사용자에게 물으세요. 물을 때는 `designsnitch colors`로 그 색이 몇 곳에서 어떻게 쓰이는지 확인해서 근거로 함께 주세요.",
+      "고친 뒤 같은 명령을 다시 실행하세요.",
+    ]);
+  });
+
+  it("색 토큰이 없으면 색을 고치기 전에 토큰부터 정하라고 알린다", async () => {
+    const result = await checkProject(
+      { "src/a.tsx": `export const A = () => <div className="bg-[#3B82F6]" />;` },
+      { "tokens.css": `@import "tailwindcss";` },
+    );
+    // 토큰이 없으면 색을 하나씩 묻는 것은 의미가 없다. 토큰을 정하는 일 하나만 남긴다.
+    expect(result.next).toEqual([
+      "색 토큰이 없어서 색을 판정할 기준이 없습니다. 색을 고치기 전에 `designsnitch colors`로 쓰이는 색을 모아 토큰부터 정하세요.",
+    ]);
   });
 });

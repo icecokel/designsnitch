@@ -17,6 +17,7 @@ describe("loadConfig", () => {
     expect(() => loadConfig("/tmp/no-such-project")).toThrow(
       "/tmp/no-such-project/designsnitch.config.json",
     );
+    expect(() => loadConfig("/tmp/no-such-project")).toThrow("designsnitch-setup");
   });
 
   it("tokens 가 없으면 알려준다", () => {

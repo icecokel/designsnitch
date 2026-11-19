@@ -24,7 +24,10 @@ export function loadConfig(cwd, configPath = CONFIG_FILE) {
   try {
     text = fs.readFileSync(file, "utf8");
   } catch {
-    throw new Error(`설정 파일이 없습니다: ${file}\n다음과 같은 내용으로 만드세요.\n${EXAMPLE}`);
+    throw new Error(
+      `설정 파일이 없습니다: ${file}\n` +
+        `다음과 같은 내용으로 만드세요. designsnitch-setup 스킬을 따르면 저장소를 읽어서 만들 수 있습니다.\n${EXAMPLE}`,
+    );
   }
 
   let config;

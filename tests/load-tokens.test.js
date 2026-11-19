@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { loadTokens } from "../src/rules/load-tokens.js";
+import { tempProject } from "./temp-project.js";
 
 describe("loadTokens", () => {
   it("설정된 경로의 CSS를 cwd 기준으로 읽는다", () => {
@@ -21,4 +22,12 @@ describe("loadTokens", () => {
       loadTokens({ designsnitch: { tokens: "nope.css" } }, "/tmp/x"),
     ).toThrow("/tmp/x/nope.css");
   });
+
+  it("토큰 CSS 의 문법이 깨져 있으면 어느 파일의 어디인지 알려준다", () => {
+    const cwd = tempProject({ "app/globals.css": `:root { --a: #fff; }\n.x\\[#fff\\] { color: red; }\n.y { color: red` });
+    expect(() => loadTokens({ designsnitch: { tokens: "app/globals.css" } }, cwd)).toThrow(
+      /토큰 CSS를 읽을 수 없습니다: .*app\/globals\.css:\d+:\d+/,
+    );
+  });
 });
+

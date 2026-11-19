@@ -12,6 +12,7 @@ const violation = (overrides) => ({
   message: "bg-[#3B82F6]의 색은 토큰 --color-primary-500의 값입니다. 대신 사용: bg-primary-500",
   found: "bg-[#3B82F6]",
   candidates: ["bg-primary-500"],
+  action: "replace",
   ...overrides,
 });
 
@@ -32,6 +33,7 @@ describe("formatText", () => {
           rule: "color-unknown",
           severity: "warning",
           message: "text-[#3B82F5]의 색은 토큰에 없습니다.",
+          action: "ask",
         }),
         violation({
           file: "src/Card.tsx",
@@ -40,6 +42,7 @@ describe("formatText", () => {
           rule: "color-unknown",
           severity: "warning",
           message: "bg-[#123456]의 색은 토큰에 없습니다.",
+          action: "ask",
         }),
       ],
     });
@@ -56,6 +59,7 @@ describe("formatText", () => {
         "  2:9  경고  bg-[#123456]의 색은 토큰에 없습니다.  (color-unknown)",
         "",
         "오류 1개, 경고 2개 (파일 3개 검사)",
+        "바로 바꿀 수 있는 것 1건, 사람이 정해야 하는 것 2건",
         "",
       ].join("\n"),
     );

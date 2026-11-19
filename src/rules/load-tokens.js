@@ -34,7 +34,16 @@ export function loadTokens(settings, cwd) {
   const cached = cache.get(file);
   if (cached?.mtimeMs === stat.mtimeMs) return cached.tokens;
 
-  const tokens = { colors: parseColorTokens(fs.readFileSync(file, "utf8")) };
+  let colors;
+  try {
+    colors = parseColorTokens(fs.readFileSync(file, "utf8"));
+  } catch (error) {
+    // 기준이 되는 파일이 깨져 있으면 무엇도 판정할 수 없다. 어디가 깨졌는지 알려준다.
+    throw new Error(
+      `designsnitch: 토큰 CSS를 읽을 수 없습니다: ${file}:${error.line ?? 1}:${error.column ?? 1} ${error.reason ?? error.message}`,
+    );
+  }
+  const tokens = { colors };
   cache.set(file, { mtimeMs: stat.mtimeMs, tokens });
   return tokens;
 }

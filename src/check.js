@@ -21,6 +21,10 @@ const RULE_PREFIX = "designsnitch/";
  * @property {string} message
  * @property {string} found 위반한 코드 조각 (클래스나 태그 이름)
  * @property {string[]} candidates 대신 쓸 클래스나 컴포넌트. 없으면 빈 배열
+ * @property {"replace" | "ask" | "repair"} action 이 위반을 어떻게 다룰지.
+ *   replace: found 를 candidates 의 값으로 바꾸면 된다 (후보가 하나뿐인 오류)
+ *   ask: 사람이 정해야 한다 (후보가 여러 개이거나, 토큰에 없는 값)
+ *   repair: 파일을 읽지 못했다. 문법 오류부터 고쳐야 한다
  */
 
 /**
@@ -32,9 +36,11 @@ const RULE_PREFIX = "designsnitch/";
  * @returns {Promise<{
  *   designSystem: { colorTokens: number, components: number, replacedTags: number },
  *   problems: string[],
+ *   next: string[],
  *   summary: { files: number, errors: number, warnings: number },
  *   violations: Violation[],
- * }>} designSystem 은 설정에서 읽어 낸 것의 개수, problems 는 결과를 믿기 어렵게 만드는 설정 문제
+ * }>} designSystem 은 설정에서 읽어 낸 것의 개수, problems 는 결과를 믿기 어렵게 만드는 설정 문제,
+ *   next 는 이 결과를 받은 에이전트가 순서대로 할 일
  */
 export async function check({ cwd, config, paths = ["."] }) {
   const settings = { designsnitch: config };
@@ -71,13 +77,14 @@ export async function check({ cwd, config, paths = ["."] }) {
     checkCss(file, fs.readFileSync(path.resolve(cwd, file), "utf8"), tokens.colors),
   );
 
-  const violations = [...scriptViolations, ...cssViolations].sort(
-    (a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.column - b.column,
-  );
+  const violations = [...scriptViolations, ...cssViolations]
+    .sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.column - b.column)
+    .map((violation) => ({ ...violation, action: actionFor(violation) }));
 
   return {
     designSystem,
     problems,
+    next: nextSteps(designSystem, violations),
     summary: {
       files: results.length + cssFiles.length,
       errors: violations.filter((v) => v.severity === "error").length,
@@ -135,6 +142,46 @@ function checkCss(file, source, colorTokens) {
         candidates,
       };
     });
+}
+
+function actionFor({ rule, severity, candidates }) {
+  if (rule === "parse-error") return "repair";
+  return severity === "error" && candidates.length === 1 ? "replace" : "ask";
+}
+
+/**
+ * 결과를 받은 에이전트가 무엇부터 해야 하는지를 순서대로 적는다.
+ * @param {{ colorTokens: number }} designSystem
+ * @param {Violation[]} violations action 이 붙은 위반들
+ * @returns {string[]}
+ */
+export function nextSteps(designSystem, violations) {
+  const noColorTokens = designSystem.colorTokens === 0;
+  // 색 토큰이 없으면 색 위반은 하나씩 다룰 일이 아니라 토큰을 정하는 일 하나로 묶인다.
+  const actionable = noColorTokens
+    ? violations.filter((v) => !v.rule.startsWith("color-"))
+    : violations;
+  const count = (action) => actionable.filter((v) => v.action === action).length;
+  const [repair, replace, ask] = ["repair", "replace", "ask"].map(count);
+  const steps = [];
+
+  if (noColorTokens) {
+    steps.push(
+      "색 토큰이 없어서 색을 판정할 기준이 없습니다. 색을 고치기 전에 `designsnitch colors`로 쓰이는 색을 모아 토큰부터 정하세요.",
+    );
+  }
+  if (repair > 0) steps.push(`action이 repair인 ${repair}건은 그 파일의 문법 오류부터 고치세요.`);
+  if (replace > 0) {
+    steps.push(`action이 replace인 ${replace}건은 found를 candidates의 값으로 바꾸세요.`);
+  }
+  if (ask > 0) {
+    steps.push(
+      `action이 ask인 ${ask}건은 바꾸지 말고 사용자에게 물으세요. 물을 때는 \`designsnitch colors\`로 그 색이 몇 곳에서 어떻게 쓰이는지 확인해서 근거로 함께 주세요.`,
+    );
+  }
+  if (repair + replace > 0) steps.push("고친 뒤 같은 명령을 다시 실행하세요.");
+
+  return steps.length > 0 ? steps : ["위반이 없습니다."];
 }
 
 function describeDesignSystem(tokens, config) {

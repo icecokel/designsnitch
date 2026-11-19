@@ -1,11 +1,11 @@
 ---
 name: designsnitch-check
-description: After creating or editing UI code in a React/Next.js + Tailwind project, check it against the project's design system (tokens and shared components) and fix what is off. Use when you have changed components, pages, className values or styles, or when the user asks for a design system check.
+description: After creating or editing UI code in a React/Next.js + Tailwind project, check it against the project's design system (color tokens and shared components) and fix what is off. Use when you have changed components, pages, className values or styles, or when the user asks for a design system check or cleanup.
 ---
 
 # designsnitch-check
 
-After you change UI code, run the design system check before you finish. The CLI makes the verdicts. This document tells you when to run it and what to do with the results.
+After you change UI code, run the design system check before you finish. The CLI makes the verdicts and tells you what to do with each one. This document covers how to act on that, and how to ask the user when a decision is theirs.
 
 ## 1. Run the check
 
@@ -15,7 +15,10 @@ Pass the files you changed. Without paths, the whole project is checked.
 npx designsnitch check src/features/checkout/PayButton.tsx --format json
 ```
 
-The exit code is 0 (no errors), 1 (errors found), or 2 (could not run). On 2, read the message on stderr. If the config file `designsnitch.config.json` is missing, follow the `designsnitch-setup` skill first, then come back.
+The exit code is 0 (no errors), 1 (errors found), or 2 (could not run). On 2, read the message on stderr.
+
+- The config file `designsnitch.config.json` is missing: follow the `designsnitch-setup` skill first, then come back.
+- The token CSS could not be read: the message names the file, line and column. Fix that syntax error first. Nothing can be judged while the standard itself is broken.
 
 ## 2. Read the result
 
@@ -23,7 +26,12 @@ The exit code is 0 (no errors), 1 (errors found), or 2 (could not run). On 2, re
 {
   "designSystem": { "colorTokens": 175, "components": 4, "replacedTags": 2 },
   "problems": [],
-  "summary": { "files": 1, "errors": 2, "warnings": 1 },
+  "next": [
+    "action이 replace인 1건은 found를 candidates의 값으로 바꾸세요.",
+    "action이 ask인 1건은 바꾸지 말고 사용자에게 물으세요. ...",
+    "고친 뒤 같은 명령을 다시 실행하세요."
+  ],
+  "summary": { "files": 1, "errors": 2, "warnings": 0 },
   "violations": [
     {
       "file": "src/features/checkout/PayButton.tsx",
@@ -35,17 +43,18 @@ The exit code is 0 (no errors), 1 (errors found), or 2 (could not run). On 2, re
       "severity": "error",
       "message": "bg-[#3B82F6]의 색은 토큰 --color-primary-500의 값입니다. 대신 사용: bg-primary-500",
       "found": "bg-[#3B82F6]",
-      "candidates": ["bg-primary-500"]
+      "candidates": ["bg-primary-500"],
+      "action": "replace"
     }
   ]
 }
 ```
 
-- `designSystem` counts the tokens and components read from the config.
-- A non-empty `problems` means the config is broken and the results cannot be trusted. Tell the user before fixing any violation. If the problem is that no color token could be read and the project really has no color tokens, the `designsnitch-palette` skill covers creating them.
+- `next` lists what to do, in order. It is written in Korean, like `message`. The fields below carry the same information, so you do not need to parse either.
+- `action` says how to handle each violation. Section 3 covers each value.
 - `found` is the offending piece of code. `candidates` lists what to use instead: classes or components in JS and TS files, and `var(--token)` in `.css` files.
-- `severity` `error` means the design system has something for this and it was not used. `warning` means the value is not in the design system.
-- `message` is written in Korean. You do not need to parse it: `rule`, `found` and `candidates` carry the same information.
+- `designSystem` counts the tokens and components read from the config. `colorTokens` 0 means the project has no color tokens that can be read: follow the `designsnitch-palette` skill to establish them before touching any color.
+- A non-empty `problems` means the config is broken and the results cannot be trusted. Tell the user before fixing anything.
 
 | `rule` | Severity | Meaning |
 | --- | --- | --- |
@@ -54,26 +63,42 @@ The exit code is 0 (no errors), 1 (errors found), or 2 (could not run). On 2, re
 | `use-ds-component` | error | A raw tag was used outside the design system directory although a shared component replaces it. |
 | `parse-error` | error | The file could not be parsed. |
 
-## 3. Fix
+## 3. Act on each violation
 
-Fix only the violations whose replacement is certain.
+| `action` | What it means | What to do |
+| --- | --- | --- |
+| `replace` | An error with exactly one candidate. | Replace `found` with the candidate. |
+| `ask` | A person has to decide: an error with several candidates, or a color that has no token. | Do not change it. Ask the user as described in section 4. |
+| `repair` | The file could not be parsed. | Fix the syntax error, then check again. |
 
-| Situation | What to do |
-| --- | --- |
-| `error` with exactly one candidate | Replace `found` with that candidate. |
-| `error` with two or more candidates | Do not change it. Show the user the candidates and where the code is used (the background of what, the text color of what) and let them choose. |
-| `warning` | Do not change it. Whether a new color is really needed or it is a mistake is the user's call. |
-| `rule` is `parse-error` | Fix the syntax error first, then check again. |
+For `use-ds-component`, replacing means more than renaming the tag. Read the design system component file to learn its props, add the import, and remove className values that duplicate styles the component already has.
 
-For `use-ds-component`, renaming the tag is not enough. Read the design system component file to learn its props, add the import, and remove className values that duplicate styles the component already has.
+## 4. Ask so the user can decide
 
-## 4. Check again
+Deciding is the user's job. Your job is to make the decision easy. Do not hand over a bare list of violations. For each decision, give:
+
+1. **What has to be decided**, in one sentence.
+2. **The facts.** Run `npx designsnitch colors --format json` and report how often the color is used, in how many files, and for what (text, background, border). Open one or two of the locations if the use is unclear.
+3. **What each choice changes.** Say whether the screen will look different, and how many places would be edited.
+4. **Your recommendation and why.**
+
+Group decisions that are the same question. Thirty uses of one unknown color are one decision, not thirty.
+
+An example for an error with several candidates:
+
+> `text-[#484646]` matches two tokens: `--color-text-primary` and `--color-neutral-30`. It appears 137 times, almost always as body text (`text-`). Either token renders the same color today, so nothing changes on screen. They will diverge if the neutral scale is ever retuned. I recommend `text-text-primary`, because the use is text and that token is named for it. Shall I replace all 137?
+
+An example for a color with no token:
+
+> `#3B82F5` is used 3 times, all as a button background. It is one step away from `--color-primary-500` (`#3B82F6`), which is used 88 times, so it is probably a typo. Replacing it changes the color by an amount the eye cannot see. I recommend replacing the 3 with `bg-primary-500`. If it is a separate color on purpose, it needs its own token.
+
+## 5. Check again
 
 After fixing, run the same command again. Stop when the only items left are waiting on the user's decision.
 
-## 5. Report
+## 6. Report
 
-Report what you fixed and what you left, separately. For each item you left, give the file and line, the candidates, and why you left it.
+Report what you fixed and what you left, separately. For what you left, use the form from section 4.
 
 ## What not to do
 
