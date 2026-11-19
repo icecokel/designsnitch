@@ -1,6 +1,6 @@
 ---
 name: designsnitch-hooks
-description: Register designsnitch as a hook of the coding agent, so the agent is told about design system errors right after it edits a file and cannot finish while errors it can fix remain. Use as part of setting up designsnitch, or when the user asks to make AI-written code follow the design system automatically.
+description: Register designsnitch as a hook of the coding agent (Claude Code or Codex), so the agent is told about design system errors right after it edits a file and cannot finish while errors it can fix remain. Use as part of setting up designsnitch, or when the user asks to make AI-written code follow the design system automatically.
 ---
 
 # designsnitch-hooks
@@ -54,9 +54,40 @@ If you need to do it by hand, this is what it adds to `.claude/settings.json`.
 
 `.claude/settings.json` is shared with the team through git, so the hook applies to everyone who uses Claude Code in this project. If the user wants the hook only for themselves, do not run the installer: add the entries above to `.claude/settings.local.json` by hand.
 
-## 2. Other agents
+## 2. Register the hook in Codex
 
-`designsnitch hook` does not depend on Claude Code. It reads an optional JSON object from stdin:
+```sh
+npx designsnitch install --agent codex
+```
+
+It adds the hook to `.codex/hooks.json` and copies the skills into `.agents/skills`. Use `--agent all` to set up Claude Code and Codex together.
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "apply_patch",
+        "hooks": [{ "type": "command", "command": "npx designsnitch hook", "timeout": 60 }]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [{ "type": "command", "command": "npx designsnitch hook", "timeout": 60 }]
+      }
+    ]
+  }
+}
+```
+
+Two things are different in Codex. Tell the user about both.
+
+- **The hook does not run until the user approves it.** Codex runs project hooks only in a project the user has trusted, and only hooks the user has approved. You cannot do this for them. Ask the user to open Codex in the project and approve when it asks.
+- **Codex often edits files with shell commands, which the `apply_patch` matcher does not see.** Those edits are still caught when Codex is about to finish: the `Stop` hook checks every file git reports as changed.
+
+## 3. Other agents
+
+`designsnitch hook` does not depend on a particular agent. It reads an optional JSON object from stdin:
 
 - `tool_input.file_path`: the file that was just edited. Without it, the files that git reports as changed are checked.
 - `hook_event_name`: `Stop` or `SubagentStop` means the agent is about to finish.
@@ -64,7 +95,7 @@ If you need to do it by hand, this is what it adds to `.claude/settings.json`.
 
 It exits with 2 and writes what to fix to stderr when it blocks, and exits with 0 otherwise. If the agent in use supports command hooks with these conventions, register the same command there. Check that agent's hook documentation for the file and the event names, and tell the user if you could not confirm that it works.
 
-## 3. Verify
+## 4. Verify
 
 Make the hook fire once.
 
@@ -79,7 +110,7 @@ It should print the error and exit with 2.
 
 3. Undo the test change and run it again. It should print nothing and exit with 0.
 
-## 4. Tell the user
+## 5. Tell the user
 
 Say which file you changed and what the hook will now do. Mention that it only looks at files the agent changes, so existing violations elsewhere stay until someone cleans them up with the `designsnitch-check` skill.
 

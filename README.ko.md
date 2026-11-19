@@ -32,7 +32,15 @@ npm install --save-dev designsnitch
 npx designsnitch install
 ```
 
-두 번째 명령은 에이전트 스킬을 `.claude/skills`에 복사하고, 에이전트 훅을 `.claude/settings.json`에 등록합니다. 지금은 Claude Code에 맞춰져 있습니다. Node.js 22 이상이 필요합니다.
+두 번째 명령은 에이전트 스킬을 설치하고 에이전트 훅을 등록합니다. Node.js 22 이상이 필요합니다.
+
+| 에이전트 | 명령 | 스킬 위치 | 훅 위치 |
+| --- | --- | --- | --- |
+| Claude Code | `npx designsnitch install` | `.claude/skills` | `.claude/settings.json` |
+| Codex | `npx designsnitch install --agent codex` | `.agents/skills` | `.codex/hooks.json` |
+| 둘 다 | `npx designsnitch install --agent all` | | |
+
+Codex는 프로젝트를 신뢰하고 훅을 승인한 뒤에만 프로젝트 훅을 실행합니다. 프로젝트에서 Codex를 열고, 요청이 나오면 승인하세요.
 
 그다음 코딩 에이전트에게 이렇게 요청합니다.
 
@@ -85,7 +93,7 @@ npx designsnitch install
 
 | 명령 | 하는 일 |
 | --- | --- |
-| `designsnitch install` | 스킬을 복사하고 에이전트 훅을 프로젝트에 등록합니다. |
+| `designsnitch install` | 스킬을 복사하고 에이전트 훅을 프로젝트에 등록합니다. `--agent claude`(기본), `codex`, `all`을 받습니다. |
 | `designsnitch colors` | 코드가 쓰는 색을 모아 보여줍니다. 설정 파일이 없어도 됩니다. |
 | `designsnitch check` | 코드를 기준에 비춰 검사하고, 위반마다 무엇을 하면 되는지 알려줍니다. |
 | `designsnitch hook` | 에이전트의 훅에서 부릅니다. 에이전트가 방금 바꾼 파일을 검사합니다. |
@@ -284,7 +292,7 @@ CSS 파일에서는 선언 바로 앞줄에 이 주석을 답니다.
 
 ## 에이전트 스킬
 
-`npx designsnitch install`이 스킬을 `.claude/skills`에 복사합니다. 패키지를 올린 뒤에는 다시 실행해서 스킬을 최신으로 맞추세요. 다른 곳에 복사하려면 패키지의 `skills/` 디렉터리에 있는 것을 쓰면 됩니다.
+`npx designsnitch install`은 Claude Code용으로 스킬을 `.claude/skills`에 복사하고, `--agent codex`를 붙이면 Codex용으로 `.agents/skills`에 복사합니다. 패키지를 올린 뒤에는 다시 실행해서 스킬을 최신으로 맞추세요. 다른 곳에 복사하려면 패키지의 `skills/` 디렉터리에 있는 것을 쓰면 됩니다.
 
 스킬 하나가 일 하나를 맡습니다.
 
@@ -363,6 +371,8 @@ CLI와 스킬은 AI 에이전트가 제대로 할 수 있는 상태를 만들어
 - 에이전트가 작업을 끝내려 할 때 스스로 고칠 수 있는 오류가 남아 있으면 끝내지 못합니다. 사람이 정해야 하는 오류는 막지 않습니다. 물어보려면 멈춰야 하기 때문입니다.
 - 경고는 막지 않고, 에이전트가 건드리지 않은 파일의 위반은 그대로 둡니다.
 
+Codex에는 `npx designsnitch install --agent codex`가 같은 두 훅을 `.codex/hooks.json`에 씁니다. 파일 수정 쪽은 `apply_patch`에 걸립니다. Codex는 셸 명령으로 파일을 고치는 일이 많은데, 그런 수정은 이 조건에 걸리지 않습니다. 대신 Codex가 작업을 끝내려 할 때 잡힙니다. 그때 훅이 git에서 바뀐 파일을 모두 검사하기 때문입니다.
+
 이 명령은 표준 입력으로 JSON을 받을 수 있습니다(`tool_input.file_path`, `hook_event_name`, `stop_hook_active`). 막을 때는 종료 코드 2로 끝나며 stderr에 내용을 쓰고, 파일이 주어지지 않으면 git에서 바뀐 파일을 검사합니다. 같은 방식의 명령 훅을 지원하는 다른 에이전트에서도 쓸 수 있습니다. `designsnitch-hooks` 스킬이 이 설정을 해 줍니다.
 
 ### Tailwind 기본 팔레트
@@ -394,7 +404,7 @@ designsnitch는 `bg-blue-500` 같은 기본 팔레트 클래스를 위반으로 
 - 간격, 폰트 크기, radius. 이번 버전에서는 일부러 뺐습니다.
 - `@apply` 안의 클래스
 - 직접 만든 컴포넌트와 디자인 시스템 컴포넌트의 스타일 비교
-- Claude Code가 아닌 에이전트에 스킬과 훅 설치하기
+- Claude Code와 Codex가 아닌 에이전트에 스킬과 훅 설치하기
 
 Figma 같은 시안 파일과 화면을 비교하는 일은 범위 밖입니다. 기준은 디자인 시스템 하나입니다.
 

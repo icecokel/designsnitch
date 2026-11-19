@@ -6,7 +6,7 @@ import { collectColors } from "./colors.js";
 import { CONFIG_FILE, loadConfig } from "./config.js";
 import { formatColorsText, formatText } from "./format.js";
 import { runHook } from "./hook.js";
-import { install } from "./install.js";
+import { AGENT_CHOICES, install } from "./install.js";
 import { isLang, messages, resolveLang } from "./messages.js";
 import { loadTokens } from "./rules/load-tokens.js";
 
@@ -38,8 +38,8 @@ const COMMANDS = {
     return runHook({ cwd, input: stdin, configPath, lang: flagLang });
   },
 
-  install({ cwd, flagLang }) {
-    return install({ cwd, lang: resolveLang(flagLang) });
+  install({ cwd, flagLang, agent }) {
+    return install({ cwd, lang: resolveLang(flagLang), agent });
   },
 };
 
@@ -59,6 +59,7 @@ export async function run(argv, { cwd, stdin, stdout, stderr }) {
         format: { type: "string", default: "text" },
         config: { type: "string" },
         lang: { type: "string" },
+        agent: { type: "string", default: "claude" },
         help: { type: "boolean", short: "h" },
       },
     });
@@ -79,7 +80,8 @@ export async function run(argv, { cwd, stdin, stdout, stderr }) {
   const command = Object.hasOwn(COMMANDS, name ?? "") ? COMMANDS[name] : undefined;
   const { format } = args.values;
   const validLang = flagLang === undefined || isLang(flagLang);
-  if (!command || !["text", "json"].includes(format) || !validLang) {
+  const { agent } = args.values;
+  if (!command || !["text", "json"].includes(format) || !validLang || !AGENT_CHOICES.includes(agent)) {
     stderr.write(usage);
     return 2;
   }
@@ -93,6 +95,7 @@ export async function run(argv, { cwd, stdin, stdout, stderr }) {
       format,
       stdin,
       flagLang,
+      agent,
     });
   } catch (error) {
     stderr.write(`${error.message}\n`);

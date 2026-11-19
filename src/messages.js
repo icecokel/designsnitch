@@ -104,9 +104,11 @@ const en = {
   nextTitle: "What to do next",
 
   // install
-  skillsCopied: (n) => `Copied ${count(n, "skill")} to .claude/skills.`,
+  skillsCopied: ({ n, dir }) => `Copied ${count(n, "skill")} to ${dir}.`,
   hookRegistered: ({ file }) => `Registered the hook in ${file}.`,
   hookAlready: ({ file }) => `The hook is already registered in ${file}.`,
+  codexTrust: () =>
+    "Codex runs project hooks only in a trusted project, and only hooks you have approved. Open Codex in this project and approve the project and the hook when it asks.",
   installPackage: () =>
     "Install the package in the project so the hook runs quickly every time: npm install --save-dev designsnitch",
   askAgent: ({ configFile }) =>
@@ -118,13 +120,14 @@ Commands
   check     Checks that UI code follows the design system.
   colors    Lists the colors the code uses. Works without a config file.
   hook      Called from a coding agent's hook. Exits with 2 when a file just changed has errors.
-  install   Installs the skills and the agent hook into the project (.claude).
+  install   Installs the skills and the agent hook into the project.
 
 Options
   paths       Files or directories to look at (default: the current directory)
   --format    Output format: text (default) or json
   --config    Path of the config file (default: designsnitch.config.json)
   --lang      Language of the messages: en (default) or ko
+  --agent     For install, the agent to install for: --agent claude|codex|all (default: claude)
 
 Exit codes of check: 0 no errors, 1 errors found, 2 could not run
 `,
@@ -200,9 +203,11 @@ const ko = {
   hookHeader: (n) => `designsnitch: 방금 고친 파일에 디자인 시스템 오류가 ${n}건 있습니다.`,
   nextTitle: "다음에 할 일",
 
-  skillsCopied: (n) => `스킬 ${n}개를 .claude/skills 에 복사했습니다.`,
+  skillsCopied: ({ n, dir }) => `스킬 ${n}개를 ${dir} 에 복사했습니다.`,
   hookRegistered: ({ file }) => `훅을 ${file} 에 등록했습니다.`,
   hookAlready: ({ file }) => `훅은 이미 ${file} 에 등록되어 있습니다.`,
+  codexTrust: () =>
+    "Codex는 신뢰한 프로젝트에서, 사용자가 승인한 훅만 실행합니다. 이 프로젝트에서 Codex를 열고 프로젝트 신뢰와 훅 승인을 요청받으면 승인하세요.",
   installPackage: () =>
     "훅이 매번 빠르게 돌도록 프로젝트에 설치하세요: npm install --save-dev designsnitch",
   askAgent: ({ configFile }) =>
@@ -214,13 +219,14 @@ const ko = {
   check     UI 코드가 디자인 시스템을 따르는지 검사합니다.
   colors    코드에서 쓰는 색을 모아 보여줍니다. 설정 파일이 없어도 됩니다.
   hook      코딩 에이전트의 훅에서 부릅니다. 방금 고친 파일에 오류가 있으면 2로 끝납니다.
-  install   스킬과 에이전트 훅을 프로젝트(.claude)에 설치합니다.
+  install   스킬과 에이전트 훅을 프로젝트에 설치합니다.
 
 옵션
   경로        볼 파일이나 디렉터리 (기본: 현재 디렉터리)
   --format    출력 형식. text(기본) 또는 json
   --config    설정 파일 경로 (기본: designsnitch.config.json)
   --lang      메시지의 언어. en(기본) 또는 ko
+  --agent     install 에서 설치할 에이전트. --agent claude|codex|all (기본: claude)
 
 check 의 종료 코드: 0 오류 없음, 1 오류 있음, 2 실행하지 못함
 `,

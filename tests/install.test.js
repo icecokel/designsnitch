@@ -14,10 +14,10 @@ const SKILLS = [
 ];
 const HOOK = { type: "command", command: "npx designsnitch hook" };
 
-async function install(cwd) {
+async function install(cwd, ...args) {
   let stdout = "";
   let stderr = "";
-  const exitCode = await run(["install"], {
+  const exitCode = await run(["install", ...args], {
     cwd,
     stdout: { write: (chunk) => (stdout += chunk) },
     stderr: { write: (chunk) => (stderr += chunk) },
@@ -123,6 +123,94 @@ describe("designsnitch install", () => {
     expect(stderr).toContain(".claude/settings.json");
     expect(fs.readFileSync(path.join(cwd, ".claude/settings.json"), "utf8")).toBe(`{ "hooks": `);
     expect(fs.existsSync(path.join(cwd, ".claude/skills"))).toBe(false);
+  });
+});
+
+describe("designsnitch install --agent codex", () => {
+  const CODEX_HOOK = { type: "command", command: "npx designsnitch hook", timeout: 60 };
+  const readHooks = (cwd) => JSON.parse(fs.readFileSync(path.join(cwd, ".codex/hooks.json"), "utf8"));
+  const installed = `{ "devDependencies": { "designsnitch": "^0.3.0" } }`;
+
+  it("스킬을 .agents/skills 에 복사하고 훅을 .codex/hooks.json 에 등록한다", async () => {
+    const cwd = tempProject({ "package.json": installed });
+    const { exitCode, stdout, stderr } = await install(cwd, "--agent", "codex");
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe("");
+    expect(fs.readdirSync(path.join(cwd, ".agents/skills")).sort()).toEqual(SKILLS);
+    expect(readHooks(cwd)).toEqual({
+      hooks: {
+        PostToolUse: [{ matcher: "apply_patch", hooks: [CODEX_HOOK] }],
+        Stop: [{ hooks: [CODEX_HOOK] }],
+      },
+    });
+    expect(fs.existsSync(path.join(cwd, ".claude"))).toBe(false);
+    expect(stdout).toBe(
+      [
+        "스킬 5개를 .agents/skills 에 복사했습니다.",
+        "훅을 .codex/hooks.json 에 등록했습니다.",
+        "",
+        "다음에 할 일",
+        "- Codex는 신뢰한 프로젝트에서, 사용자가 승인한 훅만 실행합니다. 이 프로젝트에서 Codex를 열고 프로젝트 신뢰와 훅 승인을 요청받으면 승인하세요.",
+        "- 코딩 에이전트에게 \"이 프로젝트에 designsnitch를 설정해 줘\"라고 요청하세요. 토큰 CSS와 공용 컴포넌트를 찾아 designsnitch.config.json 을 만들고 ESLint에 규칙을 넣습니다.",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("이미 있는 Codex 훅을 그대로 두고, 두 번 실행해도 중복되지 않는다", async () => {
+    const existing = { hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: "echo guard" }] }] } };
+    const cwd = tempProject({ "package.json": installed, ".codex/hooks.json": JSON.stringify(existing) });
+    await install(cwd, "--agent", "codex");
+    const { stdout } = await install(cwd, "--agent", "codex");
+
+    const hooks = readHooks(cwd).hooks;
+    expect(hooks.PreToolUse).toEqual(existing.hooks.PreToolUse);
+    expect(hooks.PostToolUse).toHaveLength(1);
+    expect(hooks.Stop).toHaveLength(1);
+    expect(stdout).toContain("훅은 이미 .codex/hooks.json 에 등록되어 있습니다.");
+    // 이미 등록된 뒤에는 승인 안내를 다시 하지 않는다.
+    expect(stdout).not.toContain("Codex는 신뢰한 프로젝트에서");
+  });
+
+  it("--agent all 은 Claude Code 와 Codex 양쪽에 설치한다", async () => {
+    const cwd = tempProject({ "package.json": installed });
+    const { stdout } = await install(cwd, "--agent", "all");
+    expect(fs.readdirSync(path.join(cwd, ".claude/skills")).sort()).toEqual(SKILLS);
+    expect(fs.readdirSync(path.join(cwd, ".agents/skills")).sort()).toEqual(SKILLS);
+    expect(readSettings(cwd).hooks.Stop).toEqual([{ hooks: [HOOK] }]);
+    expect(readHooks(cwd).hooks.Stop).toEqual([{ hooks: [CODEX_HOOK] }]);
+    expect(stdout.split("\n").slice(0, 4)).toEqual([
+      "스킬 5개를 .claude/skills 에 복사했습니다.",
+      "훅을 .claude/settings.json 에 등록했습니다.",
+      "스킬 5개를 .agents/skills 에 복사했습니다.",
+      "훅을 .codex/hooks.json 에 등록했습니다.",
+    ]);
+  });
+
+  it("--agent 를 주지 않으면 Claude Code 에만 설치한다", async () => {
+    const cwd = tempProject({ "package.json": installed });
+    await install(cwd);
+    expect(fs.existsSync(path.join(cwd, ".claude/skills"))).toBe(true);
+    expect(fs.existsSync(path.join(cwd, ".agents"))).toBe(false);
+    expect(fs.existsSync(path.join(cwd, ".codex"))).toBe(false);
+  });
+
+  it("모르는 에이전트를 주면 사용법을 알리고 아무것도 설치하지 않는다", async () => {
+    const cwd = tempProject({ "package.json": installed });
+    const { exitCode, stderr } = await install(cwd, "--agent", "cursor");
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain("--agent claude|codex|all");
+    expect(fs.existsSync(path.join(cwd, ".claude"))).toBe(false);
+  });
+
+  it("영어로도 안내한다", async () => {
+    const { stdout } = await install(tempProject({ "package.json": installed }), "--agent", "codex", "--lang", "en");
+    expect(stdout).toContain("Copied 5 skills to .agents/skills.");
+    expect(stdout).toContain("Registered the hook in .codex/hooks.json.");
+    expect(stdout).toContain(
+      "- Codex runs project hooks only in a trusted project, and only hooks you have approved. Open Codex in this project and approve the project and the hook when it asks.",
+    );
   });
 });
 
