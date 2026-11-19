@@ -70,6 +70,8 @@ Leave out components that only happen to contain a raw tag deep inside, such as 
 
 Paths are relative to the project root.
 
+Messages are in English by default. If the user works in Korean, add `"lang": "ko"` to the file so that the CLI, the ESLint plugin and the hook speak Korean.
+
 ## 5. Verify
 
 ```sh

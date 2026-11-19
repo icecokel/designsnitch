@@ -1,7 +1,7 @@
 {
   "name": "designsnitch",
   "version": "0.2.0",
-  "description": "AI가 만든 UI 코드에서 디자인 시스템을 벗어난 곳을 찾는 CLI와 ESLint 플러그인",
+  "description": "Keep AI-written UI code manageable and consistent, even without a design system. CLI, agent skills, ESLint plugin and agent hook for React/Next.js with Tailwind CSS v4.",
   "type": "module",
   "main": "./src/index.js",
   "exports": "./src/index.js",

@@ -1,6 +1,6 @@
 # designsnitch
 
-English | [한국어](./README.ko.md)
+English | [Korean](./README.ko.md)
 
 designsnitch helps keep a UI codebase manageable and consistent when the project has no design system, or has one in name only. It is built for code written by AI agents, which produce plausible UI quickly and scatter colors, spacing and components across screens as they go.
 
@@ -23,7 +23,7 @@ It has four parts.
 
 It supports **React/Next.js projects that use Tailwind CSS v4**.
 
-> **Status:** MVP (0.2.x). CLI messages are in Korean for now. The JSON output carries the same information in language-neutral fields.
+> **Status:** MVP (0.2.x). Messages are in English by default and can be switched to Korean. See [Language](#language).
 
 ## Getting started
 
@@ -90,7 +90,7 @@ Every error comes with what to use instead: a class or component in JS and TS fi
 | `designsnitch check` | Checks code against the standard and says what to do with each violation. |
 | `designsnitch hook` | Called from the agent's hook. Checks the files the agent just changed. |
 
-`check` and `colors` take paths, `--format json`, and `--config <file>`.
+`check` and `colors` take paths, `--format json`, and `--config <file>`. Every command takes `--lang en|ko`.
 
 ## Setting up by hand
 
@@ -134,28 +134,28 @@ npx designsnitch colors --format json
 ```
 
 ```
-코드에서 쓰는 색: hex 5개, 기본 팔레트 1개 (사용 10곳, 파일 1개 검사)
+Colors used in the code: 5 hex, 1 from the default palette (10 uses, 1 file checked)
 
-hex 색
-  #3a11d8  3곳  파일 1개  bg 2, 문자열 1
-  #484646  2곳  파일 1개  text 2
-  #ffffff  2곳  파일 1개  bg 1, text 1
-  #484645  1곳  파일 1개  text 1
-  #e2e1e5  1곳  파일 1개  border 1
+Hex colors
+  #3a11d8  3 uses  1 file  bg 2, string 1
+  #484646  2 uses  1 file  text 2
+  #ffffff  2 uses  1 file  bg 1, text 1
+  #484645  1 use  1 file  text 1
+  #e2e1e5  1 use  1 file  border 1
 
-Tailwind 기본 팔레트
-  gray-700  1곳  파일 1개  text 1
+Tailwind default palette
+  gray-700  1 use  1 file  text 1
 ```
 
 | Part of the output | Meaning |
 | --- | --- |
-| `hex 색` (hex colors) | Hex colors, most used first, with the number of uses (`곳`) and files (`파일`). |
+| `Hex colors` | Hex colors, most used first, with the number of uses and files. |
 | `bg 2`, `text 1` | Uses per Tailwind utility. `bg-[#3a11d8]` counts under `bg`. |
-| `문자열 1` (strings) | Strings that are a hex color on their own, such as inline styles and chart options. |
+| `string 1` | Strings that are a hex color on their own, such as inline styles and chart options. |
 | `CSS 2` | Uses in CSS declarations. The JSON output breaks these down by property. |
-| `Tailwind 기본 팔레트` (default palette) | Colors from Tailwind's default palette used by name, such as `text-gray-700`. |
+| `Tailwind default palette` | Colors from Tailwind's default palette used by name, such as `text-gray-700`. |
 
-When a config file exists, each color also shows the tokens that already have that value (`토큰: --color-brand`), or `토큰 없음` when there is none. The JSON output has the same data plus a few example locations per color.
+When a config file exists, each color also shows the tokens that already have that value (`token: --color-brand`), or `no token` when there is none. The JSON output has the same data plus a few example locations per color.
 
 The [`designsnitch-palette` skill](#agent-skills) uses this output to propose tokens, and writes them after you approve.
 
@@ -166,6 +166,7 @@ The [`designsnitch-palette` skill](#agent-skills) uses this output to propose to
 | `tokens` | The CSS file that defines the tokens. Required. |
 | `components.path` | The directory that holds the design system components. Raw tags are allowed inside it. |
 | `components.replaces` | Raw tags and the components that replace them. Use an array when several components replace one tag. |
+| `lang` | The language of the messages: `en` (default) or `ko`. |
 
 Without `components`, the component check is skipped. Use `--config <file>` to read a config file from another path.
 
@@ -193,21 +194,27 @@ Both of these shapes work.
 }
 ```
 
+## Language
+
+Messages are in English by default. To read them in Korean, set `"lang": "ko"` in `designsnitch.config.json`, set the environment variable `DESIGNSNITCH_LANG=ko`, or pass `--lang ko`. When more than one is given, `--lang` wins, then the config file, then the environment variable.
+
+The ESLint plugin reads the same `lang` from its settings. Rule names, the layout of the output and the JSON field names are the same in both languages.
+
 ## Output
 
 ```
-디자인 시스템: 색 토큰 2개, 컴포넌트 2개
+Design system: 2 color tokens, 2 components
 
 src/PayButton.tsx
-  5:6  오류  <button> 대신 디자인 시스템 컴포넌트를 사용하세요: Button (./components/ui)  (use-ds-component)
-  7:55  오류  bg-[#3B82F6]의 색은 토큰 --color-primary-500의 값입니다. 대신 사용: bg-primary-500  (color-use-token)
-  8:26  경고  bg-[#3B82F5]의 색은 토큰에 없습니다.  (color-unknown)
+  5:6  error  Use a design system component instead of <button>: Button (./components/ui)  (use-ds-component)
+  7:55  error  bg-[#3B82F6] has the same color as --color-primary-500. Use instead: bg-primary-500  (color-use-token)
+  8:26  warning  The color of bg-[#3B82F5] is not in the tokens.  (color-unknown)
 
-오류 2개, 경고 1개 (파일 3개 검사)
-바로 바꿀 수 있는 것 2건, 사람이 정해야 하는 것 1건
+2 errors, 1 warning (3 files checked)
+2 can be replaced right away, 1 needs a person's decision
 ```
 
-The first line shows how many tokens and components were read from the config. A wrong path shows up here as a zero. If no color token could be read, a line starting with `주의:` (notice) explains why. `오류` means error and `경고` means warning. The last line says how many violations can be replaced right away (`바로 바꿀 수 있는 것`) and how many need a person's decision (`사람이 정해야 하는 것`).
+The first line shows how many tokens and components were read from the config. A wrong path shows up here as a zero. If no color token could be read, a line starting with `Note:` explains why. The last line says how many violations can be replaced right away and how many need a person's decision.
 
 `--format json` prints the same result as structured data.
 
@@ -216,9 +223,9 @@ The first line shows how many tokens and components were read from the config. A
   "designSystem": { "colorTokens": 2, "components": 2, "replacedTags": 2 },
   "problems": [],
   "next": [
-    "action이 replace인 2건은 found를 candidates의 값으로 바꾸세요.",
-    "action이 ask인 1건은 바꾸지 말고 사용자에게 물으세요. ...",
-    "고친 뒤 같은 명령을 다시 실행하세요."
+    "action \"replace\" (2): replace found with the value in candidates.",
+    "action \"ask\" (1): do not change these. Ask the user, and include how often and for what each color is used, which `designsnitch colors` shows.",
+    "After fixing, run the same command again."
   ],
   "summary": { "files": 3, "errors": 2, "warnings": 1 },
   "violations": [
@@ -230,7 +237,7 @@ The first line shows how many tokens and components were read from the config. A
       "endColumn": 67,
       "rule": "color-use-token",
       "severity": "error",
-      "message": "bg-[#3B82F6]의 색은 토큰 --color-primary-500의 값입니다. 대신 사용: bg-primary-500",
+      "message": "bg-[#3B82F6] has the same color as --color-primary-500. Use instead: bg-primary-500",
       "found": "bg-[#3B82F6]",
       "candidates": ["bg-primary-500"],
       "action": "replace"

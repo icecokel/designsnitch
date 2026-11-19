@@ -23,7 +23,7 @@ designsnitch는 디자인 시스템이 없거나 이름뿐인 프로젝트에서
 
 **Tailwind CSS v4를 쓰는 React/Next.js 프로젝트**를 지원합니다.
 
-> **상태:** MVP(0.2.x). CLI 메시지는 아직 한국어로만 나옵니다. JSON 출력에는 같은 정보가 언어와 무관한 필드로 들어 있습니다.
+> **상태:** MVP(0.2.x). 메시지는 기본이 영어이고 한국어로 바꿀 수 있습니다. 이 문서의 출력 예시는 한국어로 설정했을 때의 모습입니다. [언어](#언어)를 보세요.
 
 ## 시작하기
 
@@ -90,7 +90,7 @@ npx designsnitch install
 | `designsnitch check` | 코드를 기준에 비춰 검사하고, 위반마다 무엇을 하면 되는지 알려줍니다. |
 | `designsnitch hook` | 에이전트의 훅에서 부릅니다. 에이전트가 방금 바꾼 파일을 검사합니다. |
 
-`check`와 `colors`는 경로, `--format json`, `--config <파일>`을 받습니다.
+`check`와 `colors`는 경로, `--format json`, `--config <파일>`을 받습니다. 모든 명령은 `--lang en|ko`를 받습니다.
 
 ## 직접 설정하기
 
@@ -103,6 +103,7 @@ npm install --save-dev designsnitch
 ```json
 {
   "tokens": "./app/globals.css",
+  "lang": "ko",
   "components": {
     "path": "./components/ui",
     "replaces": {
@@ -166,6 +167,7 @@ Tailwind 기본 팔레트
 | `tokens` | 토큰이 정의된 CSS 파일입니다. 필수입니다. |
 | `components.path` | 디자인 시스템 컴포넌트가 있는 경로입니다. 이 안에서는 raw 태그를 써도 됩니다. |
 | `components.replaces` | raw 태그와 그것을 대체하는 컴포넌트입니다. 한 태그를 대체하는 컴포넌트가 여러 개면 배열로 적습니다. |
+| `lang` | 메시지의 언어입니다. `en`(기본) 또는 `ko`입니다. |
 
 `components`를 생략하면 컴포넌트 검사를 하지 않습니다. 다른 경로의 설정 파일을 쓰려면 `--config <파일>`을 붙입니다.
 
@@ -192,6 +194,12 @@ Tailwind 기본 팔레트
   --color-primary-500: var(--primary-500);
 }
 ```
+
+## 언어
+
+메시지는 기본이 영어입니다. 한국어로 보려면 `designsnitch.config.json`에 `"lang": "ko"`를 적거나, 환경 변수 `DESIGNSNITCH_LANG=ko`를 설정하거나, `--lang ko`를 붙입니다. 여러 개를 함께 주면 `--lang`, 설정 파일, 환경 변수 순으로 우선합니다.
+
+ESLint 플러그인도 설정의 같은 `lang`을 읽습니다. 규칙 이름, 출력의 구조, JSON 필드 이름은 두 언어에서 같습니다.
 
 ## 출력
 

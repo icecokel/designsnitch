@@ -27,9 +27,9 @@ The exit code is 0 (no errors), 1 (errors found), or 2 (could not run). On 2, re
   "designSystem": { "colorTokens": 175, "components": 4, "replacedTags": 2 },
   "problems": [],
   "next": [
-    "action이 replace인 1건은 found를 candidates의 값으로 바꾸세요.",
-    "action이 ask인 1건은 바꾸지 말고 사용자에게 물으세요. ...",
-    "고친 뒤 같은 명령을 다시 실행하세요."
+    "action \"replace\" (1): replace found with the value in candidates.",
+    "action \"ask\" (1): do not change these. Ask the user, and include how often and for what each color is used, which `designsnitch colors` shows.",
+    "After fixing, run the same command again."
   ],
   "summary": { "files": 1, "errors": 2, "warnings": 0 },
   "violations": [
@@ -41,7 +41,7 @@ The exit code is 0 (no errors), 1 (errors found), or 2 (could not run). On 2, re
       "endColumn": 40,
       "rule": "color-use-token",
       "severity": "error",
-      "message": "bg-[#3B82F6]의 색은 토큰 --color-primary-500의 값입니다. 대신 사용: bg-primary-500",
+      "message": "bg-[#3B82F6] has the same color as --color-primary-500. Use instead: bg-primary-500",
       "found": "bg-[#3B82F6]",
       "candidates": ["bg-primary-500"],
       "action": "replace"
@@ -50,7 +50,7 @@ The exit code is 0 (no errors), 1 (errors found), or 2 (could not run). On 2, re
 }
 ```
 
-- `next` lists what to do, in order. It is written in Korean, like `message`. The fields below carry the same information, so you do not need to parse either.
+- `next` lists what to do, in order. `next` and `message` are sentences, in English or in Korean depending on the project's `lang` setting. The fields below carry the same information, so you never need to parse them.
 - `action` says how to handle each violation. Section 3 covers each value.
 - `found` is the offending piece of code. `candidates` lists what to use instead: classes or components in JS and TS files, and `var(--token)` in `.css` files.
 - `designSystem` counts the tokens and components read from the config. `colorTokens` 0 means the project has no color tokens that can be read: follow the `designsnitch-palette` skill to establish them before touching any color.
