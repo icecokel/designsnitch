@@ -129,6 +129,7 @@ describe("designsnitch install", () => {
 describe("designsnitch install --agent codex", () => {
   const CODEX_HOOK = { type: "command", command: "npx designsnitch hook", timeout: 60 };
   const readHooks = (cwd) => JSON.parse(fs.readFileSync(path.join(cwd, ".codex/hooks.json"), "utf8"));
+  const readGemini = (cwd) => JSON.parse(fs.readFileSync(path.join(cwd, ".gemini/settings.json"), "utf8"));
   const installed = `{ "devDependencies": { "designsnitch": "^0.3.0" } }`;
 
   it("스킬을 .agents/skills 에 복사하고 훅을 .codex/hooks.json 에 등록한다", async () => {
@@ -173,18 +174,21 @@ describe("designsnitch install --agent codex", () => {
     expect(stdout).not.toContain("Codex는 신뢰한 프로젝트에서");
   });
 
-  it("--agent all 은 Claude Code 와 Codex 양쪽에 설치한다", async () => {
+  it("--agent all 은 Claude Code, Codex, Gemini CLI 에 모두 설치한다", async () => {
     const cwd = tempProject({ "package.json": installed });
     const { stdout } = await install(cwd, "--agent", "all");
     expect(fs.readdirSync(path.join(cwd, ".claude/skills")).sort()).toEqual(SKILLS);
     expect(fs.readdirSync(path.join(cwd, ".agents/skills")).sort()).toEqual(SKILLS);
     expect(readSettings(cwd).hooks.Stop).toEqual([{ hooks: [HOOK] }]);
     expect(readHooks(cwd).hooks.Stop).toEqual([{ hooks: [CODEX_HOOK] }]);
-    expect(stdout.split("\n").slice(0, 4)).toEqual([
+    expect(Object.keys(readGemini(cwd).hooks)).toEqual(["AfterTool", "AfterAgent"]);
+    // Codex 와 Gemini CLI 는 같은 .agents/skills 를 읽으므로 한 번만 복사한다.
+    expect(stdout.split("\n").slice(0, 5)).toEqual([
       "스킬 5개를 .claude/skills 에 복사했습니다.",
       "훅을 .claude/settings.json 에 등록했습니다.",
       "스킬 5개를 .agents/skills 에 복사했습니다.",
       "훅을 .codex/hooks.json 에 등록했습니다.",
+      "훅을 .gemini/settings.json 에 등록했습니다.",
     ]);
   });
 
@@ -200,7 +204,7 @@ describe("designsnitch install --agent codex", () => {
     const cwd = tempProject({ "package.json": installed });
     const { exitCode, stderr } = await install(cwd, "--agent", "cursor");
     expect(exitCode).toBe(2);
-    expect(stderr).toContain("--agent claude|codex|all");
+    expect(stderr).toContain("--agent claude|codex|gemini|all");
     expect(fs.existsSync(path.join(cwd, ".claude"))).toBe(false);
   });
 
@@ -210,6 +214,62 @@ describe("designsnitch install --agent codex", () => {
     expect(stdout).toContain("Registered the hook in .codex/hooks.json.");
     expect(stdout).toContain(
       "- Codex runs project hooks only in a trusted project, and only hooks you have approved. Open Codex in this project and approve the project and the hook when it asks.",
+    );
+  });
+});
+
+describe("designsnitch install --agent gemini", () => {
+  const GEMINI_HOOK = { name: "designsnitch", type: "command", command: "npx designsnitch hook", timeout: 60000 };
+  const readGemini = (cwd) => JSON.parse(fs.readFileSync(path.join(cwd, ".gemini/settings.json"), "utf8"));
+  const installed = `{ "devDependencies": { "designsnitch": "^0.3.0" } }`;
+
+  it("스킬을 .agents/skills 에 복사하고 훅을 .gemini/settings.json 에 등록한다", async () => {
+    const cwd = tempProject({ "package.json": installed });
+    const { exitCode, stdout, stderr } = await install(cwd, "--agent", "gemini");
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe("");
+    expect(fs.readdirSync(path.join(cwd, ".agents/skills")).sort()).toEqual(SKILLS);
+    expect(readGemini(cwd)).toEqual({
+      hooks: {
+        AfterTool: [{ matcher: "write_file|replace", hooks: [GEMINI_HOOK] }],
+        AfterAgent: [{ hooks: [GEMINI_HOOK] }],
+      },
+    });
+    expect(stdout).toBe(
+      [
+        "스킬 5개를 .agents/skills 에 복사했습니다.",
+        "훅을 .gemini/settings.json 에 등록했습니다.",
+        "",
+        "다음에 할 일",
+        "- Gemini CLI는 프로젝트에 새 훅이 생기면 실행하기 전에 경고합니다. 이 프로젝트에서 Gemini CLI를 열고 훅을 허용하세요. 폴더 신뢰 기능을 켜 두었다면 이 폴더도 신뢰해야 합니다.",
+        "- 코딩 에이전트에게 \"이 프로젝트에 designsnitch를 설정해 줘\"라고 요청하세요. 토큰 CSS와 공용 컴포넌트를 찾아 designsnitch.config.json 을 만들고 ESLint에 규칙을 넣습니다.",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("이미 있는 Gemini 설정과 다른 훅을 그대로 두고, 두 번 실행해도 중복되지 않는다", async () => {
+    const existing = {
+      model: { name: "gemini-pro" },
+      hooks: { BeforeTool: [{ matcher: "run_shell_command", hooks: [{ type: "command", command: "echo guard" }] }] },
+    };
+    const cwd = tempProject({ "package.json": installed, ".gemini/settings.json": JSON.stringify(existing) });
+    await install(cwd, "--agent", "gemini");
+    const { stdout } = await install(cwd, "--agent", "gemini");
+
+    const settings = readGemini(cwd);
+    expect(settings.model).toEqual(existing.model);
+    expect(settings.hooks.BeforeTool).toEqual(existing.hooks.BeforeTool);
+    expect(settings.hooks.AfterTool).toHaveLength(1);
+    expect(settings.hooks.AfterAgent).toHaveLength(1);
+    expect(stdout).toContain("훅은 이미 .gemini/settings.json 에 등록되어 있습니다.");
+  });
+
+  it("영어로도 안내한다", async () => {
+    const { stdout } = await install(tempProject({ "package.json": installed }), "--agent", "gemini", "--lang", "en");
+    expect(stdout).toContain(
+      "- Gemini CLI warns before it runs a new project hook. Open Gemini CLI in this project and allow the hook. If you have turned on folder trust, trust this folder too.",
     );
   });
 });

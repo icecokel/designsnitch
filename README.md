@@ -38,9 +38,12 @@ The second command installs the agent skills and registers the agent hook. Node.
 | --- | --- | --- | --- |
 | Claude Code | `npx designsnitch install` | `.claude/skills` | `.claude/settings.json` |
 | Codex | `npx designsnitch install --agent codex` | `.agents/skills` | `.codex/hooks.json` |
-| Both | `npx designsnitch install --agent all` | | |
+| Gemini CLI | `npx designsnitch install --agent gemini` | `.agents/skills` | `.gemini/settings.json` |
+| All of them | `npx designsnitch install --agent all` | | |
 
-Codex runs a project hook only after you have trusted the project and approved the hook. Open Codex in the project and approve when it asks.
+Codex and Gemini CLI run a new project hook only after you approve it. Open the agent in the project and approve when it asks.
+
+The skills follow the open Agent Skills format, so any agent that supports it can use them. The standard installer puts them where each agent looks: `npx skills add icecokel/designsnitch`. It installs the skills only, not the hook.
 
 Then ask your coding agent:
 
@@ -93,7 +96,7 @@ Every error comes with what to use instead: a class or component in JS and TS fi
 
 | Command | What it does |
 | --- | --- |
-| `designsnitch install` | Copies the skills and registers the agent hook in the project. `--agent claude` (default), `codex` or `all`. |
+| `designsnitch install` | Copies the skills and registers the agent hook in the project. `--agent claude` (default), `codex`, `gemini` or `all`. |
 | `designsnitch colors` | Lists the colors the code uses. Works without a config file. |
 | `designsnitch check` | Checks code against the standard and says what to do with each violation. |
 | `designsnitch hook` | Called from the agent's hook. Checks the files the agent just changed. |
@@ -291,7 +294,7 @@ In a CSS file, put this comment on the line before the declaration.
 
 ## Agent skills
 
-`npx designsnitch install` copies the skills into `.claude/skills` for Claude Code, and into `.agents/skills` for Codex with `--agent codex`. Run it again after upgrading the package to get the current versions. The skills are in the `skills/` directory of the package if you want to copy them somewhere else.
+`npx designsnitch install` copies the skills into `.claude/skills` for Claude Code, and into `.agents/skills` for Codex and Gemini CLI with `--agent codex` or `--agent gemini`. Run it again after upgrading the package to get the current versions. The skills are in the `skills/` directory of the package if you want to copy them somewhere else.
 
 Each skill does one job.
 
@@ -372,6 +375,8 @@ A skill is advice that an agent may not follow. A hook is run by the agent's run
 
 For Codex, `npx designsnitch install --agent codex` writes the same two hooks to `.codex/hooks.json`, with `apply_patch` as the matcher. Codex often edits files with shell commands, which that matcher does not see. Those edits are caught when Codex is about to finish, because the hook then checks every file git reports as changed.
 
+For Gemini CLI, `npx designsnitch install --agent gemini` writes the hooks to `.gemini/settings.json` under Gemini CLI's own event names: `AfterTool` for `write_file` and `replace`, and `AfterAgent` for when it is about to answer, where exit code 2 makes it try again with the errors as feedback. This follows the official Gemini CLI documentation. It has not been run against Gemini CLI itself.
+
 The command reads an optional JSON object from stdin (`tool_input.file_path`, `hook_event_name`, `stop_hook_active`), exits with 2 and writes to stderr when it blocks, and falls back to the files git reports as changed when no file is given. Other agents with command hooks that follow these conventions can use it too. The `designsnitch-hooks` skill sets this up.
 
 ### Tailwind's default palette
@@ -403,7 +408,7 @@ designsnitch does not flag default palette classes such as `bg-blue-500`. If the
 - Spacing, font size and radius. They were left out of this version on purpose.
 - Classes inside `@apply`
 - Comparing a hand-made component's styles with the design system component
-- Installing the skills and the hook for agents other than Claude Code and Codex
+- Installing the hook for agents other than Claude Code, Codex and Gemini CLI
 
 Comparing a screen with a design file such as Figma is out of scope. The standard is the design system alone.
 

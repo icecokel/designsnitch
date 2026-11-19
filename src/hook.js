@@ -6,7 +6,8 @@ import { CONFIG_FILE, loadConfig } from "./config.js";
 import { messages, resolveLang } from "./messages.js";
 
 const CHECKABLE = /\.(?:[cm]?[jt]s|[jt]sx|css)$/;
-const STOP_EVENTS = new Set(["Stop", "SubagentStop"]);
+// Claude Code, Codex 는 Stop, Gemini CLI 는 AfterAgent 가 "작업을 끝내려 할 때"다.
+const STOP_EVENTS = new Set(["Stop", "SubagentStop", "AfterAgent"]);
 
 /**
  * 코딩 에이전트의 훅에서 부르는 검사. 에이전트가 방금 고친 파일만 본다.

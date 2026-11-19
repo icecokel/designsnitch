@@ -156,3 +156,41 @@ describe("designsnitch hook: 작업을 끝내려 할 때 (Stop)", () => {
     expect(result.exitCode).toBe(0);
   });
 });
+
+describe("designsnitch hook: Gemini CLI", () => {
+  function repo(changed) {
+    const cwd = tempProject(base);
+    git(cwd, "init", "-q");
+    git(cwd, "add", "-A");
+    git(cwd, "commit", "-q", "-m", "init");
+    for (const [name, content] of Object.entries(changed)) {
+      fs.mkdirSync(path.dirname(path.join(cwd, name)), { recursive: true });
+      fs.writeFileSync(path.join(cwd, name), content);
+    }
+    return cwd;
+  }
+
+  it("AfterAgent 는 작업을 끝내려 할 때로 보고, 스스로 고칠 수 있는 오류가 남아 있으면 막는다", async () => {
+    const { exitCode, stderr } = await hook(repo({ "src/a.tsx": REPLACE }), { hook_event_name: "AfterAgent", stop_hook_active: false });
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain("[replace]");
+  });
+
+  it("AfterAgent 에서 사람이 정해야 하는 오류만 남았으면 막지 않는다", async () => {
+    const result = await hook(repo({ "src/b.tsx": ASK }), { hook_event_name: "AfterAgent" });
+    expect(result).toEqual({ exitCode: 0, stdout: "", stderr: "" });
+  });
+
+  it("AfterAgent 에서 이미 다시 시도하는 중이면(stop_hook_active) 막지 않는다", async () => {
+    const result = await hook(repo({ "src/a.tsx": REPLACE }), { hook_event_name: "AfterAgent", stop_hook_active: true });
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("AfterTool 은 파일을 고친 직후로 본다. 고친 파일을 모르면 git 에서 바뀐 파일을 본다", async () => {
+    const cwd = repo({ "src/a.tsx": REPLACE });
+    const { exitCode, stderr } = await hook(cwd, { hook_event_name: "AfterTool", tool_name: "write_file", tool_input: { content: "..." } });
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain("src/a.tsx:1:40");
+  });
+});
+

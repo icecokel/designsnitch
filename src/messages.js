@@ -109,6 +109,8 @@ const en = {
   hookAlready: ({ file }) => `The hook is already registered in ${file}.`,
   codexTrust: () =>
     "Codex runs project hooks only in a trusted project, and only hooks you have approved. Open Codex in this project and approve the project and the hook when it asks.",
+  geminiTrust: () =>
+    "Gemini CLI warns before it runs a new project hook. Open Gemini CLI in this project and allow the hook. If you have turned on folder trust, trust this folder too.",
   installPackage: () =>
     "Install the package in the project so the hook runs quickly every time: npm install --save-dev designsnitch",
   askAgent: ({ configFile }) =>
@@ -127,7 +129,7 @@ Options
   --format    Output format: text (default) or json
   --config    Path of the config file (default: designsnitch.config.json)
   --lang      Language of the messages: en (default) or ko
-  --agent     For install, the agent to install for: --agent claude|codex|all (default: claude)
+  --agent     For install, the agent to install for: --agent claude|codex|gemini|all (default: claude)
 
 Exit codes of check: 0 no errors, 1 errors found, 2 could not run
 `,
@@ -208,6 +210,8 @@ const ko = {
   hookAlready: ({ file }) => `훅은 이미 ${file} 에 등록되어 있습니다.`,
   codexTrust: () =>
     "Codex는 신뢰한 프로젝트에서, 사용자가 승인한 훅만 실행합니다. 이 프로젝트에서 Codex를 열고 프로젝트 신뢰와 훅 승인을 요청받으면 승인하세요.",
+  geminiTrust: () =>
+    "Gemini CLI는 프로젝트에 새 훅이 생기면 실행하기 전에 경고합니다. 이 프로젝트에서 Gemini CLI를 열고 훅을 허용하세요. 폴더 신뢰 기능을 켜 두었다면 이 폴더도 신뢰해야 합니다.",
   installPackage: () =>
     "훅이 매번 빠르게 돌도록 프로젝트에 설치하세요: npm install --save-dev designsnitch",
   askAgent: ({ configFile }) =>
@@ -226,7 +230,7 @@ const ko = {
   --format    출력 형식. text(기본) 또는 json
   --config    설정 파일 경로 (기본: designsnitch.config.json)
   --lang      메시지의 언어. en(기본) 또는 ko
-  --agent     install 에서 설치할 에이전트. --agent claude|codex|all (기본: claude)
+  --agent     install 에서 설치할 에이전트. --agent claude|codex|gemini|all (기본: claude)
 
 check 의 종료 코드: 0 오류 없음, 1 오류 있음, 2 실행하지 못함
 `,
