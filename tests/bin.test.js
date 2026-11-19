@@ -21,7 +21,7 @@ describe("bin/designsnitch.js", () => {
     });
 
     expect(result.stdout).toBe(
-      "디자인 시스템: 색 토큰 1개, radius 토큰 0개, 폰트 크기 토큰 0개, 컴포넌트 설정 없음\n",
+      "디자인 시스템: 색 토큰 1개, 컴포넌트 설정 없음\n",
     );
     expect(result.stderr).toBe("");
   });

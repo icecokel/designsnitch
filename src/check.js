@@ -1,6 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
+import { normalizeHex } from "./core/color.js";
+import { findCssColors } from "./core/css.js";
 import { createEngine } from "./engine.js";
+import { splitPaths } from "./files.js";
 import plugin from "./index.js";
 import { loadTokens } from "./rules/load-tokens.js";
 
@@ -27,7 +30,7 @@ const RULE_PREFIX = "designsnitch/";
  * @param {ReturnType<typeof import("./config.js").loadConfig>} options.config
  * @param {string[]} [options.paths] 검사할 파일이나 디렉터리 (cwd 기준)
  * @returns {Promise<{
- *   designSystem: { colorTokens: number, radiusTokens: number, textTokens: number, components: number, replacedTags: number },
+ *   designSystem: { colorTokens: number, components: number, replacedTags: number },
  *   problems: string[],
  *   summary: { files: number, errors: number, warnings: number },
  *   violations: Violation[],
@@ -53,23 +56,30 @@ export async function check({ cwd, config, paths = ["."] }) {
     );
   }
 
+  const { scriptPaths, cssFiles } = splitPaths(cwd, paths);
+
+  // JS, TS 는 ESLint 로 규칙을 실행하고, CSS 는 직접 읽는다.
   const eslint = createEngine({ cwd, config: { ...plugin.configs.recommended, settings } });
-
-  const results = await eslint.lintFiles(paths);
-  results.sort((a, b) => a.filePath.localeCompare(b.filePath));
-
-  const violations = results.flatMap((result) => {
+  const results = scriptPaths.length > 0 ? await eslint.lintFiles(scriptPaths) : [];
+  const scriptViolations = results.flatMap((result) => {
     const file = path.relative(cwd, result.filePath).split(path.sep).join("/");
     return result.messages
       .filter(isOurs)
       .map((message) => toViolation(file, result.source, message, config));
   });
+  const cssViolations = cssFiles.flatMap((file) =>
+    checkCss(file, fs.readFileSync(path.resolve(cwd, file), "utf8"), tokens.colors),
+  );
+
+  const violations = [...scriptViolations, ...cssViolations].sort(
+    (a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.column - b.column,
+  );
 
   return {
     designSystem,
     problems,
     summary: {
-      files: results.length,
+      files: results.length + cssFiles.length,
       errors: violations.filter((v) => v.severity === "error").length,
       warnings: violations.filter((v) => v.severity === "warning").length,
     },
@@ -77,13 +87,61 @@ export async function check({ cwd, config, paths = ["."] }) {
   };
 }
 
+/**
+ * CSS 파일 하나의 hex 색을 토큰과 비교한다. 대체 후보는 var(--토큰) 이다.
+ * @returns {Violation[]}
+ */
+function checkCss(file, source, colorTokens) {
+  let colors;
+  try {
+    colors = findCssColors(source);
+  } catch (error) {
+    const at = { line: error.line ?? 1, column: error.column ?? 1 };
+    return [
+      {
+        file,
+        ...at,
+        endLine: at.line,
+        endColumn: at.column,
+        rule: "parse-error",
+        severity: "error",
+        message: error.reason ?? error.message,
+        found: "",
+        candidates: [],
+      },
+    ];
+  }
+
+  return colors
+    .filter((color) => !color.disabled)
+    .map(({ value, prop, disabled, ...location }) => {
+      const tokenNames = colorTokens.get(normalizeHex(value)) ?? [];
+      const candidates = tokenNames.map((name) => `var(${name})`);
+      return {
+        file,
+        ...location,
+        ...(tokenNames.length > 0
+          ? {
+              rule: "color-use-token",
+              severity: "error",
+              message: `${value}의 색은 토큰 ${tokenNames.join(", ")}의 값입니다. 대신 사용: ${candidates.join(", ")}`,
+            }
+          : {
+              rule: "color-unknown",
+              severity: "warning",
+              message: `${value}의 색은 토큰에 없습니다.`,
+            }),
+        found: value,
+        candidates,
+      };
+    });
+}
+
 function describeDesignSystem(tokens, config) {
   const countNames = (map) => new Set([...map.values()].flat()).size;
   const replaces = Object.values(config.components?.replaces ?? {});
   return {
     colorTokens: countNames(tokens.colors),
-    radiusTokens: countNames(tokens.scale.radius),
-    textTokens: countNames(tokens.scale.text),
     components: new Set(replaces.flat()).size,
     replacedTags: replaces.length,
   };

@@ -33,13 +33,14 @@ describe("designsnitch check", () => {
   it("기본 출력은 사람이 읽는 형식이다", async () => {
     const { stdout } = await runCli(["check"]);
     expect(stdout).toContain("src/PayButton.tsx\n  5:6  오류  <button> 대신");
-    expect(stdout).toContain("오류 3개, 경고 1개 (파일 3개 검사)");
+    // 파일 수에는 토큰 CSS(app/globals.css)도 들어간다.
+    expect(stdout).toContain("오류 3개, 경고 0개 (파일 4개 검사)");
   });
 
   it("경로를 주면 그 안만 검사하고, 위반이 없으면 0으로 끝난다", async () => {
     const { exitCode, stdout } = await runCli(["check", "components"]);
     expect(stdout).toBe(
-      "디자인 시스템: 색 토큰 3개, radius 토큰 1개, 폰트 크기 토큰 0개, 컴포넌트 1개\n\n" +
+      "디자인 시스템: 색 토큰 3개, 컴포넌트 1개\n\n" +
         "위반이 없습니다. (파일 1개 검사)\n",
     );
     expect(exitCode).toBe(0);
@@ -140,6 +141,12 @@ describe("designsnitch colors", () => {
     const { stdout } = await runCli(["colors"], cwd);
     expect(stdout).toContain("  #3b82f6  2곳  파일 1개  bg 1, 문자열 1  토큰: --color-primary, --color-brand");
     expect(stdout).toContain("  #ffffff  1곳  파일 1개  text 1  토큰 없음");
+  });
+
+  it("CSS 에서 쓴 횟수를 함께 보여준다", async () => {
+    const cwd = tempProject({ ...files, "src/card.css": `.card { color: #3B82F6; border-color: #3b82f6; }` });
+    const { stdout } = await runCli(["colors"], cwd);
+    expect(stdout).toContain("  #3b82f6  4곳  파일 2개  bg 1, 문자열 1, CSS 2");
   });
 
   it("경로를 주면 그 안만 본다", async () => {

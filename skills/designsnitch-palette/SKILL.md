@@ -27,6 +27,7 @@ This works without a config file. Pass paths to limit it to part of the project.
       "files": 53,
       "utilities": { "text": 137, "border": 7 },
       "literals": 32,
+      "properties": { "color": 4 },
       "examples": [{ "file": "src/app/page.tsx", "line": 12 }]
     }
   ],
@@ -42,7 +43,7 @@ This works without a config file. Pass paths to limit it to part of the project.
 }
 ```
 
-- `colors` are hex colors, most used first. `utilities` counts uses per Tailwind utility (`bg-[#484646]` counts under `bg`). `literals` counts strings that are a hex color on their own, such as inline styles and chart options.
+- `colors` are hex colors, most used first. `utilities` counts uses per Tailwind utility (`bg-[#484646]` counts under `bg`). `literals` counts strings that are a hex color on their own, such as inline styles and chart options. `properties` counts uses per CSS property in `.css` files.
 - `palette` are colors from Tailwind's default palette used by name, such as `text-gray-700`.
 - `examples` gives a few locations, each in a different file. Open them when you need to see how a color is used.
 - If a config file exists, each color also has `tokens`: the tokens that already have this value. Colors with a non-empty `tokens` are already covered. Work on the rest.
@@ -57,13 +58,13 @@ Go through `colors` from the top and sort each color into one of these.
 
 **The long tail.** It is used once or twice. Do not give it a token by default. List these for the user.
 
-Then work out what each color of its own is for. `utilities` shows this.
+Then work out what each color of its own is for. `utilities` and `properties` show this.
 
 | Mostly used with | Likely role |
 | --- | --- |
-| `text` | Text color |
-| `border`, `divide`, `ring`, `outline` | Border or outline |
-| `bg` | Background or surface |
+| `text`, or the `color` property | Text color |
+| `border`, `divide`, `ring`, `outline`, or `border` properties | Border or outline |
+| `bg`, or `background` properties | Background or surface |
 | A mix, or mostly `literals` | A general color such as a brand or chart color. Open the examples to see. |
 
 For `palette`, note which default palette colors the project relies on. They already work as classes and designsnitch does not flag them. Whether they belong to the design system is the user's call, so include them in the proposal as a question.
@@ -124,7 +125,7 @@ npx designsnitch colors
 
 ## 7. Hand over
 
-Tell the user what the first check found. Every place that writes a tokenized color as a hex class is now a `color-use-token` error with the token class as its candidate. Replacing them is the job of the `designsnitch-check` skill. On a whole project this can be a large change, so ask the user whether to do it now and for which part of the project.
+Tell the user what the first check found. Every place that writes a tokenized color as a hex class or in a CSS declaration is now a `color-use-token` error, with the token class or `var(--token)` as its candidate. Replacing them is the job of the `designsnitch-check` skill. On a whole project this can be a large change, so ask the user whether to do it now and for which part of the project.
 
 Two kinds of use stay as they are:
 

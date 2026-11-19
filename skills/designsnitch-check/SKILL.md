@@ -21,13 +21,7 @@ The exit code is 0 (no errors), 1 (errors found), or 2 (could not run). On 2, re
 
 ```json
 {
-  "designSystem": {
-    "colorTokens": 175,
-    "radiusTokens": 4,
-    "textTokens": 0,
-    "components": 4,
-    "replacedTags": 2
-  },
+  "designSystem": { "colorTokens": 175, "components": 4, "replacedTags": 2 },
   "problems": [],
   "summary": { "files": 1, "errors": 2, "warnings": 1 },
   "violations": [
@@ -49,16 +43,14 @@ The exit code is 0 (no errors), 1 (errors found), or 2 (could not run). On 2, re
 
 - `designSystem` counts the tokens and components read from the config.
 - A non-empty `problems` means the config is broken and the results cannot be trusted. Tell the user before fixing any violation. If the problem is that no color token could be read and the project really has no color tokens, the `designsnitch-palette` skill covers creating them.
-- `found` is the offending piece of code. `candidates` lists the classes or components to use instead.
+- `found` is the offending piece of code. `candidates` lists what to use instead: classes or components in JS and TS files, and `var(--token)` in `.css` files.
 - `severity` `error` means the design system has something for this and it was not used. `warning` means the value is not in the design system.
 - `message` is written in Korean. You do not need to parse it: `rule`, `found` and `candidates` carry the same information.
 
 | `rule` | Severity | Meaning |
 | --- | --- | --- |
-| `color-use-token` | error | A hex color that has a token was written as an arbitrary value. |
+| `color-use-token` | error | A hex color that has a token was written as an arbitrary value, or directly in a CSS declaration. |
 | `color-unknown` | warning | A hex color with no matching token. |
-| `scale-use-token` | error | A spacing, font size or radius value that is on the scale was written as an arbitrary value. |
-| `scale-unknown` | warning | A spacing, font size or radius value that is not on the scale. `candidates` holds the nearest values. |
 | `use-ds-component` | error | A raw tag was used outside the design system directory although a shared component replaces it. |
 | `parse-error` | error | The file could not be parsed. |
 
@@ -70,7 +62,7 @@ Fix only the violations whose replacement is certain.
 | --- | --- |
 | `error` with exactly one candidate | Replace `found` with that candidate. |
 | `error` with two or more candidates | Do not change it. Show the user the candidates and where the code is used (the background of what, the text color of what) and let them choose. |
-| `warning` | Do not change it. Whether a new value is really needed or it is a mistake is the user's call. Show the nearest candidates if there are any. |
+| `warning` | Do not change it. Whether a new color is really needed or it is a mistake is the user's call. |
 | `rule` is `parse-error` | Fix the syntax error first, then check again. |
 
 For `use-ds-component`, renaming the tag is not enough. Read the design system component file to learn its props, add the import, and remove className values that duplicate styles the component already has.
@@ -86,5 +78,5 @@ Report what you fixed and what you left, separately. For each item you left, giv
 ## What not to do
 
 - Do not edit `designsnitch.config.json` or the token CSS to make the check pass. They are the standard the code is judged against. If one of them seems wrong, explain why and ask the user.
-- Do not add `eslint-disable` comments, lower a rule's severity, or turn a rule off to make the check pass. If an exception seems necessary, ask the user.
+- Do not add `eslint-disable` or `designsnitch-disable-next-line` comments, lower a rule's severity, or turn a rule off to make the check pass. If an exception seems necessary, ask the user.
 - Do not pick one of several candidates on your own.

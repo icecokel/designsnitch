@@ -1,11 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-import { parseColorTokens, parseScaleTokens } from "../core/tokens.js";
+import { parseColorTokens } from "../core/tokens.js";
 
 /**
  * @typedef {object} Tokens
  * @property {Map<string, string[]>} colors 색 값 → 토큰 이름들
- * @property {ReturnType<typeof parseScaleTokens>} scale 간격 단위, radius, 폰트 크기 토큰
  */
 
 /** @type {Map<string, { mtimeMs: number, tokens: Tokens }>} */
@@ -35,8 +34,7 @@ export function loadTokens(settings, cwd) {
   const cached = cache.get(file);
   if (cached?.mtimeMs === stat.mtimeMs) return cached.tokens;
 
-  const css = fs.readFileSync(file, "utf8");
-  const tokens = { colors: parseColorTokens(css), scale: parseScaleTokens(css) };
+  const tokens = { colors: parseColorTokens(fs.readFileSync(file, "utf8")) };
   cache.set(file, { mtimeMs: stat.mtimeMs, tokens });
   return tokens;
 }

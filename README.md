@@ -2,7 +2,15 @@
 
 English | [한국어](./README.ko.md)
 
-designsnitch finds the places where UI code departs from your project's design system and tells you what to use instead. It is built for code written by AI agents, which often looks right but quietly skips your tokens and shared components.
+designsnitch helps keep a UI codebase manageable and consistent when the project has no design system, or has one in name only. It is built for code written by AI agents, which produce plausible UI quickly and scatter colors, spacing and components across screens as they go.
+
+It works inside the code, with no designer or Figma file required.
+
+1. **Establish a standard.** It collects the values the code already uses so you can turn them into tokens.
+2. **Keep to it.** It checks new code against that standard and tells you what to use instead.
+3. **Clean up.** It helps bring code that has already drifted back to the standard.
+
+Deciding what the standard is stays with the developer. The tool's job is to bring what is needed to make that decision.
 
 It has three parts.
 
@@ -10,7 +18,7 @@ It has three parts.
 | --- | --- |
 | Check engine | Parses the code and finds violations with their locations and replacement candidates. |
 | CLI | `designsnitch check` runs the check, and `designsnitch colors` lists the colors the code uses. Both print a readable report or JSON. |
-| Agent skills | Tell an AI agent when to run the CLI, what to fix, and what to ask a person about. |
+| Agent skills | Tell an AI agent how to set the project up, when to run the CLI, what to fix, and what to ask a person about. |
 
 It supports **React/Next.js projects that use Tailwind CSS v4**.
 
@@ -22,7 +30,6 @@ UI code written by an AI agent usually looks fine at a glance and is slightly of
 
 - The primary color is hard-coded as `bg-[#3B82F6]` instead of the token, so that spot keeps its color when the theme changes.
 - A button color is almost the primary color, but not quite.
-- Spacing that should be `p-4` is written as `p-[15px]` or `p-[18px]`.
 - The design system has a `Button`, but the code builds a new one from `<button>`, a little shorter and without a focus style.
 
 These differences are hard to catch by eye in review. designsnitch finds them by analyzing the code.
@@ -38,13 +45,11 @@ Severity follows one rule.
 
 | Rule | Severity | What it catches |
 | --- | --- | --- |
-| `color-use-token` | Error | A hex color that has a token, written as an arbitrary value (`bg-[#3B82F6]`) |
+| `color-use-token` | Error | A hex color that has a token, written as an arbitrary value (`bg-[#3B82F6]`) or in a CSS declaration (`color: #3B82F6`) |
 | `color-unknown` | Warning | A hex color with no matching token |
-| `scale-use-token` | Error | A spacing, font size or radius value that is on the scale, written as an arbitrary value (`p-[16px]`) |
-| `scale-unknown` | Warning | A spacing, font size or radius value that is not on the scale |
 | `use-ds-component` | Error | A raw tag such as `<button>` used outside the design system directory, when a shared component replaces it |
 
-Every error comes with the class or component to use instead. `scale-unknown` comes with the nearest values on the scale.
+Every error comes with what to use instead: a class or component in JS and TS files, and `var(--token)` in CSS files.
 
 ## Quick start
 
@@ -106,6 +111,7 @@ Tailwind 기본 팔레트
 | `hex 색` (hex colors) | Hex colors, most used first, with the number of uses (`곳`) and files (`파일`). |
 | `bg 2`, `text 1` | Uses per Tailwind utility. `bg-[#3a11d8]` counts under `bg`. |
 | `문자열 1` (strings) | Strings that are a hex color on their own, such as inline styles and chart options. |
+| `CSS 2` | Uses in CSS declarations. The JSON output breaks these down by property. |
 | `Tailwind 기본 팔레트` (default palette) | Colors from Tailwind's default palette used by name, such as `text-gray-700`. |
 
 When a config file exists, each color also shows the tokens that already have that value (`토큰: --color-brand`), or `토큰 없음` when there is none. The JSON output has the same data plus a few example locations per color.
@@ -122,14 +128,11 @@ The [`designsnitch-palette` skill](#agent-skills) uses this output to propose to
 
 Without `components`, the component check is skipped. Use `--config <file>` to read a config file from another path.
 
-These variables are read from the token CSS.
+This is what is read from the token CSS.
 
 | Variable | Used for | When missing |
 | --- | --- | --- |
 | `--color-*` | Colors. The value must be a hex color, or a `var()` that leads to one. | Every hex color becomes a warning |
-| `--spacing` | The spacing unit | Tailwind's default, `0.25rem`, is used |
-| `--radius-*` | Radius | Radius is not checked |
-| `--text-*` | Font size | Font size is not checked |
 
 Both of these shapes work.
 
@@ -137,8 +140,7 @@ Both of these shapes work.
 /* Values directly in @theme */
 @theme {
   --color-primary-500: #3B82F6;
-  --radius-md: 0.375rem;
-  --text-sm: 0.875rem;
+  --color-surface: #ffffff;
 }
 
 /* Values in :root, referenced from @theme */
@@ -153,17 +155,14 @@ Both of these shapes work.
 ## Output
 
 ```
-디자인 시스템: 색 토큰 2개, radius 토큰 2개, 폰트 크기 토큰 2개, 컴포넌트 2개
+디자인 시스템: 색 토큰 2개, 컴포넌트 2개
 
 src/PayButton.tsx
   5:6  오류  <button> 대신 디자인 시스템 컴포넌트를 사용하세요: Button (./components/ui)  (use-ds-component)
-  7:10  오류  rounded-[6px]의 값은 radius 토큰에 있습니다. 대신 사용: rounded-md  (scale-use-token)
-  7:24  오류  px-[16px]의 값은 간격 스케일에 있습니다. 대신 사용: px-4  (scale-use-token)
-  7:34  경고  py-[7px]의 값은 간격 스케일에 없습니다. 가까운 값: py-1.5 (6px), py-2 (8px)  (scale-unknown)
   7:55  오류  bg-[#3B82F6]의 색은 토큰 --color-primary-500의 값입니다. 대신 사용: bg-primary-500  (color-use-token)
   8:26  경고  bg-[#3B82F5]의 색은 토큰에 없습니다.  (color-unknown)
 
-오류 4개, 경고 2개 (파일 3개 검사)
+오류 2개, 경고 1개 (파일 3개 검사)
 ```
 
 The first line shows how many tokens and components were read from the config. A wrong path shows up here as a zero. If no color token could be read, a line starting with `주의:` (notice) explains why. `오류` means error and `경고` means warning.
@@ -172,15 +171,9 @@ The first line shows how many tokens and components were read from the config. A
 
 ```json
 {
-  "designSystem": {
-    "colorTokens": 2,
-    "radiusTokens": 2,
-    "textTokens": 2,
-    "components": 2,
-    "replacedTags": 2
-  },
+  "designSystem": { "colorTokens": 2, "components": 2, "replacedTags": 2 },
   "problems": [],
-  "summary": { "files": 3, "errors": 4, "warnings": 2 },
+  "summary": { "files": 3, "errors": 2, "warnings": 1 },
   "violations": [
     {
       "file": "src/PayButton.tsx",
@@ -211,7 +204,7 @@ The first line shows how many tokens and components were read from the config. A
 | 1 | Errors found |
 | 2 | Could not run (missing config file, token CSS or component directory, or bad arguments) |
 
-The check does not depend on the project's ESLint config. It reads `.js`, `.jsx`, `.ts` and `.tsx` files and skips `node_modules`, `.next`, `dist`, `build`, `out` and `coverage`.
+The check does not depend on the project's ESLint config. It reads `.js`, `.jsx`, `.ts`, `.tsx` and `.css` files and skips `node_modules`, `.next`, `dist`, `build`, `out` and `coverage`.
 
 ## Exceptions
 
@@ -220,6 +213,15 @@ Mark intentional exceptions with a comment.
 ```tsx
 {/* eslint-disable-next-line designsnitch/color-unknown -- campaign-only color */}
 <p className="text-[#FF00AA]">Campaign</p>
+```
+
+In a CSS file, put this comment on the line before the declaration.
+
+```css
+.campaign {
+  /* designsnitch-disable-next-line -- campaign-only color */
+  color: #FF00AA;
+}
 ```
 
 ## Agent skills
@@ -236,9 +238,9 @@ Each skill does one job.
 | Skill | When the agent uses it | What it does |
 | --- | --- | --- |
 | `designsnitch-check` | After changing UI code | Runs the check, fixes the errors that have exactly one candidate, and shows a person the rest. |
-| `designsnitch-setup` | When the config file is missing | Finds the token CSS and the shared component directory, writes `designsnitch.config.json`, and verifies what was read. |
+| `designsnitch-setup` | When the config file is missing | Finds the token CSS and the shared component directory in the codebase, writes `designsnitch.config.json`, verifies what was read, and then wires the ESLint plugin. |
 | `designsnitch-palette` | When the project has no color tokens | Collects the colors in use with `designsnitch colors`, proposes tokens, and writes them after a person approves. |
-| `designsnitch-eslint` | When the project uses ESLint | Adds the same rules to the ESLint flat config. Asks first if the project already has errors. |
+| `designsnitch-eslint` | As the last step of setup | Puts the rules into the project's ESLint, and installs ESLint if the project has none. Asks first if the project already has errors. |
 
 The skills share a few rules. The agent does not pick one of several candidates on its own, does not silence a rule to make the check pass, and does not change an existing config file or token without asking. The config file and the tokens are the standard the code is judged against.
 
@@ -260,24 +262,20 @@ export default [
     rules: {
       // error: the design system has a token or component for this, and it was not used
       "designsnitch/color-use-token": "error",
-      "designsnitch/scale-use-token": "error",
       "designsnitch/use-ds-component": "error",
       // warn: the value is not in the design system, so a person has to decide
       "designsnitch/color-unknown": "warn",
-      "designsnitch/scale-unknown": "warn",
     },
   },
 ];
 ```
 
-The same set of rules is available as `designsnitch.configs.recommended`. In a project that already has many violations, the error-level rules will make the existing lint step fail, so run `designsnitch check` first to see how many there are. Replacement candidates appear as ESLint suggestions, which editors show as quick fixes.
+The same set of rules is available as `designsnitch.configs.recommended`. In a project that already has many violations, the error-level rules will make the existing lint step fail, so run `designsnitch check` first to see how many there are. Replacement candidates appear as ESLint suggestions, which editors show as quick fixes. CSS files are checked by the CLI only, not through ESLint.
 
 ## Scope
 
-- **Where it looks:** string literals and template literals in the code. This covers `className` and the arguments of `cn()`, `clsx()` and `cva()`. Comments are ignored.
-- **Spacing:** padding, margin, gap and space utilities only. Sizing utilities such as `w-[320px]` are not checked.
-- **Spacing scale:** multiples of half the spacing unit (`p-0.5`, `p-1.5`, `p-4`) and `p-px` count as on the scale.
-- **Units:** `px` and `rem` only. `1rem` is treated as 16px.
+- **Where it looks in JS and TS:** string literals and template literals. This covers `className` and the arguments of `cn()`, `clsx()` and `cva()`. Comments are ignored.
+- **Where it looks in CSS:** hex colors in declaration values, in `.css` files including CSS Modules. Declarations that define a variable (`--name: ...`) are skipped, since that is where tokens are defined. Only colors are checked in CSS for now.
 - **Themes:** when a token has different values per theme, all of them count as that token's value.
 - **Fixes:** designsnitch reports candidates and never rewrites code by itself, even when there is only one candidate.
 
@@ -287,7 +285,10 @@ The same set of rules is available as `designsnitch.configs.recommended`. In a p
 - Values from Tailwind's default theme. Only the values written in the project's token CSS are read.
 - Tailwind v3 (`tailwind.config.js`)
 - The nearest token for a color that has none
-- Inline styles, `.css` files and CSS Modules
+- Inline styles
+- SCSS and other preprocessors
+- Spacing, font size and radius. They were left out of this version on purpose.
+- Classes inside `@apply`
 - Comparing a hand-made component's styles with the design system component
 - A command that installs the skill
 
@@ -299,7 +300,7 @@ The split between a skill and a tool that does the work follows Modern Web Guida
 
 | Layer | Location | What it does |
 | --- | --- | --- |
-| Core | `src/core` | Reads the token CSS into a value-to-token table, finds arbitrary-value classes in strings, and compares values with the scale. Does not depend on ESLint. |
+| Core | `src/core` | Reads the token CSS into a value-to-token table, and finds color classes and values in strings and CSS. Does not depend on ESLint. |
 | Rules | `src/rules` | Find strings and JSX tags in the AST, ask the core, and report violations with candidates. Written as ESLint rules. |
 | Check engine | `src/check.js` | Runs the rules on a project and turns the results into a list of violations. Uses ESLint internally to parse and walk the code. |
 | CLI | `src/cli.js` | Reads arguments and the config file, calls the engine, and prints the result. |

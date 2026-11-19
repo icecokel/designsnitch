@@ -1,11 +1,11 @@
 ---
 name: designsnitch-setup
-description: Create designsnitch.config.json for a React/Next.js + Tailwind project by finding its token CSS and shared component directory. Use when `designsnitch check` reports that the config file is missing, or when the user asks to set up designsnitch in a project.
+description: Set up designsnitch in a React/Next.js + Tailwind project. Finds the token CSS and the shared component directory in the codebase, writes designsnitch.config.json, and wires the rules into ESLint. Use when `designsnitch check` reports that the config file is missing, or when the user asks to set up designsnitch in a project.
 ---
 
 # designsnitch-setup
 
-`designsnitch check` needs `designsnitch.config.json` in the project root. It tells the CLI where the design system lives. Read the repository and write this file.
+designsnitch needs to know where the project's design system lives. Read the codebase, write that down in `designsnitch.config.json`, and then make the ESLint plugin use it. The CLI and the plugin read the same file.
 
 Only create the file when it is missing. If it already exists and seems wrong, explain why and ask the user before changing it: this file is the standard the code is judged against.
 
@@ -59,11 +59,15 @@ Look at `designSystem` and `problems` in the result.
 
 Fix the config until these hold. Ignore the violations for now: fixing them is the job of the `designsnitch-check` skill.
 
-## 6. Show the user
+## 6. Wire the ESLint plugin
 
-Show the config file and say which CSS file and directory you chose, along with the counts from `designSystem` and the number of errors and warnings the first check found.
+Follow the `designsnitch-eslint` skill now. It puts the rules into the project's ESLint, and installs ESLint if the project has none. Setup is not finished until this is done: the config file alone does not block anything.
 
-If the project uses ESLint, mention that the `designsnitch-eslint` skill can add the same rules to it.
+## 7. Show the user
+
+Show the config file and say which CSS file and directory you chose, and why. Give the counts from `designSystem`, the number of errors and warnings the first check found, and what was added to ESLint.
+
+If you were unsure about a choice, say so and give the alternative. For example, if two directories both look like the shared component directory, name both and say why you picked one.
 
 ## What not to do
 

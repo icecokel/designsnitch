@@ -38,8 +38,14 @@ describe("플러그인", () => {
       { ruleId: "designsnitch/use-ds-component", severity: 2 },
       { ruleId: "designsnitch/color-use-token", severity: 2 },
       { ruleId: "designsnitch/color-unknown", severity: 1 },
-      { ruleId: "designsnitch/scale-use-token", severity: 2 },
-      { ruleId: "designsnitch/scale-unknown", severity: 1 },
+    ]);
+  });
+
+  it("간격, 폰트 크기, radius 는 검사하지 않는다", () => {
+    expect(Object.keys(designsnitch.rules).sort()).toEqual([
+      "color-unknown",
+      "color-use-token",
+      "use-ds-component",
     ]);
   });
 });

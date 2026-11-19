@@ -1,8 +1,9 @@
 import tsParser from "@typescript-eslint/parser";
 import { ESLint } from "eslint";
+import { IGNORED_DIRS } from "./files.js";
 
 const FILES = ["**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"];
-const IGNORES = ["**/.next/**", "**/dist/**", "**/build/**", "**/out/**", "**/coverage/**"];
+const IGNORES = IGNORED_DIRS.map((dir) => `**/${dir}/**`);
 
 /**
  * 프로젝트의 소스 파일에 주어진 규칙만 실행하는 ESLint 를 만든다.

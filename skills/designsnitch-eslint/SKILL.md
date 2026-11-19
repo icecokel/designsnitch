@@ -1,20 +1,22 @@
 ---
 name: designsnitch-eslint
-description: Add the designsnitch rules to a project's ESLint flat config so design system violations show up in the editor and in the existing lint step. Use when the user asks to enforce the design system through ESLint or lint, or after designsnitch has been set up in a project that uses ESLint.
+description: Put the designsnitch rules into a project's ESLint so design system violations are reported as errors and warnings in the editor and in the lint step. Installs ESLint when the project has none. Use as the last step of setting up designsnitch, or when the user asks to enforce the design system through ESLint or lint.
 ---
 
 # designsnitch-eslint
 
-The rules that `designsnitch check` runs can also run inside the project's own ESLint. Then violations show up in the editor while typing, and in the lint step people already run.
+The ESLint plugin is how designsnitch blocks and warns. `designsnitch check` tells an AI agent what to fix. The plugin is what makes a violation show up in the editor and fail the lint step. Setting up designsnitch is not finished until the rules run in ESLint.
 
-## 1. Check that it applies
+`designsnitch.config.json` must exist first. If it does not, follow the `designsnitch-setup` skill.
 
-Do this only when all of these hold.
+## 1. Find out what the project has
 
-- The project uses ESLint with a flat config (`eslint.config.js`, `.mjs` or `.ts`). If the project has no ESLint, do not install it for this: the CLI is enough. If it uses a legacy `.eslintrc`, leave it alone and tell the user the rules need a flat config.
-- `designsnitch.config.json` exists. If it does not, follow the `designsnitch-setup` skill first.
-- `designsnitch` is installed in the project (`npm install --save-dev designsnitch`).
-- The ESLint config does not already have `designsnitch/` rules.
+| The project has | Do |
+| --- | --- |
+| A flat config (`eslint.config.js`, `.mjs` or `.ts`) that already has `designsnitch/` rules | Nothing. Go to step 5 and verify. |
+| A flat config without `designsnitch/` rules | Step 3A |
+| No ESLint at all | Step 3B |
+| A legacy config (`.eslintrc*`) | Stop. Tell the user the rules need a flat config and that converting the project's config is their decision. |
 
 ## 2. Count the existing violations
 
@@ -22,9 +24,22 @@ Do this only when all of these hold.
 npx designsnitch check --format json
 ```
 
-Look at `summary.errors`. Error-level rules make the project's lint step fail on every existing violation. If there are existing errors, tell the user how many and ask before adding the rules.
+Look at `summary.errors`. Error-level rules make the lint step fail on every existing violation.
 
-## 3. Add the rules
+If there are existing errors, ask the user before adding the rules. Give them what they need to decide:
+
+- How many errors there are, by rule, and in how many files.
+- What happens if the rules are added now: the lint step fails until those are fixed.
+- How many of the errors have exactly one candidate, since those can be fixed mechanically with the `designsnitch-check` skill.
+- Your recommendation. Usually: fix the mechanical ones first, then add the rules.
+
+## 3A. Add the rules to an existing config
+
+Install the package if it is not a dependency yet.
+
+```sh
+npm install --save-dev designsnitch
+```
 
 Add one entry to the end of the exported array. Keep everything that is already there.
 
@@ -43,24 +58,71 @@ export default [
     rules: {
       // error: the design system has a token or component for this, and it was not used
       "designsnitch/color-use-token": "error",
-      "designsnitch/scale-use-token": "error",
       "designsnitch/use-ds-component": "error",
-      // warn: the value is not in the design system, so a person has to decide
+      // warn: the color is not in the design system, so a person has to decide
       "designsnitch/color-unknown": "warn",
-      "designsnitch/scale-unknown": "warn",
     },
   },
 ];
 ```
 
-Keep these severities. They follow one rule: it is an error when the design system already has the answer, and a warning when it does not. If the user wants a softer start, that is their decision to make.
+## 3B. Install ESLint when the project has none
 
-## 4. Verify
+```sh
+npm install --save-dev eslint typescript-eslint designsnitch
+```
 
-Run the project's lint command and confirm that the `designsnitch/` rules report the same violations as `npx designsnitch check`.
+Create `eslint.config.js` with only what designsnitch needs. Do not add other rule sets: which other lint rules the project wants is not yours to decide.
+
+```js
+// eslint.config.js
+import designsnitch from "designsnitch";
+import tseslint from "typescript-eslint";
+import designSystem from "./designsnitch.config.json" with { type: "json" };
+
+export default [
+  { ignores: ["node_modules/**", ".next/**", "dist/**", "build/**", "out/**", "coverage/**"] },
+  {
+    files: ["**/*.{js,jsx,ts,tsx}"],
+    languageOptions: {
+      parser: tseslint.parser,
+      parserOptions: { ecmaFeatures: { jsx: true } },
+    },
+    plugins: { designsnitch },
+    settings: { designsnitch: designSystem },
+    rules: {
+      "designsnitch/color-use-token": "error",
+      "designsnitch/use-ds-component": "error",
+      "designsnitch/color-unknown": "warn",
+    },
+  },
+];
+```
+
+If `package.json` has `"type": "module"`, name the file `eslint.config.js`. Otherwise name it `eslint.config.mjs`.
+
+Add a lint script if the project has none.
+
+```json
+{ "scripts": { "lint": "eslint ." } }
+```
+
+## 4. Keep the severities
+
+They follow one rule: it is an error when the design system already has the answer, and a warning when it does not. Errors block. Warnings ask a person to decide. If the user wants a softer start, that is their decision to make.
+
+## 5. Verify
+
+Run the project's lint command.
+
+- The `designsnitch/` rules should report the same violations in JS and TS files as `npx designsnitch check`.
+- CSS files are checked by the CLI only. Violations in `.css` files will not appear in the lint output.
+
+Tell the user what was installed and changed, and how many errors and warnings the lint step reports now.
 
 ## What not to do
 
 - Do not lower an error to a warning, or turn a rule off, to make lint pass.
 - Do not remove or rewrite the project's existing ESLint config.
 - Do not convert a legacy `.eslintrc` to a flat config as part of this.
+- Do not add lint rules other than the `designsnitch/` ones.

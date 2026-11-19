@@ -1,7 +1,5 @@
 import colorUnknown from "./rules/color-unknown.js";
 import colorUseToken from "./rules/color-use-token.js";
-import scaleUnknown from "./rules/scale-unknown.js";
-import scaleUseToken from "./rules/scale-use-token.js";
 import useDsComponent from "./rules/use-ds-component.js";
 
 const plugin = {
@@ -9,8 +7,6 @@ const plugin = {
   rules: {
     "color-use-token": colorUseToken,
     "color-unknown": colorUnknown,
-    "scale-use-token": scaleUseToken,
-    "scale-unknown": scaleUnknown,
     "use-ds-component": useDsComponent,
   },
   configs: {},
@@ -23,8 +19,6 @@ plugin.configs.recommended = {
   rules: {
     "designsnitch/color-use-token": "error",
     "designsnitch/color-unknown": "warn",
-    "designsnitch/scale-use-token": "error",
-    "designsnitch/scale-unknown": "warn",
     "designsnitch/use-ds-component": "error",
   },
 };

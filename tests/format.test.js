@@ -15,14 +15,8 @@ const violation = (overrides) => ({
   ...overrides,
 });
 
-const designSystem = {
-  colorTokens: 175,
-  radiusTokens: 4,
-  textTokens: 0,
-  components: 3,
-  replacedTags: 2,
-};
-const HEADER = "디자인 시스템: 색 토큰 175개, radius 토큰 4개, 폰트 크기 토큰 0개, 컴포넌트 3개";
+const designSystem = { colorTokens: 175, components: 3, replacedTags: 2 };
+const HEADER = "디자인 시스템: 색 토큰 175개, 컴포넌트 3개";
 
 describe("formatText", () => {
   it("파일별로 묶어 위치, 등급, 메시지, 규칙을 보여주고 끝에 요약을 붙인다", () => {
@@ -35,9 +29,9 @@ describe("formatText", () => {
         violation({
           line: 12,
           column: 3,
-          rule: "scale-unknown",
+          rule: "color-unknown",
           severity: "warning",
-          message: "p-[15px]의 값은 간격 스케일에 없습니다. 가까운 값: p-3.5 (14px), p-4 (16px)",
+          message: "text-[#3B82F5]의 색은 토큰에 없습니다.",
         }),
         violation({
           file: "src/Card.tsx",
@@ -56,7 +50,7 @@ describe("formatText", () => {
         "",
         "src/PayButton.tsx",
         "  5:24  오류  bg-[#3B82F6]의 색은 토큰 --color-primary-500의 값입니다. 대신 사용: bg-primary-500  (color-use-token)",
-        "  12:3  경고  p-[15px]의 값은 간격 스케일에 없습니다. 가까운 값: p-3.5 (14px), p-4 (16px)  (scale-unknown)",
+        "  12:3  경고  text-[#3B82F5]의 색은 토큰에 없습니다.  (color-unknown)",
         "",
         "src/Card.tsx",
         "  2:9  경고  bg-[#123456]의 색은 토큰에 없습니다.  (color-unknown)",
@@ -86,7 +80,7 @@ describe("formatText", () => {
       violations: [],
     });
     expect(text.split("\n")[0]).toBe(
-      "디자인 시스템: 색 토큰 175개, radius 토큰 4개, 폰트 크기 토큰 0개, 컴포넌트 설정 없음",
+      "디자인 시스템: 색 토큰 175개, 컴포넌트 설정 없음",
     );
   });
 
@@ -98,7 +92,7 @@ describe("formatText", () => {
       violations: [],
     });
     expect(text.split("\n").slice(0, 3)).toEqual([
-      "디자인 시스템: 색 토큰 0개, radius 토큰 4개, 폰트 크기 토큰 0개, 컴포넌트 3개",
+      "디자인 시스템: 색 토큰 0개, 컴포넌트 3개",
       "주의: 색 토큰을 하나도 읽지 못했습니다: tokens.css",
       "",
     ]);

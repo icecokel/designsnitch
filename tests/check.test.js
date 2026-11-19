@@ -10,15 +10,10 @@ describe("check", () => {
   it("프로젝트를 검사해서 위반 목록과 요약을 돌려준다", async () => {
     const result = await check({ cwd, config: loadConfig(cwd) });
 
-    expect(result.designSystem).toEqual({
-      colorTokens: 3,
-      radiusTokens: 1,
-      textTokens: 0,
-      components: 1,
-      replacedTags: 1,
-    });
+    expect(result.designSystem).toEqual({ colorTokens: 3, components: 1, replacedTags: 1 });
     expect(result.problems).toEqual([]);
-    expect(result.summary).toEqual({ files: 3, errors: 3, warnings: 1 });
+    // tsx 3개와 토큰 CSS(app/globals.css) 1개
+    expect(result.summary).toEqual({ files: 4, errors: 3, warnings: 0 });
     expect(result.violations).toEqual([
       {
         file: "src/PayButton.tsx",
@@ -58,18 +53,6 @@ describe("check", () => {
         found: "text-[#FFF]",
         candidates: ["text-white", "text-surface"],
       },
-      {
-        file: "src/PayButton.tsx",
-        line: 5,
-        column: 49,
-        endLine: 5,
-        endColumn: 57,
-        rule: "scale-unknown",
-        severity: "warning",
-        message: "p-[15px]의 값은 간격 스케일에 없습니다. 가까운 값: p-3.5 (14px), p-4 (16px)",
-        found: "p-[15px]",
-        candidates: ["p-3.5", "p-4"],
-      },
     ]);
   });
 
@@ -100,7 +83,8 @@ describe("프로젝트 코드에 있는 주석과 문법 오류", () => {
         `/* eslint-disable @next/next/no-img-element */`,
       ].join("\n"),
     });
-    expect(result).toMatchObject({ summary: { files: 1, errors: 0, warnings: 0 }, violations: [] });
+    // Legacy.tsx 와 tokens.css
+    expect(result).toMatchObject({ summary: { files: 2, errors: 0, warnings: 0 }, violations: [] });
   });
 
   it("eslint-disable 주석으로 예외를 둔 줄은 보고하지 않는다", async () => {
@@ -122,7 +106,7 @@ describe("프로젝트 코드에 있는 주석과 문법 오류", () => {
 
   it("파싱하지 못한 파일은 parse-error 로 보고한다", async () => {
     const result = await checkProject({ "src/Broken.tsx": `export const Broken = () => <div` });
-    expect(result.summary).toEqual({ files: 1, errors: 1, warnings: 0 });
+    expect(result.summary).toEqual({ files: 2, errors: 1, warnings: 0 });
     expect(result.violations[0]).toMatchObject({
       file: "src/Broken.tsx",
       rule: "parse-error",
@@ -163,13 +147,7 @@ describe("설정을 읽은 결과", () => {
       "designsnitch.config.json": `{ "tokens": "tokens.css" }`,
       "tokens.css": `@theme { --color-primary: #3B82F6; --text-sm: 0.875rem; }`,
     });
-    expect(result.designSystem).toEqual({
-      colorTokens: 1,
-      radiusTokens: 0,
-      textTokens: 1,
-      components: 0,
-      replacedTags: 0,
-    });
+    expect(result.designSystem).toEqual({ colorTokens: 1, components: 0, replacedTags: 0 });
   });
 
   it("색 토큰을 하나도 읽지 못하면 problems 로 알린다", async () => {
@@ -194,5 +172,116 @@ describe("설정을 읽은 결과", () => {
         "tokens.css": `@theme { --color-primary: #3B82F6; }`,
       }),
     ).rejects.toThrow("components/ui");
+  });
+});
+
+describe("CSS 파일", () => {
+  const base = {
+    "designsnitch.config.json": `{ "tokens": "app/globals.css" }`,
+    "app/globals.css": [
+      `@import "tailwindcss";`,
+      `:root { --primary-500: #3B82F6; }`,
+      `@theme { --color-primary-500: var(--primary-500); --color-brand: #3b82f6; --color-surface: #ffffff; }`,
+      `body { color: #FFF; }`,
+    ].join("\n"),
+  };
+  const checkProject = (files, paths) => {
+    const cwd = tempProject({ ...base, ...files });
+    return check({ cwd, config: loadConfig(cwd), paths });
+  };
+
+  it("토큰이 있는 색은 var() 후보와 함께 오류로, 없는 색은 경고로 보고한다", async () => {
+    const result = await checkProject({
+      "src/card.module.css": [".card {", "  color: #3B82F6;", "  border: 1px solid #3B82F5;", "}"].join("\n"),
+    });
+
+    expect(result.summary).toEqual({ files: 2, errors: 2, warnings: 1 });
+    expect(result.violations).toEqual([
+      {
+        file: "app/globals.css",
+        line: 4,
+        column: 15,
+        endLine: 4,
+        endColumn: 19,
+        rule: "color-use-token",
+        severity: "error",
+        message: "#FFF의 색은 토큰 --color-surface의 값입니다. 대신 사용: var(--color-surface)",
+        found: "#FFF",
+        candidates: ["var(--color-surface)"],
+      },
+      {
+        file: "src/card.module.css",
+        line: 2,
+        column: 10,
+        endLine: 2,
+        endColumn: 17,
+        rule: "color-use-token",
+        severity: "error",
+        message:
+          "#3B82F6의 색은 토큰 --color-primary-500, --color-brand의 값입니다. 대신 사용: var(--color-primary-500), var(--color-brand)",
+        found: "#3B82F6",
+        candidates: ["var(--color-primary-500)", "var(--color-brand)"],
+      },
+      {
+        file: "src/card.module.css",
+        line: 3,
+        column: 21,
+        endLine: 3,
+        endColumn: 28,
+        rule: "color-unknown",
+        severity: "warning",
+        message: "#3B82F5의 색은 토큰에 없습니다.",
+        found: "#3B82F5",
+        candidates: [],
+      },
+    ]);
+  });
+
+  it("JS 와 CSS 의 위반을 파일 순서대로 함께 돌려준다", async () => {
+    const result = await checkProject({
+      "src/b.css": `.b { color: #123456; }`,
+      "src/a.tsx": `export const A = () => <div className="bg-[#123456]" />;`,
+    });
+    expect(result.summary.files).toBe(3);
+    expect(result.violations.map(({ file, found }) => ({ file, found }))).toEqual([
+      { file: "app/globals.css", found: "#FFF" },
+      { file: "src/a.tsx", found: "bg-[#123456]" },
+      { file: "src/b.css", found: "#123456" },
+    ]);
+  });
+
+  it("CSS 파일을 직접 지정하면 그 파일만 검사한다", async () => {
+    const result = await checkProject(
+      { "src/b.css": `.b { color: #123456; }`, "src/a.tsx": `export const a = "bg-[#123456]";` },
+      ["src/b.css"],
+    );
+    expect(result.summary.files).toBe(1);
+    expect(result.violations.map((v) => v.file)).toEqual(["src/b.css"]);
+  });
+
+  it("node_modules 와 빌드 결과물의 CSS 는 보지 않는다", async () => {
+    const result = await checkProject({
+      "node_modules/pkg/style.css": `.x { color: #123456; }`,
+      "dist/out.css": `.x { color: #123456; }`,
+      ".next/static/a.css": `.x { color: #123456; }`,
+    });
+    expect(result.violations.map((v) => v.file)).toEqual(["app/globals.css"]);
+  });
+
+  it("주석으로 예외를 둔 선언은 보고하지 않는다", async () => {
+    const result = await checkProject({
+      "src/c.css": `.c {\n  /* designsnitch-disable-next-line */\n  color: #FF00AA;\n  background: #FF00AB;\n}`,
+    });
+    expect(result.violations.filter((v) => v.file === "src/c.css").map((v) => v.found)).toEqual(["#FF00AB"]);
+  });
+
+  it("읽지 못한 CSS 파일은 parse-error 로 보고한다", async () => {
+    const result = await checkProject({ "src/broken.css": `.a { color: red` + "\n" + `.b {{ }` });
+    expect(result.violations.find((v) => v.file === "src/broken.css")).toMatchObject({
+      rule: "parse-error",
+      severity: "error",
+      found: "",
+      candidates: [],
+    });
   });
 });

@@ -1,7 +1,10 @@
+import fs from "node:fs";
 import path from "node:path";
 import { findArbitraryColors, findPaletteClasses } from "./core/classes.js";
 import { normalizeHex } from "./core/color.js";
+import { findCssColors } from "./core/css.js";
 import { createEngine } from "./engine.js";
+import { splitPaths } from "./files.js";
 import { visitStrings } from "./rules/visit-strings.js";
 
 const RULE_ID = "designsnitch-internal/collect-colors";
@@ -48,7 +51,7 @@ const collectRule = {
  * @typedef {object} ColorUse
  * @property {number} uses 쓰인 횟수
  * @property {number} files 쓰인 파일 수
- * @property {Record<string, number>} utilities 유틸리티별 횟수. 예: { bg: 3, text: 1 }
+ * @property {Record<string, number>} utilities Tailwind 유틸리티별 횟수. 예: { bg: 3, text: 1 }
  * @property {{ file: string, line: number }[]} examples 파일이 서로 다른 위치 몇 개
  */
 
@@ -60,9 +63,10 @@ const collectRule = {
  * @param {Map<string, string[]>} [options.tokens] 색 값 → 토큰 이름들. 주면 색마다 tokens 를 붙인다
  * @returns {Promise<{
  *   summary: { files: number, colors: number, paletteColors: number, uses: number },
- *   colors: (ColorUse & { color: string, literals: number, tokens?: string[] })[],
+ *   colors: (ColorUse & { color: string, literals: number, properties: Record<string, number>, tokens?: string[] })[],
  *   palette: (ColorUse & { name: string })[],
- * }>} colors 는 hex 색, palette 는 Tailwind 기본 팔레트 색. 둘 다 많이 쓰인 순서
+ * }>} colors 는 hex 색, palette 는 Tailwind 기본 팔레트 색. 둘 다 많이 쓰인 순서.
+ *   literals 는 문자열 전체가 hex 인 곳의 수, properties 는 CSS 속성별 횟수
  */
 export async function collectColors({ cwd, paths = ["."], tokens }) {
   const eslint = createEngine({
@@ -75,23 +79,41 @@ export async function collectColors({ cwd, paths = ["."], tokens }) {
     },
   });
 
-  const results = await eslint.lintFiles(paths);
-  results.sort((a, b) => a.filePath.localeCompare(b.filePath));
+  const { scriptPaths, cssFiles } = splitPaths(cwd, paths);
+  const results = scriptPaths.length > 0 ? await eslint.lintFiles(scriptPaths) : [];
 
-  const groups = { hex: new Map(), palette: new Map() };
+  /** @type {{ file: string, line: number, kind: "hex" | "palette", key: string, utility?: string | null, prop?: string }[]} */
+  const uses = [];
   for (const result of results) {
     const file = path.relative(cwd, result.filePath).split(path.sep).join("/");
     for (const message of result.messages) {
       if (message.ruleId !== RULE_ID) continue;
-      const { kind, key, utility } = JSON.parse(message.message);
-      const entry = getOrCreate(groups[kind], key);
-      entry.uses += 1;
-      if (utility) entry.utilities[utility] = (entry.utilities[utility] ?? 0) + 1;
-      else entry.literals += 1;
-      if (!entry.fileSet.has(file)) {
-        entry.fileSet.add(file);
-        if (entry.examples.length < MAX_EXAMPLES) entry.examples.push({ file, line: message.line });
-      }
+      uses.push({ file, line: message.line, ...JSON.parse(message.message) });
+    }
+  }
+  for (const file of cssFiles) {
+    let found;
+    try {
+      found = findCssColors(fs.readFileSync(path.resolve(cwd, file), "utf8"));
+    } catch {
+      continue; // 읽지 못한 CSS 는 건너뛴다
+    }
+    for (const { line, value, prop } of found) {
+      uses.push({ file, line, kind: "hex", key: colorKey(value), prop });
+    }
+  }
+  uses.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
+
+  const groups = { hex: new Map(), palette: new Map() };
+  for (const { file, line, kind, key, utility, prop } of uses) {
+    const entry = getOrCreate(groups[kind], key);
+    entry.uses += 1;
+    if (prop) entry.properties[prop] = (entry.properties[prop] ?? 0) + 1;
+    else if (utility) entry.utilities[utility] = (entry.utilities[utility] ?? 0) + 1;
+    else entry.literals += 1;
+    if (!entry.fileSet.has(file)) {
+      entry.fileSet.add(file);
+      if (entry.examples.length < MAX_EXAMPLES) entry.examples.push({ file, line });
     }
   }
 
@@ -101,6 +123,7 @@ export async function collectColors({ cwd, paths = ["."], tokens }) {
     files: entry.fileSet.size,
     utilities: entry.utilities,
     literals: entry.literals,
+    properties: entry.properties,
     ...(tokens ? { tokens: tokens.get(color) ?? [] } : {}),
     examples: entry.examples,
   }));
@@ -120,7 +143,7 @@ export async function collectColors({ cwd, paths = ["."], tokens }) {
 
   return {
     summary: {
-      files: results.length,
+      files: results.length + cssFiles.length,
       colors: colors.length,
       paletteColors: palette.length,
       uses: [...colors, ...palette].reduce((sum, item) => sum + item.uses, 0),
@@ -132,7 +155,7 @@ export async function collectColors({ cwd, paths = ["."], tokens }) {
 
 function getOrCreate(map, key) {
   if (!map.has(key)) {
-    map.set(key, { uses: 0, fileSet: new Set(), utilities: {}, literals: 0, examples: [] });
+    map.set(key, { uses: 0, fileSet: new Set(), utilities: {}, literals: 0, properties: {}, examples: [] });
   }
   return map.get(key);
 }

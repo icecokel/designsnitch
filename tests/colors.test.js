@@ -26,6 +26,7 @@ describe("collectColors", () => {
         files: 2,
         utilities: { bg: 2, text: 1 },
         literals: 1,
+        properties: {},
         examples: [
           { file: "src/A.tsx", line: 2 },
           { file: "src/B.tsx", line: 2 },
@@ -37,6 +38,7 @@ describe("collectColors", () => {
         files: 1,
         utilities: { border: 1 },
         literals: 0,
+        properties: {},
         examples: [{ file: "src/A.tsx", line: 2 }],
       },
     ]);
@@ -91,4 +93,39 @@ describe("collectColors", () => {
     expect(result.colors.map((c) => c.color)).toEqual(["#123456"]);
     expect(result.summary.files).toBe(2);
   });
+
+  it("CSS 파일의 색도 속성별로 센다", async () => {
+    const result = await collectColors({
+      cwd: tempProject({
+        "src/a.tsx": `export const a = "bg-[#3B82F6]";`,
+        "src/a.css": `.a { color: #3b82f6; background-color: #3B82F6; }\n.b { color: #111; --x: #222222; }`,
+        "dist/out.css": `.x { color: #999999; }`,
+      }),
+    });
+    expect(result.summary).toEqual({ files: 2, colors: 2, paletteColors: 0, uses: 4 });
+    expect(result.colors).toEqual([
+      {
+        color: "#3b82f6",
+        uses: 3,
+        files: 2,
+        utilities: { bg: 1 },
+        literals: 0,
+        properties: { color: 1, "background-color": 1 },
+        examples: [
+          { file: "src/a.css", line: 1 },
+          { file: "src/a.tsx", line: 1 },
+        ],
+      },
+      {
+        color: "#111111",
+        uses: 1,
+        files: 1,
+        utilities: {},
+        literals: 0,
+        properties: { color: 1 },
+        examples: [{ file: "src/a.css", line: 2 }],
+      },
+    ]);
+  });
 });
+
