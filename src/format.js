@@ -14,7 +14,12 @@ export function formatText({ designSystem, problems, summary, violations }, lang
     return [...header, m.noViolations(summary), ""].join("\n");
   }
 
-  const byFile = Map.groupBy(violations, (violation) => violation.file);
+  const byFile = new Map();
+  for (const violation of violations) {
+    const { file } = violation;
+    if (!byFile.has(file)) byFile.set(file, []);
+    byFile.get(file).push(violation);
+  }
   const sections = [...byFile].map(([file, items]) =>
     [
       file,

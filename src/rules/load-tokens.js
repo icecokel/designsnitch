@@ -22,20 +22,18 @@ export function loadTokens(settings, cwd) {
   if (typeof tokensPath !== "string") throw new Error(m.tokensSettingMissing());
 
   const file = path.resolve(cwd, tokensPath);
-  let stat;
   try {
-    stat = fs.statSync(file);
-  } catch {
-    throw new Error(m.tokensFileMissing({ file }));
-  }
+    const { mtimeMs } = fs.statSync(file);
+    const cached = cache.get(file);
+    if (cached?.mtimeMs === mtimeMs) return cached.tokens;
 
-  const cached = cache.get(file);
-  if (cached?.mtimeMs === stat.mtimeMs) return cached.tokens;
-
-  let colors;
-  try {
-    colors = parseColorTokens(fs.readFileSync(file, "utf8"));
+    const tokens = { colors: parseColorTokens(fs.readFileSync(file, "utf8")) };
+    cache.set(file, { mtimeMs, tokens });
+    return tokens;
   } catch (error) {
+    if (error.code === "ENOENT" || error.code === "ENOTDIR") {
+      throw new Error(m.tokensFileMissing({ file }));
+    }
     // 기준이 되는 파일이 깨져 있으면 무엇도 판정할 수 없다. 어디가 깨졌는지 알려준다.
     throw new Error(
       m.tokensUnreadable({
@@ -46,7 +44,4 @@ export function loadTokens(settings, cwd) {
       }),
     );
   }
-  const tokens = { colors };
-  cache.set(file, { mtimeMs: stat.mtimeMs, tokens });
-  return tokens;
 }

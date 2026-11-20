@@ -11,11 +11,21 @@ export default {
     docs: { description: "Use the token instead of writing its color as a hex value" },
     hasSuggestions: true,
     schema: [],
-    messages: { useToken: TEXT, replace: TEXT },
+    messages: { useToken: TEXT, replace: TEXT, tokensConfig: TEXT },
   },
   create(context) {
+    let tokens;
+    try {
+      tokens = loadTokens(context.settings, context.cwd);
+    } catch (error) {
+      return {
+        Program(node) {
+          context.report({ node, messageId: "tokensConfig", data: { text: error.message } });
+        },
+      };
+    }
     const m = ruleMessages(context);
-    const { colors } = loadTokens(context.settings, context.cwd);
+    const { colors } = tokens;
 
     return visitStrings(context, findArbitraryColors, (found, { loc, range }) => {
       const tokenNames = colors.get(normalizeHex(found.value));

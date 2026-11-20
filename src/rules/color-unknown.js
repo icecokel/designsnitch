@@ -13,8 +13,15 @@ export default {
     messages: { unknown: TEXT },
   },
   create(context) {
+    let tokens;
+    try {
+      tokens = loadTokens(context.settings, context.cwd);
+    } catch {
+      // 토큰 설정 문제는 color-use-token 에서만 보고한다.
+      return {};
+    }
     const m = ruleMessages(context);
-    const { colors } = loadTokens(context.settings, context.cwd);
+    const { colors } = tokens;
 
     return visitStrings(context, findArbitraryColors, (found, { loc }) => {
       if (colors.has(normalizeHex(found.value))) return;

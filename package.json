@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@typescript-eslint/parser": "^8.73.0",
-    "eslint": ">=9",
+    "eslint": "^9 || ^10",
     "postcss": "^8.4.0"
   },
   "devDependencies": {

@@ -37,6 +37,8 @@ const en = {
   replaceWith: ({ className }) => `Replace with ${className}`,
 
   // 실행하지 못했을 때
+  nodeVersionUnsupported: ({ minimum, version }) =>
+    `Node.js ${minimum} or later is required (current version: ${version}).`,
   tokensSettingMissing: () =>
     "designsnitch: set settings.designsnitch.tokens to the path of the token CSS file.",
   tokensFileMissing: ({ file }) => `designsnitch: token CSS file not found: ${file}`,
@@ -146,6 +148,8 @@ const ko = {
     `<${tag}> 대신 디자인 시스템 컴포넌트를 사용하세요: ${component} (${path})`,
   replaceWith: ({ className }) => `${className}(으)로 바꾸기`,
 
+  nodeVersionUnsupported: ({ minimum, version }) =>
+    `Node.js ${minimum} 이상이 필요합니다(현재 버전: ${version}).`,
   tokensSettingMissing: () =>
     "designsnitch: settings.designsnitch.tokens 에 토큰 CSS 파일 경로를 설정하세요.",
   tokensFileMissing: ({ file }) => `designsnitch: 토큰 CSS 파일을 찾을 수 없습니다: ${file}`,
