@@ -30,10 +30,19 @@ const en = {
   // 규칙
   useToken: ({ found, tokens, candidates }) =>
     `${found} has the same color as ${tokens}. Use instead: ${candidates}`,
+  useTokenThemed: ({ found, tokens, candidates }) =>
+    `${found} has the same color as ${tokens}. Candidates: ${candidates}. ` +
+    "A candidate token has different values across themes. Using it can change the color in another theme.",
   unknownColor: ({ found }) => `The color of ${found} is not in the tokens.`,
   unknownCssColor: ({ value }) => `The color ${value} is not in the tokens.`,
   useComponent: ({ tag, component, path }) =>
     `Use a design system component instead of <${tag}>: ${component} (${path})`,
+  useComponentAsk: ({ tag, component, path, dynamicAttribute }) => {
+    const reason = dynamicAttribute === undefined
+      ? "The element has spread attributes."
+      : `The "${dynamicAttribute}" attribute has a dynamic value.`;
+    return `Check whether <${tag}> can be replaced with ${component} (${path}). ${reason}`;
+  },
   replaceWith: ({ className }) => `Replace with ${className}`,
 
   // 실행하지 못했을 때
@@ -56,7 +65,13 @@ const en = {
   configNoReplaces: ({ file }) =>
     `The config file has no "components.replaces" (raw tags and the components that replace them): ${file}`,
   configBadReplace: ({ tag, file }) =>
-    `"components.replaces.${tag}" in the config file must be a component name or an array of names: ${file}`,
+    `"components.replaces.${tag}" in the config file must be a component name, an array of names, or an object with a "component" field: ${file}`,
+  configBadReplaceComponent: ({ tag, file }) =>
+    `"components.replaces.${tag}.component" in the config file must be a component name or a non-empty array of names: ${file}`,
+  configBadWhen: ({ tag, file }) =>
+    `"components.replaces.${tag}.when" in the config file must be an object mapping attributes to allowed values: ${file}`,
+  configBadWhenValues: ({ tag, attribute, file }) =>
+    `"components.replaces.${tag}.when.${attribute}" in the config file must be an array of strings or null values: ${file}`,
   configBadLang: ({ file }) => `"lang" in the config file must be "en" or "ko": ${file}`,
   settingsUnreadable: ({ file }) => `Could not read ${file}. Fix the JSON and run again.`,
 
@@ -142,10 +157,19 @@ Exit codes of check: 0 no errors, 1 errors found, 2 could not run
 const ko = {
   useToken: ({ found, tokens, candidates }) =>
     `${found}의 색은 토큰 ${tokens}의 값입니다. 대신 사용: ${candidates}`,
+  useTokenThemed: ({ found, tokens, candidates }) =>
+    `${found}의 색은 토큰 ${tokens}의 값입니다. 후보: ${candidates}. ` +
+    "후보 중 테마마다 값이 다른 토큰이 있어 그 토큰으로 바꾸면 다른 테마에서 색이 바뀔 수 있습니다.",
   unknownColor: ({ found }) => `${found}의 색은 토큰에 없습니다.`,
   unknownCssColor: ({ value }) => `${value}의 색은 토큰에 없습니다.`,
   useComponent: ({ tag, component, path }) =>
     `<${tag}> 대신 디자인 시스템 컴포넌트를 사용하세요: ${component} (${path})`,
+  useComponentAsk: ({ tag, component, path, dynamicAttribute }) => {
+    const reason = dynamicAttribute === undefined
+      ? "요소에 spread 속성이 있습니다."
+      : `"${dynamicAttribute}" 속성 값이 동적입니다.`;
+    return `<${tag}>를 ${component} (${path})로 바꿀 수 있는지 확인하세요. ${reason}`;
+  },
   replaceWith: ({ className }) => `${className}(으)로 바꾸기`,
 
   nodeVersionUnsupported: ({ minimum, version }) =>
@@ -166,7 +190,13 @@ const ko = {
   configNoReplaces: ({ file }) =>
     `설정 파일의 "components.replaces"(raw 태그와 대체 컴포넌트)가 없습니다: ${file}`,
   configBadReplace: ({ tag, file }) =>
-    `설정 파일의 "components.replaces.${tag}"는 컴포넌트 이름이거나 이름의 배열이어야 합니다: ${file}`,
+    `설정 파일의 "components.replaces.${tag}"는 컴포넌트 이름, 이름의 배열 또는 "component" 필드가 있는 객체여야 합니다: ${file}`,
+  configBadReplaceComponent: ({ tag, file }) =>
+    `설정 파일의 "components.replaces.${tag}.component"는 컴포넌트 이름 또는 이름이 하나 이상 담긴 배열이어야 합니다: ${file}`,
+  configBadWhen: ({ tag, file }) =>
+    `설정 파일의 "components.replaces.${tag}.when"은 속성별 허용 값을 지정하는 객체여야 합니다: ${file}`,
+  configBadWhenValues: ({ tag, attribute, file }) =>
+    `설정 파일의 "components.replaces.${tag}.when.${attribute}"는 문자열 또는 null을 담은 배열이어야 합니다: ${file}`,
   configBadLang: ({ file }) => `설정 파일의 "lang"은 "en"이나 "ko"여야 합니다: ${file}`,
   settingsUnreadable: ({ file }) => `${file} 을 읽을 수 없습니다. JSON 형식을 고친 뒤 다시 실행하세요.`,
 

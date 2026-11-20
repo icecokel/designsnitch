@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { replacementNames } from "./config.js";
 import { normalizeHex } from "./core/color.js";
 import { findCssColors } from "./core/css.js";
 import { createEngine } from "./engine.js";
@@ -23,8 +24,8 @@ const RULE_PREFIX = "designsnitch/";
  * @property {string} found 위반한 코드 조각 (클래스나 태그 이름)
  * @property {string[]} candidates 대신 쓸 클래스나 컴포넌트. 없으면 빈 배열
  * @property {"replace" | "ask" | "repair"} action 이 위반을 어떻게 다룰지.
- *   replace: found 를 candidates 의 값으로 바꾸면 된다 (후보가 하나뿐인 오류)
- *   ask: 사람이 정해야 한다 (후보가 여러 개이거나, 토큰에 없는 값)
+ *   replace: found 를 candidates 의 값으로 바꿀 수 있다 (교체가 안전하고 후보가 하나뿐인 오류)
+ *   ask: 사람이 정해야 한다 (교체가 확실하지 않거나 후보가 하나가 아닌 경우)
  *   repair: 파일을 읽지 못했다. 문법 오류부터 고쳐야 한다
  */
 
@@ -75,12 +76,12 @@ export async function check({ cwd, config, paths = ["."], lang }) {
       .map((message) => toViolation(file, result.source, message, config));
   });
   const cssViolations = cssFiles.flatMap((file) =>
-    checkCss(file, fs.readFileSync(path.resolve(cwd, file), "utf8"), tokens.colors, m),
+    checkCss(file, fs.readFileSync(path.resolve(cwd, file), "utf8"), tokens, m),
   );
 
   const violations = [...scriptViolations, ...cssViolations]
     .sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.column - b.column)
-    .map((violation) => ({ ...violation, action: actionFor(violation) }));
+    .map(({ messageId, ...violation }) => ({ ...violation, action: actionFor(violation, messageId) }));
 
   return {
     designSystem,
@@ -97,9 +98,9 @@ export async function check({ cwd, config, paths = ["."], lang }) {
 
 /**
  * CSS 파일 하나의 hex 색을 토큰과 비교한다. 대체 후보는 var(--토큰) 이다.
- * @returns {Violation[]}
+ * @returns {(Omit<Violation, "action"> & { messageId?: string })[]}
  */
-function checkCss(file, source, colorTokens, m) {
+function checkCss(file, source, tokens, m) {
   let colors;
   try {
     colors = findCssColors(source);
@@ -123,8 +124,9 @@ function checkCss(file, source, colorTokens, m) {
   return colors
     .filter((color) => !color.disabled)
     .map(({ value, prop, disabled, ...location }) => {
-      const tokenNames = colorTokens.get(normalizeHex(value)) ?? [];
+      const tokenNames = tokens.colors.get(normalizeHex(value)) ?? [];
       const candidates = tokenNames.map((name) => `var(${name})`);
+      const messageId = tokenNames.some((name) => tokens.themed.has(name)) ? "useTokenThemed" : "useToken";
       return {
         file,
         ...location,
@@ -132,7 +134,8 @@ function checkCss(file, source, colorTokens, m) {
           ? {
               rule: "color-use-token",
               severity: "error",
-              message: m.useToken({
+              messageId,
+              message: m[messageId]({
                 found: value,
                 tokens: tokenNames.join(", "),
                 candidates: candidates.join(", "),
@@ -149,8 +152,9 @@ function checkCss(file, source, colorTokens, m) {
     });
 }
 
-function actionFor({ rule, severity, candidates }) {
+function actionFor({ rule, severity, candidates }, messageId) {
   if (rule === "parse-error") return "repair";
+  if (messageId === "useComponentAsk" || messageId === "useTokenThemed") return "ask";
   return severity === "error" && candidates.length === 1 ? "replace" : "ask";
 }
 
@@ -186,7 +190,7 @@ function describeDesignSystem(tokens, config) {
   const replaces = Object.values(config.components?.replaces ?? {});
   return {
     colorTokens: countNames(tokens.colors),
-    components: new Set(replaces.flat()).size,
+    components: new Set(replaces.flatMap(replacementNames)).size,
     replacedTags: replaces.length,
   };
 }
@@ -209,7 +213,7 @@ function toViolation(file, source, message, config) {
   let candidates = (message.suggestions ?? []).map((suggestion) => suggestion.fix.text);
   if (rule === "use-ds-component") {
     // 컴포넌트는 import 까지 바꿔야 해서 제안(자동 교체)이 없다. 설정에서 후보를 찾는다.
-    candidates = [config.components?.replaces?.[found] ?? []].flat();
+    candidates = replacementNames(config.components?.replaces?.[found]);
   }
 
   return {
@@ -221,6 +225,7 @@ function toViolation(file, source, message, config) {
     rule,
     severity: message.severity === 2 ? "error" : "warning",
     message: message.message,
+    messageId: message.messageId,
     found,
     candidates,
   };

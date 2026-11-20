@@ -11,7 +11,7 @@ export default {
     docs: { description: "Use the token instead of writing its color as a hex value" },
     hasSuggestions: true,
     schema: [],
-    messages: { useToken: TEXT, replace: TEXT, tokensConfig: TEXT },
+    messages: { useToken: TEXT, useTokenThemed: TEXT, replace: TEXT, tokensConfig: TEXT },
   },
   create(context) {
     let tokens;
@@ -25,17 +25,18 @@ export default {
       };
     }
     const m = ruleMessages(context);
-    const { colors } = tokens;
+    const { colors, themed } = tokens;
 
     return visitStrings(context, findArbitraryColors, (found, { loc, range }) => {
       const tokenNames = colors.get(normalizeHex(found.value));
       if (!tokenNames) return;
       const classes = tokenNames.map((name) => tokenToClass(found.utility, name));
+      const messageId = tokenNames.some((name) => themed.has(name)) ? "useTokenThemed" : "useToken";
       context.report({
         loc,
-        messageId: "useToken",
+        messageId,
         data: {
-          text: m.useToken({
+          text: m[messageId]({
             found: found.text,
             tokens: tokenNames.join(", "),
             candidates: classes.join(", "),

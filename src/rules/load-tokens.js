@@ -1,11 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
-import { parseColorTokens } from "../core/tokens.js";
+import { parseColorTokenData } from "../core/tokens.js";
 import { messages, resolveLang } from "../messages.js";
 
 /**
  * @typedef {object} Tokens
  * @property {Map<string, string[]>} colors 색 값 → 토큰 이름들
+ * @property {Set<string>} themed 테마마다 값이 다른 토큰 이름들
  */
 
 /** @type {Map<string, { mtimeMs: number, tokens: Tokens }>} */
@@ -27,7 +28,7 @@ export function loadTokens(settings, cwd) {
     const cached = cache.get(file);
     if (cached?.mtimeMs === mtimeMs) return cached.tokens;
 
-    const tokens = { colors: parseColorTokens(fs.readFileSync(file, "utf8")) };
+    const tokens = parseColorTokenData(fs.readFileSync(file, "utf8"));
     cache.set(file, { mtimeMs, tokens });
     return tokens;
   } catch (error) {

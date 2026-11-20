@@ -57,4 +57,29 @@ describe("loadConfig", () => {
     });
     expect(() => loadConfig(cwd)).toThrow(expected);
   });
+
+  it.each([
+    ["when 이 null", null, "when"],
+    ["when 이 배열", ["text"], "when"],
+    ["when 의 속성 조건이 배열이 아님", { type: "text" }, "when.type"],
+    ["when 의 속성 조건에 수가 들어 있음", { type: ["text", 1] }, "when.type"],
+  ])("%s 이면 잘못된 조건의 경로를 알려준다", (_name, when, field) => {
+    const cwd = tempProject({
+      "designsnitch.config.json": JSON.stringify({
+        tokens: "tokens.css",
+        components: { path: "ui", replaces: { input: { component: "InputCell", when } } },
+      }),
+    });
+    expect(() => loadConfig(cwd)).toThrow(`"components.replaces.input.${field}"`);
+  });
+
+  it("객체 설정의 component 가 유효하지 않으면 해당 경로를 알려준다", () => {
+    const cwd = tempProject({
+      "designsnitch.config.json": JSON.stringify({
+        tokens: "tokens.css",
+        components: { path: "ui", replaces: { input: { component: [] } } },
+      }),
+    });
+    expect(() => loadConfig(cwd)).toThrow('"components.replaces.input.component"');
+  });
 });

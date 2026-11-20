@@ -66,6 +66,55 @@ describe("check", () => {
       violations: [],
     });
   });
+
+  it("컴포넌트 교체는 정적 조건이 맞을 때만 가능하고 동적 속성과 spread 는 확인을 요청한다", async () => {
+    const cwd = tempProject({
+      "designsnitch.config.json": JSON.stringify({
+        tokens: "tokens.css",
+        components: {
+          path: "ui",
+          replaces: {
+            input: { component: "InputCell", when: { type: ["text", "number", null] } },
+            button: "Button",
+            dialog: ["Dialog", "AlertDialog"],
+            select: { component: ["Select", "Listbox"] },
+          },
+        },
+      }),
+      "tokens.css": `@theme { --color-primary: #3B82F6; }`,
+      "ui/input.tsx": `export const InputCell = () => <input />;`,
+      "src/form.tsx": [
+        `<input type="file" />;`,
+        `<input type="text" />;`,
+        `<input />;`,
+        `<input type={x} />;`,
+        `<input type="range" {...props} />;`,
+        `<button onClick={pay} />;`,
+        `<button {...props} />;`,
+        `<dialog />;`,
+        `<select />;`,
+        `<input type={"number"} />;`,
+        `<input type />;`,
+      ].join("\n"),
+    });
+    const result = await check({ cwd, config: loadConfig(cwd) });
+
+    expect(result.designSystem).toEqual({ colorTokens: 1, components: 6, replacedTags: 4 });
+    expect(result.violations.map(({ line, severity, action, candidates }) => [line, severity, action, candidates])).toEqual([
+      [2, "error", "replace", ["InputCell"]],
+      [3, "error", "replace", ["InputCell"]],
+      [4, "error", "ask", ["InputCell"]],
+      [5, "error", "ask", ["InputCell"]],
+      [6, "error", "replace", ["Button"]],
+      [7, "error", "ask", ["Button"]],
+      [8, "error", "ask", ["Dialog", "AlertDialog"]],
+      [9, "error", "ask", ["Select", "Listbox"]],
+      [10, "error", "replace", ["InputCell"]],
+    ]);
+    expect(result.violations[2].message).toContain('"type" 속성 값이 동적');
+    expect(result.violations[3].message).toContain("spread 속성");
+    expect(result.violations[5].message).toContain("spread 속성");
+  });
 });
 
 describe("프로젝트 코드에 있는 주석과 문법 오류", () => {
@@ -292,6 +341,33 @@ describe("CSS 파일", () => {
       action: "repair",
     });
   });
+});
+
+it("JS·TS 와 CSS 에서 테마별 토큰 후보가 있으면 오류 등급으로 확인을 요청한다", async () => {
+  const cwd = tempProject({
+    "designsnitch.config.json": `{ "tokens": "tokens.css" }`,
+    "tokens.css": `
+      :root { --surface: #fff; --fixed: #abc; }
+      .dark { --surface: #111827; --fixed: #AABBCC; }
+      @theme { --color-surface: var(--surface); --color-fixed: var(--fixed); --color-white: #fff; }
+    `,
+    "src/a.tsx": `<div className="bg-[#111827] text-[#ABC] border-[#fff]" />;`,
+    "src/b.css": `.card { background: #111827; color: #ABC; border-color: #fff; }`,
+  });
+  const result = await check({ cwd, config: loadConfig(cwd) });
+
+  expect(result.summary).toEqual({ files: 3, errors: 6, warnings: 0 });
+  expect(result.violations.map(({ found, action, candidates }) => [found, action, candidates])).toEqual([
+    ["bg-[#111827]", "ask", ["bg-surface"]],
+    ["text-[#ABC]", "replace", ["text-fixed"]],
+    ["border-[#fff]", "ask", ["border-surface", "border-white"]],
+    ["#111827", "ask", ["var(--color-surface)"]],
+    ["#ABC", "replace", ["var(--color-fixed)"]],
+    ["#fff", "ask", ["var(--color-surface)", "var(--color-white)"]],
+  ]);
+  const themedHint = "그 토큰으로 바꾸면 다른 테마에서 색이 바뀔 수 있습니다.";
+  for (const i of [0, 2, 3, 5]) expect(result.violations[i].message).toContain(themedHint);
+  for (const i of [1, 4]) expect(result.violations[i].message).toContain("대신 사용:");
 });
 
 describe("다음에 할 일 (next)", () => {

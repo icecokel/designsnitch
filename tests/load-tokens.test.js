@@ -11,6 +11,28 @@ describe("loadTokens", () => {
     expect(tokens.colors.get("#3b82f6")).toEqual(["--color-primary-500"]);
   });
 
+  it("var 참조를 따라 최종 값이 테마마다 다른 토큰 이름을 모은다", () => {
+    const cwd = tempProject({
+      "tokens.css": `
+        :root { --surface: #fff; --fixed: #aBc; --color-mixed: #f00; }
+        .dark { --surface: #111827; --fixed: #aabbcc; --color-mixed: oklch(0.5 0.2 250); }
+        @theme {
+          --alias: var(--surface);
+          --color-surface: var(--alias);
+          --color-fixed: var(--fixed);
+        }
+      `,
+    });
+    const tokens = loadTokens({ designsnitch: { tokens: "tokens.css" } }, cwd);
+    expect(tokens.themed).toEqual(new Set(["--color-surface", "--color-mixed"]));
+    expect(tokens.colors).toEqual(new Map([
+      ["#ff0000", ["--color-mixed"]],
+      ["#ffffff", ["--color-surface"]],
+      ["#111827", ["--color-surface"]],
+      ["#aabbcc", ["--color-fixed"]],
+    ]));
+  });
+
   it("경로 설정이 없으면 무엇을 설정해야 하는지 알려준다", () => {
     expect(() => loadTokens({}, process.cwd())).toThrow(
       "settings.designsnitch.tokens",

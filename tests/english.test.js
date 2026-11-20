@@ -60,6 +60,37 @@ describe("영어 출력 (--lang en)", () => {
     ]);
   });
 
+  it("컴포넌트 교체를 확인해야 하는 이유를 영어로 알린다", async () => {
+    const cwd = tempProject({
+      ...project,
+      "designsnitch.config.json": JSON.stringify({
+        tokens: "tokens.css",
+        components: { path: "ui", replaces: { input: { component: "InputCell", when: { type: ["text"] } } } },
+      }),
+      "src/a.tsx": `<input type={kind} />;\n<input {...props} />;`,
+    });
+    const { stdout } = await cli(["check", "src/a.tsx", "--lang", "en", "--format", "json"], cwd);
+    const { violations } = JSON.parse(stdout);
+    expect(violations.map(({ action }) => action)).toEqual(["ask", "ask"]);
+    expect(violations[0].message).toContain('The "type" attribute has a dynamic value.');
+    expect(violations[1].message).toContain("The element has spread attributes.");
+  });
+
+  it("테마별 토큰으로 교체할 때 색이 바뀔 수 있음을 영어로 알린다", async () => {
+    const cwd = tempProject({
+      "designsnitch.config.json": `{ "tokens": "tokens.css" }`,
+      "tokens.css": `:root { --color-surface: #fff; } .dark { --color-surface: #000; }`,
+      "src/a.tsx": `<div className="bg-[#fff]" />;`,
+      "src/b.css": `.card { background: #fff; }`,
+    });
+    const { stdout } = await cli(["check", "--lang", "en", "--format", "json"], cwd);
+    const { violations } = JSON.parse(stdout);
+    expect(violations.map(({ action }) => action)).toEqual(["ask", "ask"]);
+    for (const { message } of violations) {
+      expect(message).toContain("Using it can change the color in another theme.");
+    }
+  });
+
   it("위반이 없을 때와 색 토큰이 없을 때", async () => {
     const clean = tempProject({ ...project, "tokens.css": `@theme { --color-primary: #3B82F6; }`, "src/a.tsx": `export const a = 1;` });
     expect((await cli(["check", "--lang", "en"], clean)).stdout).toBe(
