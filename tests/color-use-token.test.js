@@ -74,10 +74,10 @@ ruleTester.run("color-use-token", rule, {
       errors: [
         {
           message:
-            "bg-[#FFF]의 색은 토큰 --color-white, --color-surface의 값입니다. 대신 사용: bg-white, bg-surface",
+            "bg-[#FFF]의 색은 토큰 --color-surface, --color-white의 값입니다. 대신 사용: bg-surface, bg-white",
           suggestions: [
-            { desc: "bg-white(으)로 바꾸기", output: `<div className="bg-white" />` },
             { desc: "bg-surface(으)로 바꾸기", output: `<div className="bg-surface" />` },
+            { desc: "bg-white(으)로 바꾸기", output: `<div className="bg-white" />` },
           ],
         },
       ],

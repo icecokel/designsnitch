@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { invalidTokenField, tokenSettings } from "../config.js";
 import { parseColorTokenData } from "../core/tokens.js";
 import { messages, resolveLang } from "../messages.js";
 
@@ -7,9 +8,10 @@ import { messages, resolveLang } from "../messages.js";
  * @typedef {object} Tokens
  * @property {Map<string, string[]>} colors 색 값 → 토큰 이름들
  * @property {Set<string>} themed 테마마다 값이 다른 토큰 이름들
+ * @property {string[]} prefer 먼저 적용할 토큰 접두어
  */
 
-/** @type {Map<string, { mtimeMs: number, tokens: Tokens }>} */
+/** @type {Map<string, { mtimeMs: number, tokens: Omit<Tokens, "prefer"> }>} */
 const cache = new Map();
 
 /**
@@ -19,18 +21,22 @@ const cache = new Map();
  */
 export function loadTokens(settings, cwd) {
   const m = messages(resolveLang(settings?.designsnitch?.lang));
-  const tokensPath = settings?.designsnitch?.tokens;
-  if (typeof tokensPath !== "string") throw new Error(m.tokensSettingMissing());
+  const tokens = settings?.designsnitch?.tokens;
+  const invalidField = invalidTokenField(tokens);
+  if (invalidField === "tokens") throw new Error(m.tokensSettingMissing());
+  if (invalidField) throw new Error(m.invalidTokenSetting({ field: invalidField }));
 
+  const { file: tokensPath, exclude = [], prefer = [] } = tokenSettings(tokens);
   const file = path.resolve(cwd, tokensPath);
+  const key = JSON.stringify([file, exclude]);
   try {
     const { mtimeMs } = fs.statSync(file);
-    const cached = cache.get(file);
-    if (cached?.mtimeMs === mtimeMs) return cached.tokens;
+    const cached = cache.get(key);
+    if (cached?.mtimeMs === mtimeMs) return { ...cached.tokens, prefer };
 
-    const tokens = parseColorTokenData(fs.readFileSync(file, "utf8"));
-    cache.set(file, { mtimeMs, tokens });
-    return tokens;
+    const parsed = parseColorTokenData(fs.readFileSync(file, "utf8"), exclude);
+    cache.set(key, { mtimeMs, tokens: parsed });
+    return { ...parsed, prefer };
   } catch (error) {
     if (error.code === "ENOENT" || error.code === "ENOTDIR") {
       throw new Error(m.tokensFileMissing({ file }));

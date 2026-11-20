@@ -1,8 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-import { replacementNames } from "./config.js";
+import { replacementNames, tokenSettings } from "./config.js";
+import { findArbitraryColors, tokenToClass } from "./core/classes.js";
 import { normalizeHex } from "./core/color.js";
 import { findCssColors } from "./core/css.js";
+import { cssColorPrefixes, recommendColorCandidate, selectColorTokens, utilityColorPrefixes } from "./core/tokens.js";
 import { createEngine } from "./engine.js";
 import { splitPaths } from "./files.js";
 import plugin from "./index.js";
@@ -10,6 +12,7 @@ import { messages, resolveLang } from "./messages.js";
 import { loadTokens } from "./rules/load-tokens.js";
 
 const RULE_PREFIX = "designsnitch/";
+const MAX_DECISION_LOCATIONS = 5;
 
 /**
  * @typedef {object} Violation
@@ -23,10 +26,24 @@ const RULE_PREFIX = "designsnitch/";
  * @property {string} message
  * @property {string} found 위반한 코드 조각 (클래스나 태그 이름)
  * @property {string[]} candidates 대신 쓸 클래스나 컴포넌트. 없으면 빈 배열
+ * @property {string | null} recommended 바로 바꿀 후보 또는 역할에 맞는 유일한 후보
  * @property {"replace" | "ask" | "repair"} action 이 위반을 어떻게 다룰지.
  *   replace: found 를 candidates 의 값으로 바꿀 수 있다 (교체가 안전하고 후보가 하나뿐인 오류)
  *   ask: 사람이 정해야 한다 (교체가 확실하지 않거나 후보가 하나가 아닌 경우)
  *   repair: 파일을 읽지 못했다. 문법 오류부터 고쳐야 한다
+ */
+
+/**
+ * @typedef {object} Decision
+ * @property {string} id
+ * @property {string} rule
+ * @property {string} subject 정규화한 색 또는 꺾쇠로 감싼 태그 이름
+ * @property {number} uses 위반 횟수
+ * @property {number} files 위반이 있는 파일 수
+ * @property {Pick<Violation, "file" | "line" | "column">[]} locations 위반 위치 최대 다섯 곳
+ * @property {string[]} candidates
+ * @property {string | null} recommended 각 위치에서 추천이 같을 때 그 후보
+ * @property {("multiple-candidates" | "no-token" | "themed-token" | "dynamic-props")[]} reasons
  */
 
 /**
@@ -42,6 +59,7 @@ const RULE_PREFIX = "designsnitch/";
  *   next: string[],
  *   summary: { files: number, errors: number, warnings: number },
  *   violations: Violation[],
+ *   decisions: Decision[],
  * }>} designSystem 은 설정에서 읽어 낸 것의 개수, problems 는 결과를 믿기 어렵게 만드는 설정 문제,
  *   next 는 이 결과를 받은 에이전트가 순서대로 할 일
  */
@@ -61,7 +79,7 @@ export async function check({ cwd, config, paths = ["."], lang }) {
   const designSystem = describeDesignSystem(tokens, config);
   const problems = [];
   if (designSystem.colorTokens === 0) {
-    problems.push(m.noColorTokens({ tokens: config.tokens }));
+    problems.push(m.noColorTokens({ tokens: tokenSettings(config.tokens).file }));
   }
 
   const { scriptPaths, cssFiles } = splitPaths(cwd, paths);
@@ -79,26 +97,33 @@ export async function check({ cwd, config, paths = ["."], lang }) {
     checkCss(file, fs.readFileSync(path.resolve(cwd, file), "utf8"), tokens, m),
   );
 
-  const violations = [...scriptViolations, ...cssViolations]
+  const findings = [...scriptViolations, ...cssViolations]
     .sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.column - b.column)
-    .map(({ messageId, ...violation }) => ({ ...violation, action: actionFor(violation, messageId) }));
+    .map((finding) => {
+      const action = actionFor(finding, finding.messageId);
+      const recommended = action === "replace" ? finding.candidates[0] : finding.recommended ?? null;
+      return { ...finding, action, recommended };
+    });
+  const violations = findings.map(({ messageId, ...violation }) => violation);
+  const decisions = groupDecisions(findings);
 
   return {
     designSystem,
     problems,
-    next: nextSteps(designSystem, violations, lang),
+    next: nextSteps(designSystem, violations, lang, decisions),
     summary: {
       files: results.length + cssFiles.length,
       errors: violations.filter((v) => v.severity === "error").length,
       warnings: violations.filter((v) => v.severity === "warning").length,
     },
     violations,
+    decisions,
   };
 }
 
 /**
  * CSS 파일 하나의 hex 색을 토큰과 비교한다. 대체 후보는 var(--토큰) 이다.
- * @returns {(Omit<Violation, "action"> & { messageId?: string })[]}
+ * @returns {(Omit<Violation, "action" | "recommended"> & { recommended?: string | null, messageId?: string })[]}
  */
 function checkCss(file, source, tokens, m) {
   let colors;
@@ -124,8 +149,10 @@ function checkCss(file, source, tokens, m) {
   return colors
     .filter((color) => !color.disabled)
     .map(({ value, prop, disabled, ...location }) => {
-      const tokenNames = tokens.colors.get(normalizeHex(value)) ?? [];
+      const prefixes = cssColorPrefixes(prop);
+      const tokenNames = selectColorTokens(tokens.colors.get(normalizeHex(value)) ?? [], tokens.prefer, prefixes);
       const candidates = tokenNames.map((name) => `var(${name})`);
+      const recommendedToken = recommendColorCandidate(tokenNames, prefixes);
       const messageId = tokenNames.some((name) => tokens.themed.has(name)) ? "useTokenThemed" : "useToken";
       return {
         file,
@@ -148,6 +175,7 @@ function checkCss(file, source, tokens, m) {
             }),
         found: value,
         candidates,
+        recommended: recommendedToken ? `var(${recommendedToken})` : null,
       };
     });
 }
@@ -158,14 +186,61 @@ function actionFor({ rule, severity, candidates }, messageId) {
   return severity === "error" && candidates.length === 1 ? "replace" : "ask";
 }
 
+function decisionSubject({ rule, found }) {
+  if (rule === "use-ds-component") return `<${found}>`;
+  const value = found.startsWith("#") ? found : findArbitraryColors(found)[0]?.value;
+  if (!value) return found;
+  const hex = value.toLowerCase();
+  return normalizeHex(hex) ?? (hex.length === 5 ? hex.replace(/[0-9a-f]/g, "$&$&") : hex);
+}
+
+/**
+ * @param {(Violation & { messageId?: string })[]} violations
+ * @returns {Decision[]}
+ */
+function groupDecisions(violations) {
+  /** @type {Map<string, Omit<Decision, "id" | "files" | "reasons"> & { files: Set<string>, reasons: Set<Decision["reasons"][number]> }>} */
+  const byQuestion = new Map();
+  for (const violation of violations) {
+    if (violation.action !== "ask") continue;
+    const { rule, candidates, recommended, messageId, file, line, column } = violation;
+    const subject = decisionSubject(violation);
+    // 역할 때문에 순서만 다른 후보는 같은 질문으로 묶는다.
+    const key = JSON.stringify([rule, subject, [...candidates].sort()]);
+    let decision = byQuestion.get(key);
+    if (!decision) {
+      decision = { rule, subject, uses: 0, files: new Set(), locations: [], candidates, recommended, reasons: new Set() };
+      byQuestion.set(key, decision);
+    }
+    decision.uses += 1;
+    decision.files.add(file);
+    if (decision.locations.length < MAX_DECISION_LOCATIONS) decision.locations.push({ file, line, column });
+    if (decision.recommended !== recommended) decision.recommended = null;
+    if (candidates.length > 1) decision.reasons.add("multiple-candidates");
+    if (rule === "color-unknown") decision.reasons.add("no-token");
+    if (messageId === "useTokenThemed") decision.reasons.add("themed-token");
+    if (messageId === "useComponentAsk") decision.reasons.add("dynamic-props");
+  }
+
+  return [...byQuestion.values()]
+    .sort((a, b) => b.uses - a.uses)
+    .map(({ files, reasons, ...decision }, index) => ({
+      id: `decision-${index + 1}`,
+      ...decision,
+      files: files.size,
+      reasons: [...reasons],
+    }));
+}
+
 /**
  * 결과를 받은 에이전트가 무엇부터 해야 하는지를 순서대로 적는다.
  * @param {{ colorTokens: number }} designSystem
  * @param {Violation[]} violations action 이 붙은 위반들
  * @param {"en" | "ko"} [lang]
+ * @param {Decision[]} [decisions] check 결과의 결정 목록. 훅은 위반만 보여 준다
  * @returns {string[]}
  */
-export function nextSteps(designSystem, violations, lang) {
+export function nextSteps(designSystem, violations, lang, decisions) {
   const m = messages(lang);
   const noColorTokens = designSystem.colorTokens === 0;
   // 색 토큰이 없으면 색 위반은 하나씩 다룰 일이 아니라 토큰을 정하는 일 하나로 묶인다.
@@ -173,13 +248,16 @@ export function nextSteps(designSystem, violations, lang) {
     ? violations.filter((v) => !v.rule.startsWith("color-"))
     : violations;
   const count = (action) => actionable.filter((v) => v.action === action).length;
-  const [repair, replace, ask] = ["repair", "replace", "ask"].map(count);
+  const [repair, replace] = ["repair", "replace"].map(count);
+  const ask = decisions === undefined
+    ? count("ask")
+    : decisions.filter((decision) => !noColorTokens || !decision.rule.startsWith("color-")).length;
   const steps = [];
 
   if (noColorTokens) steps.push(m.nextNoTokens());
   if (repair > 0) steps.push(m.nextRepair(repair));
   if (replace > 0) steps.push(m.nextReplace(replace));
-  if (ask > 0) steps.push(m.nextAsk(ask));
+  if (ask > 0) steps.push(decisions === undefined ? m.hookNextAsk(ask) : m.nextAsk(ask));
   if (repair + replace > 0) steps.push(m.nextRerun());
 
   return steps.length > 0 ? steps : [m.nextNone()];
@@ -216,6 +294,13 @@ function toViolation(file, source, message, config) {
     candidates = replacementNames(config.components?.replaces?.[found]);
   }
 
+  let recommended = null;
+  const color = rule === "color-use-token" && findArbitraryColors(found)[0];
+  if (color) {
+    const prefixes = utilityColorPrefixes(color.utility).map((prefix) => tokenToClass(color.utility, prefix));
+    recommended = recommendColorCandidate(candidates, prefixes);
+  }
+
   return {
     file,
     line: message.line,
@@ -228,6 +313,7 @@ function toViolation(file, source, message, config) {
     messageId: message.messageId,
     found,
     candidates,
+    recommended,
   };
 }
 

@@ -2,6 +2,11 @@ import postcss from "postcss";
 import { normalizeHex } from "./color.js";
 
 const COLOR_TOKEN = /^--color-/;
+const ROLE_PREFIXES = {
+  text: ["--color-text-"],
+  border: ["--color-border-"],
+  bg: ["--color-bg-", "--color-surface", "--color-background"],
+};
 // var(--name) 또는 var(--name, 대체값)
 const VAR_REFERENCE = /^var\(\s*(--[\w-]+)\s*(?:,\s*(.+))?\)$/s;
 
@@ -20,9 +25,10 @@ export function parseColorTokens(css) {
 /**
  * 색 값 → 토큰 표와 서로 다른 최종 값이 있는 토큰 이름을 함께 읽는다.
  * @param {string} css
+ * @param {string[]} [exclude] 정확한 이름 또는 끝에 *가 붙은 이름 패턴
  * @returns {{ colors: Map<string, string[]>, themed: Set<string> }}
  */
-export function parseColorTokenData(css) {
+export function parseColorTokenData(css, exclude = []) {
   /** @type {Map<string, string[]>} 변수 이름 → 선언된 값들 */
   const declared = new Map();
   postcss.parse(css).walkDecls(/^--/, (decl) => {
@@ -48,6 +54,7 @@ export function parseColorTokenData(css) {
   const themed = new Set();
   for (const [name, values] of declared) {
     if (!COLOR_TOKEN.test(name)) continue;
+    if (exclude.some((pattern) => pattern.endsWith("*") ? name.startsWith(pattern.slice(0, -1)) : name === pattern)) continue;
     const resolved = new Set();
     for (const value of values.flatMap((value) => resolve(value, new Set([name])))) {
       const color = normalizeHex(value);
@@ -62,4 +69,36 @@ export function parseColorTokenData(css) {
     if (resolved.size > 1) themed.add(name);
   }
   return { colors, themed };
+}
+
+export function utilityColorPrefixes(utility) {
+  const kind = utility.toLowerCase().split("-", 1)[0];
+  if (["border", "ring", "outline", "divide"].includes(kind)) return ROLE_PREFIXES.border;
+  return kind === "text" || kind === "bg" ? ROLE_PREFIXES[kind] : [];
+}
+
+export function cssColorPrefixes(property) {
+  const name = property.toLowerCase();
+  if (name === "color") return ROLE_PREFIXES.text;
+  if (name.startsWith("border")) return ROLE_PREFIXES.border;
+  if (name.startsWith("background")) return ROLE_PREFIXES.bg;
+  return [];
+}
+
+const startsWithAny = (name, prefixes) => prefixes.some((prefix) => name.startsWith(prefix));
+
+export function selectColorTokens(names, prefer, rolePrefixes) {
+  const prefix = prefer.find((prefix) => names.some((name) => name.startsWith(prefix)));
+  if (prefix !== undefined) {
+    const preferred = names.filter((name) => name.startsWith(prefix));
+    if (preferred.length === 1) return preferred;
+  }
+
+  const matching = names.filter((name) => startsWithAny(name, rolePrefixes));
+  return [...matching, ...names.filter((name) => !startsWithAny(name, rolePrefixes))];
+}
+
+export function recommendColorCandidate(candidates, rolePrefixes) {
+  const matching = candidates.filter((candidate) => startsWithAny(candidate, rolePrefixes));
+  return matching.length === 1 ? matching[0] : null;
 }

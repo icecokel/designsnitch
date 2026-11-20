@@ -24,6 +24,23 @@ describe("loadConfig", () => {
     expect(() => loadConfig(project, "../no-tokens.config.json")).toThrow('"tokens"');
   });
 
+  it("tokens 객체에서 경로, 제외 패턴, 선호 접두어를 읽는다", () => {
+    const tokens = { file: "tokens.css", exclude: ["--color-chart-*", "--color-white"], prefer: ["--color-text-"] };
+    const cwd = tempProject({ "designsnitch.config.json": JSON.stringify({ tokens }) });
+    expect(loadConfig(cwd).tokens).toEqual(tokens);
+  });
+
+  it.each([
+    [{ exclude: [] }, "tokens.file"],
+    [{ file: "tokens.css", exclude: "--color-chart-*" }, "tokens.exclude"],
+    [{ file: "tokens.css", exclude: ["--color-*-chart"] }, "tokens.exclude"],
+    [{ file: "tokens.css", prefer: [1] }, "tokens.prefer"],
+    [{ file: "tokens.css", prefer: ["--color-text-*"] }, "tokens.prefer"],
+  ])("tokens 객체의 %j 설정에서 잘못된 항목을 알려준다", (tokens, field) => {
+    const cwd = tempProject({ "designsnitch.config.json": JSON.stringify({ tokens }) });
+    expect(() => loadConfig(cwd)).toThrow(`"${field}"`);
+  });
+
   it("JSON 이 깨져 있으면 파일 경로와 함께 알려준다", () => {
     expect(() => loadConfig(project, "../broken.config.json")).toThrow(
       "broken.config.json",

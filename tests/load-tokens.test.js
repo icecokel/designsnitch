@@ -39,6 +39,25 @@ describe("loadTokens", () => {
     );
   });
 
+  it("끝의 와일드카드와 정확한 이름으로 토큰을 제외하고 남은 토큰의 var 참조는 해석한다", () => {
+    const cwd = tempProject({
+      "tokens.css": `
+        :root { --color-chart-a: #fff; --color-exact: #abc; }
+        .dark { --color-chart-a: #111; }
+        @theme { --color-chartreuse: #def; --color-exact-extra: var(--color-exact); }
+      `,
+    });
+    const load = (tokens) => loadTokens({ designsnitch: { tokens } }, cwd);
+    const scoped = load({ file: "tokens.css", exclude: ["--color-chart-*", "--color-exact"] });
+    expect(scoped.colors).toEqual(new Map([
+      ["#ddeeff", ["--color-chartreuse"]],
+      ["#aabbcc", ["--color-exact-extra"]],
+    ]));
+    expect(scoped.themed.size).toBe(0);
+    expect(load("tokens.css").colors.get("#ffffff")).toEqual(["--color-chart-a"]);
+    expect(load({ file: "tokens.css", exclude: ["*"] }).colors.size).toBe(0);
+  });
+
   it("파일이 없으면 찾은 경로를 알려준다", () => {
     expect(() =>
       loadTokens({ designsnitch: { tokens: "nope.css" } }, "/tmp/x"),

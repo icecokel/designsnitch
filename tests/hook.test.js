@@ -105,6 +105,17 @@ describe("designsnitch hook: 파일을 고친 직후", () => {
 });
 
 describe("designsnitch hook: 고친 파일을 알려주지 않을 때", () => {
+  it("tokens 객체를 사용해도 HEAD의 기존 위반은 다시 보고하지 않는다", async () => {
+    const cwd = repoWithChanges({
+      "designsnitch.config.json": JSON.stringify({
+        tokens: { file: "tokens.css", exclude: ["--color-chart-*"], prefer: ["--color-primary"] },
+      }),
+      "tokens.css": "@theme { --color-brand: #3b82f6; --color-primary: #3b82f6; --color-chart-a: #abc; }",
+      "src/a.tsx": REPLACE,
+    }, { "src/a.tsx": `// 줄 이동\n${REPLACE}` });
+    expect(await hook(cwd, edited("src/a.tsx"))).toEqual({ exitCode: 0, stdout: "", stderr: "" });
+  });
+
   it("git 에서 바뀐 파일만 검사한다. 이미 커밋된 예전 위반은 건드리지 않는다", async () => {
     const cwd = repoWithChanges({ "src/legacy.tsx": REPLACE }, { "src/new.tsx": REPLACE, "src/edited.css": `.a { color: #3B82F6; }` });
     const { exitCode, stderr } = await hook(cwd, { hook_event_name: "PostToolUse" });

@@ -73,3 +73,27 @@ it("토큰 CSS 경로에 접근할 권한이 없으면 읽을 수 없는 이유�
     stat.mockRestore();
   }
 });
+
+it("ESLint 제안은 역할 순서대로 나오고 선호 접두어가 한 후보를 고르면 그 제안만 나온다", async () => {
+  const cwd = tempProject({
+    "tokens.css": "@theme { --color-brand: #abc; --color-text-main: #abc; --color-chart-a: #abc; }",
+    "src/a.js": 'export const color = "text-[#abc]";',
+  });
+  const lint = async (tokens) => {
+    const eslint = new ESLint({
+      cwd,
+      overrideConfigFile: true,
+      overrideConfig: [designsnitch.configs.recommended, { settings: { designsnitch: { tokens } } }],
+    });
+    const [{ messages }] = await eslint.lintFiles(["src/a.js"]);
+    return messages;
+  };
+
+  const tokens = { file: "tokens.css", exclude: ["--color-chart-*"] };
+  const [sorted] = await lint(tokens);
+  expect(sorted.suggestions.map(({ fix }) => fix.text)).toEqual(["text-text-main", "text-brand"]);
+  const [preferred] = await lint({ ...tokens, prefer: ["--color-chart-", "--color-brand", "--color-text-"] });
+  expect(preferred.suggestions.map(({ fix }) => fix.text)).toEqual(["text-brand"]);
+  const [invalid] = await lint({ ...tokens, exclude: ["--color-*-chart"] });
+  expect(invalid.message).toContain('"tokens.exclude"');
+});

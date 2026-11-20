@@ -25,6 +25,7 @@ describe("formatText", () => {
       designSystem,
       problems: [],
       summary: { files: 3, errors: 1, warnings: 2 },
+      decisions: [{ subject: "#3b82f5" }, { subject: "#123456" }],
       violations: [
         violation(),
         violation({
@@ -59,7 +60,7 @@ describe("formatText", () => {
         "  2:9  경고  bg-[#123456]의 색은 토큰에 없습니다.  (color-unknown)",
         "",
         "오류 1개, 경고 2개 (파일 3개 검사)",
-        "바로 바꿀 수 있는 것 1건, 사람이 정해야 하는 것 2건",
+        "바로 바꿀 수 있는 것 1건, 사람이 정해야 하는 것 2건 (결정 2개)",
         "",
       ].join("\n"),
     );

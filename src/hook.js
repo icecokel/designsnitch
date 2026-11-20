@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { check, nextSteps } from "./check.js";
-import { CONFIG_FILE, loadConfig } from "./config.js";
+import { CONFIG_FILE, loadConfig, tokenSettings } from "./config.js";
 import { messages, resolveLang } from "./messages.js";
 
 const CHECKABLE = /\.(?:[cm]?[jt]s|[jt]sx|css)$/;
@@ -96,7 +96,8 @@ async function checkHead({ cwd, config, files, lang }) {
     }
     if (paths.length === 0) return [];
 
-    const baselineConfig = { ...config, tokens: path.resolve(cwd, config.tokens) };
+    const tokens = tokenSettings(config.tokens);
+    const baselineConfig = { ...config, tokens: { ...tokens, file: path.resolve(cwd, tokens.file) } };
     if (config.components) {
       baselineConfig.components = { ...config.components, path: path.resolve(cwd, config.components.path) };
     }

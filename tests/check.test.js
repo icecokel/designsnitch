@@ -2,6 +2,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { check } from "../src/check.js";
 import { loadConfig } from "../src/config.js";
+import { formatText } from "../src/format.js";
 import { tempProject } from "./temp-project.js";
 
 const cwd = path.resolve("tests/fixtures/project");
@@ -26,6 +27,7 @@ describe("check", () => {
         message: "<button> 대신 디자인 시스템 컴포넌트를 사용하세요: Button (./components/ui)",
         found: "button",
         candidates: ["Button"],
+        recommended: "Button",
         action: "replace",
       },
       {
@@ -40,6 +42,7 @@ describe("check", () => {
           "bg-[#3B82F6]의 색은 토큰 --color-primary-500의 값입니다. 대신 사용: bg-primary-500",
         found: "bg-[#3B82F6]",
         candidates: ["bg-primary-500"],
+        recommended: "bg-primary-500",
         action: "replace",
       },
       {
@@ -54,6 +57,7 @@ describe("check", () => {
           "text-[#FFF]의 색은 토큰 --color-white, --color-surface의 값입니다. 대신 사용: text-white, text-surface",
         found: "text-[#FFF]",
         candidates: ["text-white", "text-surface"],
+        recommended: null,
         action: "ask",
       },
     ]);
@@ -64,6 +68,7 @@ describe("check", () => {
     expect(result).toMatchObject({
       summary: { files: 1, errors: 0, warnings: 0 },
       violations: [],
+      decisions: [],
     });
   });
 
@@ -261,6 +266,7 @@ describe("CSS 파일", () => {
         message: "#FFF의 색은 토큰 --color-surface의 값입니다. 대신 사용: var(--color-surface)",
         found: "#FFF",
         candidates: ["var(--color-surface)"],
+        recommended: "var(--color-surface)",
         action: "replace",
       },
       {
@@ -275,6 +281,7 @@ describe("CSS 파일", () => {
           "#3B82F6의 색은 토큰 --color-primary-500, --color-brand의 값입니다. 대신 사용: var(--color-primary-500), var(--color-brand)",
         found: "#3B82F6",
         candidates: ["var(--color-primary-500)", "var(--color-brand)"],
+        recommended: null,
         action: "ask",
       },
       {
@@ -288,6 +295,7 @@ describe("CSS 파일", () => {
         message: "#3B82F5의 색은 토큰에 없습니다.",
         found: "#3B82F5",
         candidates: [],
+        recommended: null,
         action: "ask",
       },
     ]);
@@ -340,6 +348,91 @@ describe("CSS 파일", () => {
       candidates: [],
       action: "repair",
     });
+  });
+});
+
+describe("토큰 범위와 선호", () => {
+  const checkProject = (tokens, files) => {
+    const cwd = tempProject({
+      "designsnitch.config.json": JSON.stringify({ tokens: { file: "tokens.css", ...tokens } }),
+      ...files,
+    });
+    return check({ cwd, config: loadConfig(cwd) });
+  };
+
+  it("역할에 맞는 후보를 먼저 보여 주고 하나일 때만 추천하며 ask 로 유지한다", async () => {
+    const result = await checkProject({}, {
+      "tokens.css": `@theme {
+        --color-brand: #abc; --color-border-main: #abc; --color-text-main: #abc;
+        --color-background: #abc; --color-surface-raised: #abc; --color-bg-main: #abc;
+      }`,
+      "src/a.tsx": `<div className="text-[#abc] border-t-[#abc] ring-offset-[#abc] outline-[#abc] divide-[#abc] bg-[#abc]" />;`,
+      "src/b.css": `.card { COLOR: #abc; border-top-color: #abc; background-color: #abc; box-shadow: 0 0 #abc; }`,
+    });
+    const violations = result.violations.map(({ candidates, recommended, action }) => [candidates, recommended, action]);
+    const names = ["brand", "border-main", "text-main", "background", "surface-raised", "bg-main"];
+    const ordered = (first) => [...first, ...names.filter((name) => !first.includes(name))];
+    const js = (utility, first) => ordered(first).map((name) => `${utility}-${name}`);
+    const css = (first) => ordered(first).map((name) => `var(--color-${name})`);
+    const bg = ["background", "surface-raised", "bg-main"];
+    expect(violations).toEqual([
+      [js("text", ["text-main"]), "text-text-main", "ask"],
+      ...["border-t", "ring-offset", "outline", "divide"].map((utility) =>
+        [js(utility, ["border-main"]), `${utility}-border-main`, "ask"]),
+      [js("bg", bg), null, "ask"],
+      [css(["text-main"]), "var(--color-text-main)", "ask"],
+      [css(["border-main"]), "var(--color-border-main)", "ask"],
+      [css(bg), null, "ask"],
+      [css([]), null, "ask"],
+    ]);
+  });
+
+  it("우선 접두어가 고른 후보만 남기고 제외된 색은 토큰이 없는 것으로 본다", async () => {
+    const result = await checkProject({
+      exclude: ["--color-chart-*"],
+      prefer: ["--color-chart-", "--color-border-", "--color-text-"],
+    }, {
+      "tokens.css": `@theme {
+        --color-text-main: #abc; --color-border-main: #abc; --color-chart-a: #abc; --color-chart-b: #def;
+      }`,
+      "src/a.tsx": `<div className="text-[#abc] text-[#def]" />;`,
+      "src/b.css": `.card { color: #abc; background: #def; }`,
+    });
+    expect(result.designSystem.colorTokens).toBe(2);
+    expect(result.violations.map(({ rule, candidates, recommended, action }) =>
+      [rule, candidates, recommended, action])).toEqual([
+      ["color-use-token", ["text-border-main"], "text-border-main", "replace"],
+      ["color-unknown", [], null, "ask"],
+      ["color-use-token", ["var(--color-border-main)"], "var(--color-border-main)", "replace"],
+      ["color-unknown", [], null, "ask"],
+    ]);
+  });
+
+  it("첫 선호 접두어에 후보가 여럿이면 역할로 정렬하고 선택은 사용자에게 맡긴다", async () => {
+    const result = await checkProject({ prefer: ["--color-text-", "--color-brand"] }, {
+      "tokens.css": `@theme { --color-brand: #abc; --color-text-main: #abc; --color-text-muted: #abc; }`,
+      "src/a.tsx": `<div className="text-[#abc]" />;`,
+    });
+    expect(result.violations[0]).toMatchObject({
+      action: "ask",
+      candidates: ["text-text-main", "text-text-muted", "text-brand"],
+      recommended: null,
+    });
+  });
+
+  it("선호 후보가 테마별 토큰이면 추천해도 ask 로 유지한다", async () => {
+    const result = await checkProject({ prefer: ["--color-surface"] }, {
+      "tokens.css": `
+        :root { --color-surface: #abc; --color-brand: #abc; }
+        .dark { --color-surface: #111; }
+      `,
+      "src/a.tsx": `<div className="bg-[#abc]" />;`,
+      "src/b.css": `.card { background: #abc; }`,
+    });
+    expect(result.violations).toMatchObject([
+      { action: "ask", candidates: ["bg-surface"], recommended: "bg-surface" },
+      { action: "ask", candidates: ["var(--color-surface)"], recommended: "var(--color-surface)" },
+    ]);
   });
 });
 
@@ -403,7 +496,7 @@ describe("다음에 할 일 (next)", () => {
     expect(result.next).toEqual([
       "action이 repair인 1건은 그 파일의 문법 오류부터 고치세요.",
       "action이 replace인 1건은 found를 candidates의 값으로 바꾸세요.",
-      "action이 ask인 2건은 바꾸지 말고 사용자에게 물으세요. 물을 때는 `designsnitch colors`로 그 색이 몇 곳에서 어떻게 쓰이는지 확인해서 근거로 함께 주세요.",
+      "변경하기 전에 decisions의 2건을 사용자에게 물으세요. 사용 횟수와 후보, 확인이 필요한 이유를 함께 알려 주세요.",
       "고친 뒤 같은 명령을 다시 실행하세요.",
     ]);
   });
@@ -416,6 +509,97 @@ describe("다음에 할 일 (next)", () => {
     // 토큰이 없으면 색을 하나씩 묻는 것은 의미가 없다. 토큰을 정하는 일 하나만 남긴다.
     expect(result.next).toEqual([
       "색 토큰이 없어서 색을 판정할 기준이 없습니다. 색을 고치기 전에 `designsnitch colors`로 쓰이는 색을 모아 토큰부터 정하세요.",
+    ]);
+    expect(result.decisions).toMatchObject([{ subject: "#3b82f6", reasons: ["no-token"] }]);
+  });
+});
+
+describe("사용자 결정 (decisions)", () => {
+  const checkProject = (files, replaces) => {
+    const cwd = tempProject({
+      "designsnitch.config.json": JSON.stringify({
+        tokens: "tokens.css",
+        ...(replaces && { components: { path: "ui", replaces } }),
+      }),
+      "ui/index.tsx": "export {};",
+      "tokens.css": "@theme { --color-primary: #3b82f6; }",
+      ...files,
+    });
+    return check({ cwd, config: loadConfig(cwd) });
+  };
+
+  it("색과 태그별로 ask 를 묶어 사용 횟수, 파일 수, 위치 다섯 개와 이유를 보여 준다", async () => {
+    const result = await checkProject({
+      "src/a.tsx": [
+        "<input type={kind} />;",
+        '"bg-[#FFF]";',
+        '"text-[#ffffff]";',
+        '"border-[#FfF]";',
+        '"fill-[#FFFFFF]";',
+        '"ring-[#fff]";',
+        '"text-[#3b82f6]";',
+      ].join("\n"),
+      "src/b.tsx": '<input {...props} />;\n"text-[#fff]";',
+      "src/c.css": ".card { color: #FFFFFF; }",
+      "src/d.tsx": "<div",
+    }, { input: { component: ["Input", "SearchInput"], when: { type: ["text"] } } });
+    expect(result.decisions).toEqual([
+      {
+        id: "decision-1",
+        rule: "color-unknown",
+        subject: "#ffffff",
+        uses: 7,
+        files: 3,
+        locations: [2, 3, 4, 5, 6].map((line) => ({ file: "src/a.tsx", line, column: 2 })),
+        candidates: [],
+        recommended: null,
+        reasons: ["no-token"],
+      },
+      {
+        id: "decision-2",
+        rule: "use-ds-component",
+        subject: "<input>",
+        uses: 2,
+        files: 2,
+        locations: [
+          { file: "src/a.tsx", line: 1, column: 2 },
+          { file: "src/b.tsx", line: 1, column: 2 },
+        ],
+        candidates: ["Input", "SearchInput"],
+        recommended: null,
+        reasons: ["multiple-candidates", "dynamic-props"],
+      },
+    ]);
+    expect(result.next).toContain("변경하기 전에 decisions의 2건을 사용자에게 물으세요. 사용 횟수와 후보, 확인이 필요한 이유를 함께 알려 주세요.");
+    expect(formatText(result)).toContain("사람이 정해야 하는 것 9건 (결정 2개)");
+  });
+
+  it("후보가 같으면 역할별 순서와 관계없이 묶고 모든 위치에서 추천이 같을 때만 추천한다", async () => {
+    const result = await checkProject({
+      "tokens.css": `
+        :root { --color-text-main: #abc; --color-border-main: #abc; --color-surface: #eee; }
+        .dark { --color-surface: #111; }
+      `,
+      "src/a.css": ".card { color: #ABC; border-color: #aabbcc; background: #eee; }",
+      "src/b.tsx": '"text-[#abc] text-[#AABBCC] bg-[#abc] bg-[#eee]";',
+    });
+    expect(result.decisions.map(({ subject, uses, candidates, recommended, reasons }) =>
+      [subject, uses, candidates, recommended, reasons])).toEqual([
+      ["#aabbcc", 2, ["var(--color-text-main)", "var(--color-border-main)"], null, ["multiple-candidates"]],
+      ["#aabbcc", 2, ["text-text-main", "text-border-main"], "text-text-main", ["multiple-candidates"]],
+      ["#eeeeee", 1, ["var(--color-surface)"], "var(--color-surface)", ["themed-token"]],
+      ["#aabbcc", 1, ["bg-text-main", "bg-border-main"], null, ["multiple-candidates"]],
+      ["#eeeeee", 1, ["bg-surface"], "bg-surface", ["themed-token"]],
+    ]);
+  });
+
+  it("알파가 있는 짧은 hex 도 펼쳐 같은 색의 결정을 묶는다", async () => {
+    const result = await checkProject({
+      "src/a.tsx": '"bg-[#ABCD] text-[#aabbccdd]";',
+      "src/b.css": ".card { color: #aBcD; }",
+    });
+    expect(result.decisions).toMatchObject([
+      { subject: "#aabbccdd", uses: 3, files: 2, reasons: ["no-token"] },
     ]);
   });
 });

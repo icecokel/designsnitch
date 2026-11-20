@@ -13,6 +13,26 @@ const EXAMPLE = `{
 }`;
 
 /** @typedef {string | string[] | { component: string | string[], when?: Record<string, (string | null)[]> }} Replacement */
+/** @typedef {string | { file: string, exclude?: string[], prefer?: string[] }} TokenSettings */
+
+/** @param {TokenSettings} tokens */
+export function tokenSettings(tokens) {
+  return typeof tokens === "string" ? { file: tokens } : tokens;
+}
+
+export function invalidTokenField(tokens) {
+  if (typeof tokens === "string") return tokens.length > 0 ? null : "tokens";
+  if (!isRecord(tokens)) return "tokens";
+  if (typeof tokens.file !== "string" || tokens.file.length === 0) return "tokens.file";
+  if (tokens.exclude !== undefined && !isPatternList(tokens.exclude, /^[^*]*\*?$/)) return "tokens.exclude";
+  if (tokens.prefer !== undefined && !isPatternList(tokens.prefer, /^[^*]+$/)) return "tokens.prefer";
+  return null;
+}
+
+function isPatternList(values, pattern) {
+  return Array.isArray(values) &&
+    values.every((value) => typeof value === "string" && value.length > 0 && pattern.test(value));
+}
 
 /** @param {Replacement} [replacement] */
 export function replacementNames(replacement) {
@@ -27,7 +47,7 @@ export function replacementNames(replacement) {
  * @param {string} cwd 프로젝트 디렉터리
  * @param {string} [configPath] cwd 기준 설정 파일 경로
  * @param {"en" | "ko"} [lang] 오류 문장의 언어
- * @returns {{ tokens: string, lang?: "en" | "ko", components?: { path: string, replaces: Record<string, Replacement> } }}
+ * @returns {{ tokens: TokenSettings, lang?: "en" | "ko", components?: { path: string, replaces: Record<string, Replacement> } }}
  */
 export function loadConfig(cwd, configPath = CONFIG_FILE, lang) {
   const m = messages(lang);
@@ -47,7 +67,9 @@ export function loadConfig(cwd, configPath = CONFIG_FILE, lang) {
     throw new Error(m.configUnreadable({ file, reason: error.message }));
   }
 
-  if (typeof config?.tokens !== "string") throw new Error(m.configNoTokens({ file }));
+  const tokenField = invalidTokenField(config?.tokens);
+  if (tokenField === "tokens") throw new Error(m.configNoTokens({ file }));
+  if (tokenField) throw new Error(m.invalidTokenSetting({ field: tokenField, file }));
   if (config.lang !== undefined && !isLang(config.lang)) throw new Error(m.configBadLang({ file }));
   if (config.components !== undefined) validateComponents(config.components, file, m);
   return config;
