@@ -27,7 +27,7 @@ it("토큰 설정 없이 두 파일을 검사해도 파일마다 Program에 한 
     expect(messages).toMatchObject([
       {
         ruleId: "designsnitch/color-use-token",
-        nodeType: "Program",
+        messageId: "tokensConfig",
         line: 1,
         column: 1,
         message: "designsnitch: settings.designsnitch.tokens 에 토큰 CSS 파일 경로를 설정하세요.",
@@ -56,7 +56,7 @@ it.each([
   const [{ messages }] = await eslint.lintFiles(["src/a.js"]);
 
   expect(messages).toMatchObject([
-    { ruleId: "designsnitch/color-use-token", nodeType: "Program", message: expect.stringContaining(reason) },
+    { ruleId: "designsnitch/color-use-token", messageId: "tokensConfig", message: expect.stringContaining(reason) },
   ]);
   expect(messages[0].message).toContain(path.join(cwd, tokens));
 });
