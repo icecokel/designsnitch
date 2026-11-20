@@ -34,9 +34,21 @@ function git(cwd, ...args) {
   execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", ...args], { cwd, stdio: "pipe" });
 }
 
-describe("designsnitch hook: 파일을 고친 직후", () => {
-  const edited = (file) => ({ hook_event_name: "PostToolUse", tool_input: { file_path: file } });
+function repoWithChanges(committed, changed) {
+  const cwd = tempProject({ ...base, ...committed });
+  git(cwd, "init", "-q");
+  git(cwd, "add", "-A");
+  git(cwd, "commit", "-q", "-m", "init");
+  for (const [name, content] of Object.entries(changed)) {
+    fs.mkdirSync(path.dirname(path.join(cwd, name)), { recursive: true });
+    fs.writeFileSync(path.join(cwd, name), content);
+  }
+  return cwd;
+}
 
+const edited = (file) => ({ hook_event_name: "PostToolUse", tool_input: { file_path: file } });
+
+describe("designsnitch hook: 파일을 고친 직후", () => {
   it("고친 파일에 오류가 있으면 2로 끝나고, 무엇을 어떻게 고칠지 stderr 로 알린다", async () => {
     const cwd = tempProject({ ...base, "src/a.tsx": REPLACE });
     const { exitCode, stdout, stderr } = await hook(cwd, edited(path.join(cwd, "src/a.tsx")));
@@ -93,20 +105,8 @@ describe("designsnitch hook: 파일을 고친 직후", () => {
 });
 
 describe("designsnitch hook: 고친 파일을 알려주지 않을 때", () => {
-  function repo(committed, changed) {
-    const cwd = tempProject({ ...base, ...committed });
-    git(cwd, "init", "-q");
-    git(cwd, "add", "-A");
-    git(cwd, "commit", "-q", "-m", "init");
-    for (const [name, content] of Object.entries(changed)) {
-      fs.mkdirSync(path.dirname(path.join(cwd, name)), { recursive: true });
-      fs.writeFileSync(path.join(cwd, name), content);
-    }
-    return cwd;
-  }
-
   it("git 에서 바뀐 파일만 검사한다. 이미 커밋된 예전 위반은 건드리지 않는다", async () => {
-    const cwd = repo({ "src/legacy.tsx": REPLACE }, { "src/new.tsx": REPLACE, "src/edited.css": `.a { color: #3B82F6; }` });
+    const cwd = repoWithChanges({ "src/legacy.tsx": REPLACE }, { "src/new.tsx": REPLACE, "src/edited.css": `.a { color: #3B82F6; }` });
     const { exitCode, stderr } = await hook(cwd, { hook_event_name: "PostToolUse" });
     expect(exitCode).toBe(2);
     expect(stderr).toContain("src/new.tsx:1:40");
@@ -115,15 +115,76 @@ describe("designsnitch hook: 고친 파일을 알려주지 않을 때", () => {
   });
 
   it("바뀐 파일이 없거나 git 저장소가 아니면 0으로 끝난다", async () => {
-    expect((await hook(repo({ "src/legacy.tsx": REPLACE }, {}), {})).exitCode).toBe(0);
+    expect((await hook(repoWithChanges({ "src/legacy.tsx": REPLACE }, {}), {})).exitCode).toBe(0);
     expect((await hook(tempProject({ ...base, "src/a.tsx": REPLACE }), {})).exitCode).toBe(0);
   });
 
   it("입력이 비어 있거나 JSON 이 아니어도 동작한다", async () => {
-    const cwd = repo({}, { "src/new.tsx": REPLACE });
+    const cwd = repoWithChanges({}, { "src/new.tsx": REPLACE });
     expect((await hook(cwd, undefined)).exitCode).toBe(2);
     const raw = await run(["hook"], { cwd, stdin: "not json", stdout: { write() {} }, stderr: { write() {} } });
     expect(raw).toBe(2);
+  });
+});
+
+describe("designsnitch hook: HEAD 대비 새 위반", () => {
+  const file = "src/legacy.tsx";
+  const legacy = [REPLACE, ASK, REPLACE.replace("const A", "const E").replace("bg-[", "text-[")].join("\n");
+
+  it("위반 3건이 있던 파일에 위반 없는 줄을 추가하면 PostToolUse 에서 통과한다", async () => {
+    const cwd = repoWithChanges({ [file]: legacy }, { [file]: `${legacy}\n${CLEAN}` });
+    expect(await hook(cwd, edited(file))).toEqual({ exitCode: 0, stdout: "", stderr: "" });
+  });
+
+  it("같은 위반을 추가하면 막고 개수가 늘어난 위반의 현재 위치를 모두 출력한다", async () => {
+    const duplicate = REPLACE.replace("const A", "const F");
+    const cwd = repoWithChanges({ [file]: legacy }, { [file]: `${legacy}\n${duplicate}` });
+    git(cwd, "add", file);
+
+    const { exitCode, stderr } = await hook(cwd, edited(file));
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain("디자인 시스템 오류가 2건 있습니다");
+    expect(stderr).toContain(`${file}:1:40  bg-[#3B82F6]`);
+    expect(stderr).toContain(`${file}:4:40  bg-[#3B82F6]`);
+    expect(stderr).not.toContain("text-[#3B82F6]");
+    expect(stderr).not.toContain("[ask]");
+  });
+
+  it("기존 위반의 줄 번호만 밀리면 통과한다", async () => {
+    const cwd = repoWithChanges({ [file]: legacy }, { [file]: `${CLEAN}\n${legacy}` });
+    expect(await hook(cwd, edited(file))).toEqual({ exitCode: 0, stdout: "", stderr: "" });
+  });
+
+  it("HEAD 에 없는 파일의 위반은 모두 새 위반으로 보고한다", async () => {
+    const newFile = "src/new.tsx";
+    const cwd = repoWithChanges({ [file]: legacy }, { [newFile]: legacy });
+    const { exitCode, stderr } = await hook(cwd, edited(newFile));
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain("디자인 시스템 오류가 3건 있습니다");
+    expect(stderr).toContain(`${newFile}:1:`);
+    expect(stderr).toContain(`${newFile}:2:`);
+    expect(stderr).toContain(`${newFile}:3:`);
+  });
+
+  it.each(["Stop", "SubagentStop", "AfterAgent"])("%s 에서 기존 위반만 남아 있으면 통과한다", async (eventName) => {
+    const cwd = repoWithChanges({ [file]: legacy }, { [file]: `${legacy}\n${CLEAN}` });
+    expect(await hook(cwd, { hook_event_name: eventName })).toEqual({ exitCode: 0, stdout: "", stderr: "" });
+  });
+
+  it("git 저장소 밖에서는 고친 파일의 위반을 그대로 보고한다", async () => {
+    const cwd = tempProject({ ...base, [file]: legacy });
+    const { exitCode, stderr } = await hook(cwd, edited(file));
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain("디자인 시스템 오류가 3건 있습니다");
+  });
+
+  it("첫 커밋 전에는 스테이징한 파일의 위반도 보고한다", async () => {
+    const cwd = tempProject({ ...base, [file]: REPLACE });
+    git(cwd, "init", "-q");
+    git(cwd, "add", "-A");
+    const { exitCode, stderr } = await hook(cwd, { hook_event_name: "Stop" });
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain(`${file}:1:40  bg-[#3B82F6]`);
   });
 });
 

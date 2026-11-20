@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { check, nextSteps } from "./check.js";
 import { CONFIG_FILE, loadConfig } from "./config.js";
@@ -12,8 +13,8 @@ const STOP_EVENTS = new Set(["Stop", "SubagentStop", "AfterAgent"]);
 /**
  * 코딩 에이전트의 훅에서 부르는 검사. 에이전트가 방금 고친 파일만 본다.
  *
- * - 파일을 고친 직후: 그 파일에 오류가 있으면 종료 코드 2와 함께 stderr 로 알린다.
- * - 작업을 끝내려 할 때(Stop): 에이전트가 스스로 고칠 수 있는 오류가 남아 있으면 2로 막는다.
+ * - 파일을 고친 직후: HEAD 대비 새 오류가 있으면 종료 코드 2와 함께 stderr 로 알린다.
+ * - 작업을 끝내려 할 때(Stop): 에이전트가 스스로 고칠 수 있는 새 오류가 남아 있으면 2로 막는다.
  *   사람이 정해야 하는 오류만 남았으면 막지 않는다. 물어보려면 멈춰야 하기 때문이다.
  * - 경고는 막지 않는다. 설정 파일이 없는 프로젝트에서는 아무것도 하지 않는다.
  *
@@ -43,18 +44,26 @@ export async function runHook({ cwd, input = "", configPath = CONFIG_FILE, lang 
     .map((file) => path.relative(cwd, file));
   if (files.length === 0) return pass;
 
+  const canBlock = (v) => v.severity === "error" && (!stopping || v.action !== "ask");
   let result;
+  let errors;
   try {
     const config = loadConfig(cwd, configPath, resolveLang(lang));
     lang = resolveLang(lang, config.lang);
     result = await check({ cwd, config, paths: files, lang });
+    if (!result.violations.some(canBlock)) return pass;
+
+    const baseline = countViolations(await checkHead({ cwd, config, files, lang }));
+    const current = countViolations(result.violations);
+    errors = result.violations.filter((v) => {
+      const key = violationKey(v);
+      return v.severity === "error" && current.get(key) > (baseline.get(key) ?? 0);
+    });
   } catch (error) {
     return { stderr: `${error.message}\n`, exitCode: 2 };
   }
 
-  const errors = result.violations.filter((v) => v.severity === "error");
-  const blocking = stopping ? errors.filter((v) => v.action !== "ask") : errors;
-  if (blocking.length === 0) return pass;
+  if (!errors.some(canBlock)) return pass;
 
   const m = messages(lang);
   const lines = [
@@ -67,6 +76,48 @@ export async function runHook({ cwd, input = "", configPath = CONFIG_FILE, lang 
     "",
   ];
   return { stderr: lines.join("\n"), exitCode: 2 };
+}
+
+async function checkHead({ cwd, config, files, lang }) {
+  let temp;
+  const paths = [];
+  try {
+    for (const file of files) {
+      const gitPath = file.split(path.sep).join("/");
+      // HEAD 나 파일이 없으면 기준선에 위반이 없다.
+      const source = gitOutput(cwd, ["show", `HEAD:./${gitPath}`], { maxBuffer: Infinity });
+      if (source === undefined) continue;
+
+      temp ??= fs.mkdtempSync(path.join(os.tmpdir(), "designsnitch-head-"));
+      const target = path.join(temp, file);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, source);
+      paths.push(file);
+    }
+    if (paths.length === 0) return [];
+
+    const baselineConfig = { ...config, tokens: path.resolve(cwd, config.tokens) };
+    if (config.components) {
+      baselineConfig.components = { ...config.components, path: path.resolve(cwd, config.components.path) };
+    }
+    const result = await check({ cwd: temp, config: baselineConfig, paths, lang });
+    return result.violations;
+  } finally {
+    if (temp) fs.rmSync(temp, { recursive: true, force: true });
+  }
+}
+
+function violationKey({ file, rule, found }) {
+  return JSON.stringify([file, rule, found]);
+}
+
+function countViolations(violations) {
+  const counts = new Map();
+  for (const violation of violations) {
+    const key = violationKey(violation);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
 }
 
 function parse(input) {
@@ -83,19 +134,22 @@ function isInside(cwd, file) {
   return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
 }
 
-/** git 작업 폴더에서 바뀌었거나 새로 생긴 파일. git 저장소가 아니면 빈 배열. */
-function changedFiles(cwd) {
-  let output;
+function gitOutput(cwd, args, options) {
   try {
-    output = execFileSync("git", ["status", "--porcelain=v1", "-z", "--untracked-files=all"], {
+    return execFileSync("git", args, {
       cwd,
-      encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
+      ...options,
     });
   } catch {
-    return [];
+    return undefined;
   }
+}
 
+/** git 작업 폴더에서 바뀌었거나 새로 생긴 파일. git 저장소가 아니면 빈 배열. */
+function changedFiles(cwd) {
+  const output = gitOutput(cwd, ["status", "--porcelain=v1", "-z", "--untracked-files=all"], { encoding: "utf8" });
+  if (!output) return [];
   const files = [];
   const entries = output.split("\0").filter(Boolean);
   for (let i = 0; i < entries.length; i += 1) {
