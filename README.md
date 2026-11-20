@@ -182,12 +182,25 @@ The [`designsnitch-palette` skill](#agent-skills) uses this output to propose to
 
 | Field | Description |
 | --- | --- |
-| `tokens` | The CSS file that defines the tokens. Required. |
+| `tokens` | The CSS file that defines the tokens. Required. Either a path, or an object with `file` and the optional `exclude` and `prefer` (see below). |
 | `components.path` | The directory that holds the design system components. Raw tags are allowed inside it. |
 | `components.replaces` | Raw tags and the components that replace them. Use an array when several components replace one tag. Use `{ "component": ..., "when": { ... } }` when a component covers only some variants of the tag (see below). |
 | `lang` | The language of the messages: `en` (default) or `ko`. |
 
-Without `components`, the component check is skipped. Use `--config <file>` to read a config file from another path.
+Without `components`, the component check is skipped. Use `--config <file>` to read a config file from another path. Paths in the config file are relative to the directory of the config file.
+
+When several tokens share one value, every hex color with that value has several candidates, and each one needs a person's decision. The object form of `tokens` settles this once, in the config.
+
+```json
+"tokens": {
+  "file": "app/globals.css",
+  "exclude": ["--color-legacy-*"],
+  "prefer": ["--color-brand-"]
+}
+```
+
+- `exclude` drops tokens from the standard: exact names, or a prefix ending in `*`. A color that only an excluded token has counts as a color with no token. Other tokens can still refer to an excluded one with `var()`.
+- `prefer` lists token prefixes in order. When the first prefix that matches leaves exactly one candidate, that candidate is the only one, and the error can be replaced right away. When it leaves several, they are all kept and a person decides.
 
 A shared component often covers only some variants of a tag. An `Input` component may cover text fields but not `<input type="file">`. `when` lists the attribute values the component covers. `null` means the attribute is absent.
 
@@ -240,36 +253,78 @@ src/PayButton.tsx
   8:26  warning  The color of bg-[#3B82F5] is not in the tokens.  (color-unknown)
 
 2 errors, 1 warning (3 files checked)
-2 can be replaced right away, 1 needs a person's decision
+2 can be replaced right away, 1 needs a person's decision (1 decision)
 ```
 
-The first line shows how many tokens and components were read from the config. A wrong path shows up here as a zero. If no color token could be read, a line starting with `Note:` explains why. The last line says how many violations can be replaced right away and how many need a person's decision.
+The first line shows how many tokens and components were read from the config. A wrong path shows up here as a zero. If no color token could be read, a line starting with `Note:` explains why. The last line says how many violations can be replaced right away, how many need a person's decision, and how many separate questions those come down to.
 
-`--format json` prints the same result as structured data.
+`--format json` prints the same result as structured data. This example has one violation of each kind, and leaves the rest out.
 
 ```json
 {
-  "designSystem": { "colorTokens": 2, "components": 2, "replacedTags": 2 },
+  "designSystem": { "colorTokens": 4, "components": 1, "replacedTags": 1 },
   "problems": [],
   "next": [
     "action \"replace\" (2): replace found with the value in candidates.",
-    "action \"ask\" (1): do not change these. Ask the user, and include how often and for what each color is used, which `designsnitch colors` shows.",
+    "Before making changes, ask the user about the 2 entries in decisions. Include how often each comes up, the candidates, and the reasons for asking.",
     "After fixing, run the same command again."
   ],
-  "summary": { "files": 3, "errors": 2, "warnings": 1 },
+  "summary": { "files": 1, "errors": 4, "warnings": 1 },
   "violations": [
     {
       "file": "src/PayButton.tsx",
-      "line": 7,
-      "column": 55,
-      "endLine": 7,
-      "endColumn": 67,
+      "line": 3,
+      "column": 24,
+      "endLine": 3,
+      "endColumn": 36,
       "rule": "color-use-token",
       "severity": "error",
-      "message": "bg-[#3B82F6] has the same color as --color-primary-500. Use instead: bg-primary-500",
+      "message": "bg-[#3B82F6] has the same color as --color-brand-500. Use instead: bg-brand-500",
       "found": "bg-[#3B82F6]",
-      "candidates": ["bg-primary-500"],
+      "candidates": ["bg-brand-500"],
+      "recommended": "bg-brand-500",
       "action": "replace"
+    },
+    {
+      "file": "src/PayButton.tsx",
+      "line": 3,
+      "column": 37,
+      "endLine": 3,
+      "endColumn": 51,
+      "rule": "color-use-token",
+      "severity": "error",
+      "message": "text-[#484646] has the same color as --color-text-primary, --color-neutral-30. Use instead: text-text-primary, text-neutral-30",
+      "found": "text-[#484646]",
+      "candidates": ["text-text-primary", "text-neutral-30"],
+      "recommended": "text-text-primary",
+      "action": "ask"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "decision-1",
+      "rule": "color-use-token",
+      "subject": "#484646",
+      "uses": 2,
+      "files": 1,
+      "locations": [
+        { "file": "src/PayButton.tsx", "line": 3, "column": 37 },
+        { "file": "src/PayButton.tsx", "line": 4, "column": 24 }
+      ],
+      "candidates": ["text-text-primary", "text-neutral-30"],
+      "recommended": "text-text-primary",
+      "reasons": ["multiple-candidates"]
+    },
+    {
+      "id": "decision-2",
+      "rule": "color-unknown",
+      "subject": "#3b82f5",
+      "uses": 1,
+      "files": 1,
+      "locations": [{ "file": "src/PayButton.tsx", "line": 4, "column": 39 }],
+      "candidates": [],
+      "recommended": null,
+      "reasons": ["no-token"]
     }
   ]
 }
@@ -281,7 +336,9 @@ The first line shows how many tokens and components were read from the config. A
 | `problems` | Config problems that make the result unreliable. Empty when everything is fine. |
 | `violations[].found` | The offending piece of code |
 | `violations[].candidates` | The classes or components to use instead. Empty when there are none. |
+| `violations[].recommended` | The candidate that fits how the color is used: a `text-` class gets the token named for text, a border gets the one named for borders. Only set when exactly one candidate fits, and only a suggestion: an `ask` stays an `ask`. For `replace`, it is the candidate. |
 | `violations[].action` | How to handle the violation. `replace`: replacing `found` with the only candidate keeps the screen and the behavior the same. `ask`: a person has to decide: several candidates, a color with no token, a token whose value differs between themes, or a component whose props are dynamic or spread. `repair`: the file could not be parsed. |
+| `decisions` | The `ask` violations grouped into questions: one per color or tag with the same candidates. Each has how often it comes up (`uses`, `files`), up to five `locations`, the `candidates`, a `recommended` candidate when every location agrees, and the `reasons` a person has to decide: `multiple-candidates`, `no-token`, `themed-token` or `dynamic-props`. Most used first. |
 | `next` | What an agent should do with this result, in order |
 
 | Exit code | Meaning |
@@ -352,6 +409,8 @@ export default [
 ];
 ```
 
+Paths in the settings are resolved from ESLint's working directory. If `designsnitch.config.json` is not next to `eslint.config.js`, as in a monorepo, add the directory the paths are relative to: `settings: { designsnitch: { ...designSystem, root: "apps/web" } }`.
+
 The same set of rules is available as `designsnitch.configs.recommended`. In a project that already has many violations, the error-level rules will make the existing lint step fail, so run `designsnitch check` first to see how many there are. Replacement candidates appear as ESLint suggestions, which editors show as quick fixes. CSS files are checked by the CLI only, not through ESLint.
 
 ## Blocking violations
@@ -415,7 +474,7 @@ designsnitch does not flag default palette classes such as `bg-blue-500`. If the
 ## Scope
 
 - **Where it looks in JS and TS:** string literals and template literals. This covers `className` and the arguments of `cn()`, `clsx()` and `cva()`. Comments are ignored.
-- **Where it looks in CSS:** hex colors in declaration values, in `.css` files including CSS Modules. Declarations that define a variable (`--name: ...`) are skipped, since that is where tokens are defined. Only colors are checked in CSS for now.
+- **Where it looks in CSS:** hex colors in declaration values, in `.css` files including CSS Modules. In the token CSS, declarations that define a variable (`--name: ...`) are skipped, since that is where tokens are defined. In every other CSS file they are checked like any other declaration. Only colors are checked in CSS for now.
 - **Themes:** when a token has different values per theme, all of them count as that token's value. Replacing a hex color with such a token changes the color in the other themes, so those errors are marked `ask`.
 - **Fixes:** designsnitch reports candidates and never rewrites code by itself, even when there is only one candidate.
 

@@ -183,12 +183,25 @@ Tailwind 기본 팔레트
 
 | 항목 | 설명 |
 | --- | --- |
-| `tokens` | 토큰이 정의된 CSS 파일입니다. 필수입니다. |
+| `tokens` | 토큰이 정의된 CSS 파일입니다. 필수입니다. 경로를 적거나, `file`과 선택 항목 `exclude`, `prefer`를 담은 객체로 적습니다(아래 참고). |
 | `components.path` | 디자인 시스템 컴포넌트가 있는 경로입니다. 이 안에서는 raw 태그를 써도 됩니다. |
 | `components.replaces` | raw 태그와 그것을 대체하는 컴포넌트입니다. 한 태그를 대체하는 컴포넌트가 여러 개면 배열로 적습니다. 컴포넌트가 태그의 일부 변형만 맡으면 `{ "component": ..., "when": { ... } }`로 적습니다(아래 참고). |
 | `lang` | 메시지의 언어입니다. `en`(기본) 또는 `ko`입니다. |
 
-`components`를 생략하면 컴포넌트 검사를 하지 않습니다. 다른 경로의 설정 파일을 쓰려면 `--config <파일>`을 붙입니다.
+`components`를 생략하면 컴포넌트 검사를 하지 않습니다. 다른 경로의 설정 파일을 쓰려면 `--config <파일>`을 붙입니다. 설정 파일 안의 경로는 설정 파일이 있는 디렉터리를 기준으로 풉니다.
+
+값이 같은 토큰이 여럿이면, 그 값을 쓴 hex 색은 모두 후보가 여러 개가 되고 하나하나 사람이 정해야 합니다. `tokens`를 객체로 적으면 이 판단을 설정에서 한 번에 내릴 수 있습니다.
+
+```json
+"tokens": {
+  "file": "app/globals.css",
+  "exclude": ["--color-legacy-*"],
+  "prefer": ["--color-brand-"]
+}
+```
+
+- `exclude`는 기준에서 뺄 토큰입니다. 정확한 이름이나 `*`로 끝나는 접두어를 적습니다. 제외한 토큰만 가진 색은 토큰이 없는 색으로 봅니다. 다른 토큰이 제외한 토큰을 `var()`로 참조하는 것은 그대로 풉니다.
+- `prefer`는 우선할 토큰 접두어를 순서대로 적습니다. 처음으로 맞는 접두어가 후보를 하나로 줄이면 그 후보만 남고, 바로 바꿀 수 있는 오류가 됩니다. 여러 개가 남으면 모두 두고 사람이 정합니다.
 
 공용 컴포넌트가 태그의 일부 변형만 맡는 경우가 많습니다. `Input` 컴포넌트는 텍스트 입력은 맡아도 `<input type="file">`은 맡지 않을 수 있습니다. `when`에 컴포넌트가 맡는 속성 값을 적습니다. `null`은 그 속성이 없다는 뜻입니다.
 
@@ -241,36 +254,78 @@ src/PayButton.tsx
   8:26  경고  bg-[#3B82F5]의 색은 토큰에 없습니다.  (color-unknown)
 
 오류 2개, 경고 1개 (파일 3개 검사)
-바로 바꿀 수 있는 것 2건, 사람이 정해야 하는 것 1건
+바로 바꿀 수 있는 것 2건, 사람이 정해야 하는 것 1건 (결정 1개)
 ```
 
-첫 줄은 설정에서 읽어 낸 토큰과 컴포넌트의 개수입니다. 경로를 잘못 적으면 여기서 0개로 드러납니다. 색 토큰을 하나도 읽지 못하면 `주의:`로 시작하는 줄이 이유를 알려줍니다. 마지막 줄은 바로 바꿀 수 있는 위반과 사람이 정해야 하는 위반이 각각 몇 건인지 알려줍니다.
+첫 줄은 설정에서 읽어 낸 토큰과 컴포넌트의 개수입니다. 경로를 잘못 적으면 여기서 0개로 드러납니다. 색 토큰을 하나도 읽지 못하면 `주의:`로 시작하는 줄이 이유를 알려줍니다. 마지막 줄은 바로 바꿀 수 있는 위반과 사람이 정해야 하는 위반이 각각 몇 건이고, 사람이 정할 것이 질문 몇 개로 묶이는지 알려줍니다.
 
-`--format json`은 같은 결과를 구조화해서 출력합니다.
+`--format json`은 같은 결과를 구조화해서 출력합니다. 아래 예시는 위반을 종류별로 하나씩만 남기고 나머지는 생략했습니다.
 
 ```json
 {
-  "designSystem": { "colorTokens": 2, "components": 2, "replacedTags": 2 },
+  "designSystem": { "colorTokens": 4, "components": 1, "replacedTags": 1 },
   "problems": [],
   "next": [
     "action이 replace인 2건은 found를 candidates의 값으로 바꾸세요.",
-    "action이 ask인 1건은 바꾸지 말고 사용자에게 물으세요. ...",
+    "변경하기 전에 decisions의 2건을 사용자에게 물으세요. 사용 횟수와 후보, 확인이 필요한 이유를 함께 알려 주세요.",
     "고친 뒤 같은 명령을 다시 실행하세요."
   ],
-  "summary": { "files": 3, "errors": 2, "warnings": 1 },
+  "summary": { "files": 1, "errors": 4, "warnings": 1 },
   "violations": [
     {
       "file": "src/PayButton.tsx",
-      "line": 7,
-      "column": 55,
-      "endLine": 7,
-      "endColumn": 67,
+      "line": 3,
+      "column": 24,
+      "endLine": 3,
+      "endColumn": 36,
       "rule": "color-use-token",
       "severity": "error",
-      "message": "bg-[#3B82F6]의 색은 토큰 --color-primary-500의 값입니다. 대신 사용: bg-primary-500",
+      "message": "bg-[#3B82F6]의 색은 토큰 --color-brand-500의 값입니다. 대신 사용: bg-brand-500",
       "found": "bg-[#3B82F6]",
-      "candidates": ["bg-primary-500"],
+      "candidates": ["bg-brand-500"],
+      "recommended": "bg-brand-500",
       "action": "replace"
+    },
+    {
+      "file": "src/PayButton.tsx",
+      "line": 3,
+      "column": 37,
+      "endLine": 3,
+      "endColumn": 51,
+      "rule": "color-use-token",
+      "severity": "error",
+      "message": "text-[#484646]의 색은 토큰 --color-text-primary, --color-neutral-30의 값입니다. 대신 사용: text-text-primary, text-neutral-30",
+      "found": "text-[#484646]",
+      "candidates": ["text-text-primary", "text-neutral-30"],
+      "recommended": "text-text-primary",
+      "action": "ask"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "decision-1",
+      "rule": "color-use-token",
+      "subject": "#484646",
+      "uses": 2,
+      "files": 1,
+      "locations": [
+        { "file": "src/PayButton.tsx", "line": 3, "column": 37 },
+        { "file": "src/PayButton.tsx", "line": 4, "column": 24 }
+      ],
+      "candidates": ["text-text-primary", "text-neutral-30"],
+      "recommended": "text-text-primary",
+      "reasons": ["multiple-candidates"]
+    },
+    {
+      "id": "decision-2",
+      "rule": "color-unknown",
+      "subject": "#3b82f5",
+      "uses": 1,
+      "files": 1,
+      "locations": [{ "file": "src/PayButton.tsx", "line": 4, "column": 39 }],
+      "candidates": [],
+      "recommended": null,
+      "reasons": ["no-token"]
     }
   ]
 }
@@ -282,7 +337,9 @@ src/PayButton.tsx
 | `problems` | 결과를 믿기 어렵게 만드는 설정 문제. 정상이면 빈 배열입니다. |
 | `violations[].found` | 위반한 코드 조각 |
 | `violations[].candidates` | 대신 쓸 클래스나 컴포넌트. 없으면 빈 배열입니다. |
+| `violations[].recommended` | 색을 쓰는 용도에 맞는 후보입니다. `text-` 클래스면 텍스트용 이름의 토큰, 테두리면 테두리용 이름의 토큰입니다. 맞는 후보가 정확히 하나일 때만 채우고, 추천일 뿐이라 `ask`는 그대로 `ask`입니다. `replace`면 그 후보입니다. |
 | `violations[].action` | 이 위반을 어떻게 다룰지입니다. `replace`: `found`를 하나뿐인 후보로 바꿔도 화면과 동작이 같습니다. `ask`: 사람이 정해야 합니다. 후보가 여러 개이거나, 토큰이 없는 색이거나, 테마마다 값이 다른 토큰이거나, 컴포넌트의 속성이 동적이거나 spread된 경우입니다. `repair`: 파일을 읽지 못했습니다. |
+| `decisions` | `ask`인 위반을 질문 단위로 묶은 것입니다. 색이나 태그와 후보가 같으면 하나로 묶습니다. 각 항목에 얼마나 나오는지(`uses`, `files`), 위치 최대 다섯 곳(`locations`), 후보(`candidates`), 모든 위치에서 추천이 같을 때의 추천(`recommended`), 사람이 정해야 하는 이유(`reasons`: `multiple-candidates`, `no-token`, `themed-token`, `dynamic-props`)가 있습니다. 많이 나오는 순서입니다. |
 | `next` | 이 결과를 받은 에이전트가 할 일을 순서대로 적은 것 |
 
 | 종료 코드 | 의미 |
@@ -353,6 +410,8 @@ export default [
 ];
 ```
 
+설정 안의 경로는 ESLint의 작업 디렉터리를 기준으로 풉니다. 모노레포처럼 `designsnitch.config.json`이 `eslint.config.js` 옆에 있지 않으면 경로의 기준 디렉터리를 더합니다: `settings: { designsnitch: { ...designSystem, root: "apps/web" } }`.
+
 같은 규칙 묶음을 `designsnitch.configs.recommended`로도 쓸 수 있습니다. 이미 위반이 많은 프로젝트에 넣으면 오류 등급 규칙 때문에 기존 lint 단계가 실패하므로, 먼저 `designsnitch check`로 개수를 확인하세요. 대체 후보는 ESLint의 제안으로 보고되어 에디터에서 빠른 수정으로 나타납니다. CSS 파일은 ESLint가 아니라 CLI에서만 검사합니다.
 
 ## 위반을 막는 방법
@@ -416,7 +475,7 @@ designsnitch는 `bg-blue-500` 같은 기본 팔레트 클래스를 위반으로 
 ## 검사 범위
 
 - **JS와 TS에서 보는 곳:** 문자열과 템플릿 리터럴입니다. `className`과 `cn()`, `clsx()`, `cva()`의 인자가 여기에 들어갑니다. 주석은 보지 않습니다.
-- **CSS에서 보는 곳:** `.css` 파일(CSS Modules 포함)의 선언 값에 있는 hex 색입니다. 변수를 정의하는 선언(`--이름: ...`)은 토큰을 정의하는 곳이므로 건너뜁니다. CSS에서는 아직 색만 검사합니다.
+- **CSS에서 보는 곳:** `.css` 파일(CSS Modules 포함)의 선언 값에 있는 hex 색입니다. 토큰 CSS에서는 변수를 정의하는 선언(`--이름: ...`)을 토큰을 정의하는 곳으로 보고 건너뜁니다. 다른 CSS 파일에서는 변수 선언도 일반 선언처럼 검사합니다. CSS에서는 아직 색만 검사합니다.
 - **테마:** 토큰이 테마마다 다른 값을 가지면 그 값들을 모두 그 토큰의 값으로 봅니다. hex 색을 그런 토큰으로 바꾸면 다른 테마에서 색이 바뀌므로 `ask`로 표시합니다.
 - **수정:** designsnitch는 후보를 알려줄 뿐, 후보가 하나여도 코드를 직접 고치지 않습니다.
 
