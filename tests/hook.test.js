@@ -18,10 +18,10 @@ const ASK = `export const B = () => <button>확인</button>;`; // 후보 2개인
 const WARN = `export const C = () => <div className="bg-[#123456]" />;`; // 경고
 const CLEAN = `export const D = () => <div className="bg-primary" />;`;
 
-async function hook(cwd, payload) {
+async function hook(cwd, payload, ...args) {
   let stdout = "";
   let stderr = "";
-  const exitCode = await run(["hook"], {
+  const exitCode = await run(["hook", ...args], {
     cwd,
     stdin: payload === undefined ? "" : JSON.stringify(payload),
     stdout: { write: (chunk) => (stdout += chunk) },
@@ -153,6 +153,23 @@ describe("designsnitch hook: HEAD 대비 새 위반", () => {
   it("기존 위반의 줄 번호만 밀리면 통과한다", async () => {
     const cwd = repoWithChanges({ [file]: legacy }, { [file]: `${CLEAN}\n${legacy}` });
     expect(await hook(cwd, edited(file))).toEqual({ exitCode: 0, stdout: "", stderr: "" });
+  });
+
+  it("별도 설정 파일을 써도 HEAD 에 이미 있던 위반은 통과한다", async () => {
+    const cwd = repoWithChanges(
+      { "other/x.json": '{ "tokens": "design-tokens.css" }', "other/design-tokens.css": base["tokens.css"], [file]: REPLACE },
+      { [file]: `${REPLACE}\n${CLEAN}` },
+    );
+    expect(await hook(cwd, edited(file), "--config", "other/x.json")).toEqual({ exitCode: 0, stdout: "", stderr: "" });
+  });
+
+  it("HEAD 의 토큰 CSS 에 있던 변수 선언으로 새 일반 선언의 위반을 가리지 않는다", async () => {
+    const file = "tokens.css";
+    const cwd = repoWithChanges({}, { [file]: `${base[file]}\n.card { color: #3B82F6; }` });
+    const { exitCode, stderr } = await hook(cwd, edited(file));
+
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain("tokens.css:2:16");
   });
 
   it("HEAD 에 없는 파일의 위반은 모두 새 위반으로 보고한다", async () => {

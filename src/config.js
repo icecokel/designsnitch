@@ -27,7 +27,7 @@ export function replacementNames(replacement) {
  * @param {string} cwd 프로젝트 디렉터리
  * @param {string} [configPath] cwd 기준 설정 파일 경로
  * @param {"en" | "ko"} [lang] 오류 문장의 언어
- * @returns {{ tokens: string, lang?: "en" | "ko", components?: { path: string, replaces: Record<string, Replacement> } }}
+ * @returns {{ tokens: string, root: string, lang?: "en" | "ko", components?: { path: string, replaces: Record<string, Replacement> } }}
  */
 export function loadConfig(cwd, configPath = CONFIG_FILE, lang) {
   const m = messages(lang);
@@ -50,7 +50,7 @@ export function loadConfig(cwd, configPath = CONFIG_FILE, lang) {
   if (typeof config?.tokens !== "string") throw new Error(m.configNoTokens({ file }));
   if (config.lang !== undefined && !isLang(config.lang)) throw new Error(m.configBadLang({ file }));
   if (config.components !== undefined) validateComponents(config.components, file, m);
-  return config;
+  return { ...config, root: path.dirname(file) };
 }
 
 function validateComponents(components, file, m) {

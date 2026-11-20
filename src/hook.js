@@ -96,11 +96,7 @@ async function checkHead({ cwd, config, files, lang }) {
     }
     if (paths.length === 0) return [];
 
-    const baselineConfig = { ...config, tokens: path.resolve(cwd, config.tokens) };
-    if (config.components) {
-      baselineConfig.components = { ...config.components, path: path.resolve(cwd, config.components.path) };
-    }
-    const result = await check({ cwd: temp, config: baselineConfig, paths, lang });
+    const result = await check({ cwd: temp, config, paths, lang, sourceCwd: cwd });
     return result.violations;
   } finally {
     if (temp) fs.rmSync(temp, { recursive: true, force: true });

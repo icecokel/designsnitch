@@ -57,14 +57,37 @@ describe("designsnitch check", () => {
     expect(exitCode).toBe(0);
   });
 
-  it("--config 로 다른 설정 파일을 쓸 수 있다", async () => {
+  it("--config 로 지정한 파일의 디렉터리에서 토큰 경로를 푼다", async () => {
     const cwd = tempProject({
-      "config/ds.json": `{ "tokens": "tokens.css" }`,
+      "other/x.json": `{ "tokens": "../tokens.css" }`,
       "tokens.css": `@theme { --color-primary: #3B82F6; }`,
       "src/Card.jsx": `export const Card = () => <div className="bg-[#3B82F6]" />;`,
     });
-    const { exitCode } = await runCli(["check", "--config", "config/ds.json"], cwd);
+    const { exitCode, stdout, stderr } = await runCli(["check", "--config", "other/x.json", "--format", "json"], cwd);
+    expect(stderr).toBe("");
     expect(exitCode).toBe(1);
+    expect(JSON.parse(stdout).violations).toMatchObject([
+      { file: "src/Card.jsx", rule: "color-use-token", candidates: ["bg-primary"] },
+    ]);
+  });
+
+  it("--config 로 지정한 파일의 디렉터리에서 컴포넌트 경로를 푼다", async () => {
+    const cwd = tempProject({
+      "other/x.json": JSON.stringify({
+        tokens: "tokens.css",
+        components: { path: "ui", replaces: { button: "Button" } },
+      }),
+      "tokens.css": "",
+      "other/tokens.css": `@theme { --color-primary: #3B82F6; }`,
+      "other/ui/Button.jsx": `export const Button = () => <button />;`,
+      "src/Card.jsx": `export const Card = () => <button />;`,
+    });
+    const { exitCode, stdout, stderr } = await runCli(["check", "--config", "other/x.json", "--format", "json"], cwd);
+    expect(stderr).toBe("");
+    expect(exitCode).toBe(1);
+    expect(JSON.parse(stdout).violations).toMatchObject([
+      { file: "src/Card.jsx", rule: "use-ds-component", candidates: ["Button"] },
+    ]);
   });
 });
 
@@ -141,6 +164,27 @@ describe("designsnitch colors", () => {
     const { stdout } = await runCli(["colors"], cwd);
     expect(stdout).toContain("  #3b82f6  2곳  파일 1개  bg 1, 문자열 1  토큰: --color-primary, --color-brand");
     expect(stdout).toContain("  #ffffff  1곳  파일 1개  text 1  토큰 없음");
+  });
+
+  it("--config 로 지정한 토큰 CSS 밖의 사용자 정의 속성에 있는 색을 센다", async () => {
+    const cwd = tempProject({
+      "other/x.json": `{ "tokens": "./tokens.css" }`,
+      "other/tokens.css": `@theme { --color-a: #fff; } .page { color: #fff; }`,
+      "src/tokens.css": `.card { --brand: #ff00aa; --white: #fff; }`,
+    });
+    const { exitCode, stdout, stderr } = await runCli(["colors", "--config", "other/x.json", "--format", "json"], cwd);
+    expect(stderr).toBe("");
+    expect(exitCode).toBe(0);
+    expect(JSON.parse(stdout).colors).toMatchObject([
+      {
+        color: "#ffffff",
+        uses: 2,
+        properties: { color: 1, "--white": 1 },
+        tokens: ["--color-a"],
+        examples: [{ file: "other/tokens.css", line: 1 }, { file: "src/tokens.css", line: 1 }],
+      },
+      { color: "#ff00aa", uses: 1, properties: { "--brand": 1 }, tokens: [] },
+    ]);
   });
 
   it("CSS 에서 쓴 횟수를 함께 보여준다", async () => {

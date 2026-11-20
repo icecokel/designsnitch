@@ -22,7 +22,7 @@ export function loadTokens(settings, cwd) {
   const tokensPath = settings?.designsnitch?.tokens;
   if (typeof tokensPath !== "string") throw new Error(m.tokensSettingMissing());
 
-  const file = path.resolve(cwd, tokensPath);
+  const file = path.resolve(cwd, settings?.designsnitch?.root ?? ".", tokensPath);
   try {
     const { mtimeMs } = fs.statSync(file);
     const cached = cache.get(file);

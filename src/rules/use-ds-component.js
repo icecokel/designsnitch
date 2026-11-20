@@ -11,12 +11,12 @@ export default {
     messages: { useComponent: TEXT, useComponentAsk: TEXT },
   },
   create(context) {
-    const components = context.settings?.designsnitch?.components;
+    const { components, root } = context.settings?.designsnitch ?? {};
     if (!components?.path || !components.replaces) return {};
     const m = ruleMessages(context);
 
     // 디자인 시스템 컴포넌트는 raw 태그로 만들어지므로 그 경로 안은 검사하지 않는다.
-    const dsDir = path.resolve(context.cwd, components.path);
+    const dsDir = path.resolve(context.cwd, root ?? ".", components.path);
     const file = path.resolve(context.cwd, context.filename);
     if (file.startsWith(dsDir + path.sep)) return {};
 

@@ -15,9 +15,10 @@ describe("findCssColors", () => {
     expect(findCssColors(css).map((c) => c.value)).toEqual(["#fff", "#00000080"]);
   });
 
-  it("토큰이나 변수를 정의하는 선언은 건너뛴다", () => {
-    const css = `:root { --primary: #3B82F6; } @theme { --color-primary: #3B82F6; } .a { --local: #fff; }`;
-    expect(findCssColors(css)).toEqual([]);
+  it("옵션을 켰을 때만 사용자 정의 속성 선언을 건너뛴다", () => {
+    const css = `@theme { --color-primary: #3B82F6; } .a { color: #fff; }`;
+    expect(findCssColors(css).map(({ prop }) => prop)).toEqual(["--color-primary", "color"]);
+    expect(findCssColors(css, { skipCustomProperties: true }).map(({ prop }) => prop)).toEqual(["color"]);
   });
 
   it("url(), 문자열, 주석 안의 # 은 색으로 보지 않는다", () => {
@@ -49,6 +50,6 @@ describe("findCssColors", () => {
 
   it("Tailwind v4 의 @theme, @apply, @utility 가 있어도 읽는다", () => {
     const css = `@import "tailwindcss";\n@theme { --color-a: #fff; }\n@utility card { color: #111111; }\n.b { @apply bg-[#222222]; }`;
-    expect(findCssColors(css).map((c) => c.value)).toEqual(["#111111"]);
+    expect(findCssColors(css).map((c) => c.value)).toEqual(["#fff", "#111111"]);
   });
 });

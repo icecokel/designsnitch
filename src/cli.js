@@ -30,7 +30,8 @@ const COMMANDS = {
     const config = hasConfig ? loadConfig(cwd, configPath, resolveLang(flagLang)) : undefined;
     const lang = resolveLang(flagLang, config?.lang);
     const tokens = config ? loadTokens({ designsnitch: { ...config, lang } }, cwd).colors : undefined;
-    const result = await collectColors({ cwd, paths, tokens });
+    const tokenFile = config ? path.resolve(config.root, config.tokens) : undefined;
+    const result = await collectColors({ cwd, paths, tokens, tokenFile });
     return { stdout: format === "json" ? json(result) : formatColorsText(result, lang), exitCode: 0 };
   },
 

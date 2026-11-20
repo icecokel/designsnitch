@@ -1,6 +1,8 @@
+import path from "node:path";
 import { ESLint } from "eslint";
 import { describe, expect, it } from "vitest";
 import designsnitch from "../src/index.js";
+import { tempProject } from "./temp-project.js";
 
 describe("플러그인", () => {
   it("recommended 설정은 토큰이 있는데 안 쓴 것을 오류로, 토큰에 없는 값을 경고로 보고한다", async () => {
@@ -38,6 +40,51 @@ describe("플러그인", () => {
       { ruleId: "designsnitch/use-ds-component", severity: 2 },
       { ruleId: "designsnitch/color-use-token", severity: 2 },
       { ruleId: "designsnitch/color-unknown", severity: 1 },
+    ]);
+  });
+
+  it.each([
+    ["settings.designsnitch.root 가 있으면 그 디렉터리의 토큰과 컴포넌트를 기준으로 검사한다", true, "--color-nested"],
+    ["settings.designsnitch.root 가 없으면 ESLint 의 cwd 를 기준으로 검사한다", false, "--color-cwd"],
+  ])("%s", async (_name, useRoot, token) => {
+    const component = `export const Button = () => <button />;`;
+    const cwd = tempProject({
+      "tokens.css": `@theme { --color-cwd: #fff; }`,
+      "design/tokens.css": `@theme { --color-nested: #fff; }`,
+      "ui/Button.jsx": component,
+      "design/ui/Button.jsx": component,
+      "src/Card.jsx": `export const Card = () => <div className="bg-[#fff]" />;`,
+    });
+    const eslint = new ESLint({
+      cwd,
+      overrideConfigFile: true,
+      overrideConfig: [
+        designsnitch.configs.recommended,
+        {
+          files: ["**/*.jsx"],
+          languageOptions: { parserOptions: { ecmaFeatures: { jsx: true } } },
+          settings: {
+            designsnitch: {
+              ...(useRoot ? { root: path.join(cwd, "design") } : {}),
+              tokens: "tokens.css",
+              components: { path: "ui", replaces: { button: "Button" } },
+            },
+          },
+        },
+      ],
+    });
+    const results = await eslint.lintFiles(["ui/Button.jsx", "design/ui/Button.jsx", "src/Card.jsx"]);
+    const messages = Object.fromEntries(results.map((result) => [
+      path.relative(cwd, result.filePath).split(path.sep).join("/"),
+      result.messages,
+    ]));
+
+    expect(messages[useRoot ? "design/ui/Button.jsx" : "ui/Button.jsx"]).toEqual([]);
+    expect(messages[useRoot ? "ui/Button.jsx" : "design/ui/Button.jsx"]).toMatchObject([
+      { ruleId: "designsnitch/use-ds-component" },
+    ]);
+    expect(messages["src/Card.jsx"]).toMatchObject([
+      { ruleId: "designsnitch/color-use-token", message: expect.stringContaining(token) },
     ]);
   });
 

@@ -7,13 +7,14 @@ const DISABLE_NEXT_LINE = "designsnitch-disable-next-line";
 
 /**
  * CSS 의 선언 값에서 hex 색을 찾는다. 줄과 열은 1부터 시작하고, 끝 열은 색 바로 다음 칸이다.
- * --로 시작하는 선언은 토큰이나 변수를 정의하는 곳이므로 건너뛴다.
+ * 토큰 CSS 에서는 옵션을 켜서 사용자 정의 속성 선언을 건너뛸 수 있다.
  * 바로 앞에 designsnitch-disable-next-line 주석이 있는 선언의 색은 disabled 로 표시한다.
  * @param {string} css
+ * @param {{ skipCustomProperties?: boolean }} [options]
  * @returns {{ line: number, column: number, endLine: number, endColumn: number, value: string, prop: string, disabled: boolean }[]}
  * @throws {import("postcss").CssSyntaxError} CSS 를 읽지 못했을 때
  */
-export function findCssColors(css) {
+export function findCssColors(css, { skipCustomProperties = false } = {}) {
   const lineStarts = [0];
   for (let i = 0; i < css.length; i += 1) {
     if (css[i] === "\n") lineStarts.push(i + 1);
@@ -26,7 +27,7 @@ export function findCssColors(css) {
 
   const found = [];
   postcss.parse(css).walkDecls((decl) => {
-    if (decl.prop.startsWith("--")) return;
+    if (skipCustomProperties && decl.prop.startsWith("--")) return;
 
     const previous = decl.prev();
     const disabled = previous?.type === "comment" && previous.text.includes(DISABLE_NEXT_LINE);

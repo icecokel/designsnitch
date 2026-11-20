@@ -10,6 +10,7 @@ describe("loadConfig", () => {
     expect(loadConfig(project)).toEqual({
       tokens: "./app/globals.css",
       components: { path: "./components/ui", replaces: { button: "Button" } },
+      root: project,
     });
   });
 

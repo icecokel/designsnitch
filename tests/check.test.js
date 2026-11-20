@@ -293,6 +293,21 @@ describe("CSS 파일", () => {
     ]);
   });
 
+  it("토큰 CSS 밖의 사용자 정의 속성에 있는 색을 검사한다", async () => {
+    const cwd = tempProject({
+      "designsnitch.config.json": '{ "tokens": "./tokens.css" }',
+      "tokens.css": `@theme { --color-a: #fff; }`,
+      "src/tokens.css": `.card { --brand: #ff00aa; --white: #fff; }`,
+    });
+    const result = await check({ cwd, config: loadConfig(cwd) });
+
+    expect(result.summary).toEqual({ files: 2, errors: 1, warnings: 1 });
+    expect(result.violations).toMatchObject([
+      { file: "src/tokens.css", rule: "color-unknown", severity: "warning", found: "#ff00aa", candidates: [] },
+      { file: "src/tokens.css", rule: "color-use-token", severity: "error", found: "#fff", candidates: ["var(--color-a)"] },
+    ]);
+  });
+
   it("JS 와 CSS 의 위반을 파일 순서대로 함께 돌려준다", async () => {
     const result = await checkProject({
       "src/b.css": `.b { color: #123456; }`,

@@ -102,7 +102,7 @@ describe("collectColors", () => {
         "dist/out.css": `.x { color: #999999; }`,
       }),
     });
-    expect(result.summary).toEqual({ files: 2, colors: 2, paletteColors: 0, uses: 4 });
+    expect(result.summary).toEqual({ files: 2, colors: 3, paletteColors: 0, uses: 5 });
     expect(result.colors).toEqual([
       {
         color: "#3b82f6",
@@ -123,6 +123,15 @@ describe("collectColors", () => {
         utilities: {},
         literals: 0,
         properties: { color: 1 },
+        examples: [{ file: "src/a.css", line: 2 }],
+      },
+      {
+        color: "#222222",
+        uses: 1,
+        files: 1,
+        utilities: {},
+        literals: 0,
+        properties: { "--x": 1 },
         examples: [{ file: "src/a.css", line: 2 }],
       },
     ]);

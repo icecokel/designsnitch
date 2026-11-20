@@ -36,6 +36,7 @@ const RULE_PREFIX = "designsnitch/";
  * @param {ReturnType<typeof import("./config.js").loadConfig>} options.config
  * @param {string[]} [options.paths] 검사할 파일이나 디렉터리 (cwd 기준)
  * @param {"en" | "ko"} [options.lang] 문장의 언어. 없으면 설정의 lang, 환경 변수, 영어 순으로 정한다
+ * @param {string} [options.sourceCwd] 임시 복사본을 검사할 때 원본 프로젝트 디렉터리
  * @returns {Promise<{
  *   designSystem: { colorTokens: number, components: number, replacedTags: number },
  *   problems: string[],
@@ -45,15 +46,16 @@ const RULE_PREFIX = "designsnitch/";
  * }>} designSystem 은 설정에서 읽어 낸 것의 개수, problems 는 결과를 믿기 어렵게 만드는 설정 문제,
  *   next 는 이 결과를 받은 에이전트가 순서대로 할 일
  */
-export async function check({ cwd, config, paths = ["."], lang }) {
+export async function check({ cwd, config, paths = ["."], lang, sourceCwd = cwd }) {
   lang = resolveLang(lang, config.lang);
   const m = messages(lang);
+  const root = path.resolve(sourceCwd, config.root ?? ".");
   // 규칙도 같은 언어를 쓰도록 설정에 실어 보낸다.
-  const settings = { designsnitch: { ...config, lang } };
+  const settings = { designsnitch: { ...config, root, lang } };
   // 설정에 문제가 있으면 파일을 검사하기 전에 알린다.
   const tokens = loadTokens(settings, cwd);
   if (config.components) {
-    const dir = path.resolve(cwd, config.components.path);
+    const dir = path.resolve(root, config.components.path);
     if (!fs.existsSync(dir)) {
       throw new Error(m.componentsDirMissing({ dir }));
     }
@@ -75,9 +77,12 @@ export async function check({ cwd, config, paths = ["."], lang }) {
       .filter(isOurs)
       .map((message) => toViolation(file, result.source, message, config));
   });
-  const cssViolations = cssFiles.flatMap((file) =>
-    checkCss(file, fs.readFileSync(path.resolve(cwd, file), "utf8"), tokens, m),
-  );
+  const tokenFile = path.resolve(root, config.tokens);
+  const cssViolations = cssFiles.flatMap((file) => {
+    const source = fs.readFileSync(path.resolve(cwd, file), "utf8");
+    const skipCustomProperties = path.resolve(sourceCwd, file) === tokenFile;
+    return checkCss(file, source, tokens, m, { skipCustomProperties });
+  });
 
   const violations = [...scriptViolations, ...cssViolations]
     .sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.column - b.column)
@@ -100,10 +105,10 @@ export async function check({ cwd, config, paths = ["."], lang }) {
  * CSS 파일 하나의 hex 색을 토큰과 비교한다. 대체 후보는 var(--토큰) 이다.
  * @returns {(Omit<Violation, "action"> & { messageId?: string })[]}
  */
-function checkCss(file, source, tokens, m) {
+function checkCss(file, source, tokens, m, options) {
   let colors;
   try {
-    colors = findCssColors(source);
+    colors = findCssColors(source, options);
   } catch (error) {
     const at = { line: error.line ?? 1, column: error.column ?? 1 };
     return [
