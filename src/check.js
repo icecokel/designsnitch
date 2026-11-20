@@ -10,8 +10,11 @@ import { splitPaths } from "./files.js";
 import plugin from "./index.js";
 import { messages, resolveLang } from "./messages.js";
 import { loadTokens } from "./rules/load-tokens.js";
+import uncheckedHex from "./rules/unchecked-hex.js";
 
 const RULE_PREFIX = "designsnitch/";
+const UNCHECKED_RULE = "designsnitch-internal/unchecked-hex";
+const internalPlugin = { rules: { "unchecked-hex": uncheckedHex } };
 const MAX_DECISION_LOCATIONS = 5;
 
 /**
@@ -87,8 +90,21 @@ export async function check({ cwd, config, paths = ["."], lang, sourceCwd = cwd 
   const { scriptPaths, cssFiles } = splitPaths(cwd, paths);
 
   // JS, TS 는 ESLint 로 규칙을 실행하고, CSS 는 직접 읽는다.
-  const eslint = createEngine({ cwd, config: { ...plugin.configs.recommended, settings } });
+  const recommended = plugin.configs.recommended;
+  const eslint = createEngine({
+    cwd,
+    config: {
+      plugins: { ...recommended.plugins, "designsnitch-internal": internalPlugin },
+      rules: { ...recommended.rules, [UNCHECKED_RULE]: "warn" },
+      settings,
+    },
+  });
   const results = scriptPaths.length > 0 ? await eslint.lintFiles(scriptPaths) : [];
+  // 검사하지 못한 hex 색은 위반이 아니라 개수로만 알린다. 놓친 것이 있다는 사실을 숨기지 않기 위해서다.
+  const uncheckedFiles = results
+    .map((result) => result.messages.filter((message) => message.ruleId === UNCHECKED_RULE).length)
+    .filter((n) => n > 0);
+  const unchecked = { hexColors: uncheckedFiles.reduce((a, b) => a + b, 0), files: uncheckedFiles.length };
   const scriptViolations = results.flatMap((result) => {
     const file = path.relative(cwd, result.filePath).split(path.sep).join("/");
     return result.messages
@@ -123,6 +139,7 @@ export async function check({ cwd, config, paths = ["."], lang, sourceCwd = cwd 
     },
     violations,
     decisions,
+    unchecked,
   };
 }
 

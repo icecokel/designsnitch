@@ -5,13 +5,14 @@ import { messages } from "./messages.js";
  * @param {Awaited<ReturnType<typeof import("./check.js").check>>} result
  * @param {"en" | "ko"} [lang]
  */
-export function formatText({ designSystem, problems, summary, violations, decisions = [] }, lang) {
+export function formatText({ designSystem, problems, summary, violations, decisions = [], unchecked }, lang) {
   const m = messages(lang);
   // 첫 줄은 설정에서 무엇을 읽었는지다. 경로를 잘못 적으면 여기서 0개로 드러난다.
   const header = [m.designSystem(designSystem), ...problems.map(m.notice), ""];
+  const uncheckedLine = unchecked?.hexColors > 0 ? [m.unchecked(unchecked)] : [];
 
   if (violations.length === 0) {
-    return [...header, m.noViolations(summary), ""].join("\n");
+    return [...header, m.noViolations(summary), ...uncheckedLine, ""].join("\n");
   }
 
   const byFile = new Map();
@@ -37,6 +38,7 @@ export function formatText({ designSystem, problems, summary, violations, decisi
     ...sections,
     m.summary(summary),
     m.actions({ replace: count("replace"), ask: count("ask"), repair: count("repair"), decisions: decisions.length }),
+    ...uncheckedLine,
     "",
   ].join("\n");
 }

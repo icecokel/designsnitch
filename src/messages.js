@@ -114,6 +114,8 @@ const en = {
       ...(repair > 0 ? [`${repair} ${needs(repair)} a syntax fix`] : []),
     ].join(", "),
   noViolations: ({ files }) => `No violations. (${count(files, "file")} checked)`,
+  unchecked: ({ hexColors, files }) =>
+    `Not checked: ${count(hexColors, "hex color")} in other strings in ${count(files, "file")}, such as theme objects and chart options. \`designsnitch colors\` lists them.`,
 
   // colors
   colorsNone: ({ files }) => `No colors found in the code. (${count(files, "file")} checked)`,
@@ -247,6 +249,8 @@ const ko = {
       ...(repair > 0 ? [`문법을 고쳐야 하는 것 ${repair}건`] : []),
     ].join(", "),
   noViolations: ({ files }) => `위반이 없습니다. (파일 ${files}개 검사)`,
+  unchecked: ({ hexColors, files }) =>
+    `검사하지 못함: 테마 객체나 차트 옵션 같은 다른 문자열에 hex 색 ${hexColors}개 (파일 ${files}개). \`designsnitch colors\`로 볼 수 있습니다.`,
 
   colorsNone: ({ files }) => `코드에서 색을 찾지 못했습니다. (파일 ${files}개 검사)`,
   colorsSummary: ({ colors, paletteColors, uses, files }) =>

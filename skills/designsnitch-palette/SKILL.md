@@ -132,7 +132,7 @@ Tell the user what the first check found. Every place that writes a tokenized co
 Two kinds of use stay as they are:
 
 - Near duplicates the user chose to merge still have their old value in the code. They show up as `color-unknown` warnings. Replacing them changes what is rendered, so do it only for the merges the user approved.
-- Hex colors in string literals and default palette classes are not flagged by the check yet.
+- Hex colors in strings other than classes and inline styles, such as theme objects, and default palette classes are not flagged by the check. The check counts the former in `unchecked`.
 
 ## What not to do
 

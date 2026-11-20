@@ -618,3 +618,33 @@ describe("사용자 결정 (decisions)", () => {
     ]);
   });
 });
+
+describe("검사하지 못한 hex 색", () => {
+  it("클래스와 인라인 스타일 밖의 문자열에 있는 hex 색을 센다", async () => {
+    const cwd = tempProject({
+      "designsnitch.config.json": `{ "tokens": "tokens.css" }`,
+      "tokens.css": `@theme { --color-primary: #3B82F6; }`,
+      "src/theme.ts": `export const theme = { primary: "#3B82F6", bg: "#fff", shadow: "0 0 0 1px #000" };`,
+      "src/Card.jsx": `export const Card = () => <div className="bg-[#3B82F6]" style={{ color: "#3B82F6" }} />;`,
+      "src/Link.jsx": `export const Link = () => <a href="#top" className="bg-primary">Top</a>;`,
+    });
+    const result = await check({ cwd, config: loadConfig(cwd) });
+
+    expect(result.unchecked).toEqual({ hexColors: 3, files: 1 });
+    expect(formatText(result, "en")).toContain(
+      "Not checked: 3 hex colors in other strings in 1 file, such as theme objects and chart options. `designsnitch colors` lists them.",
+    );
+  });
+
+  it("없으면 0 이고 문장도 붙이지 않는다", async () => {
+    const cwd = tempProject({
+      "designsnitch.config.json": `{ "tokens": "tokens.css" }`,
+      "tokens.css": `@theme { --color-primary: #3B82F6; }`,
+      "src/Card.jsx": `export const Card = () => <div className="bg-primary" />;`,
+    });
+    const result = await check({ cwd, config: loadConfig(cwd) });
+
+    expect(result.unchecked).toEqual({ hexColors: 0, files: 0 });
+    expect(formatText(result, "en")).not.toContain("Not checked");
+  });
+});

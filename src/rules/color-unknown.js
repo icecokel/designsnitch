@@ -3,6 +3,7 @@ import { normalizeHex } from "../core/color.js";
 import { loadTokens } from "./load-tokens.js";
 import { ruleMessages, TEXT } from "./suggest.js";
 import { visitStrings } from "./visit-strings.js";
+import { mergeVisitors, visitInlineStyleColors } from "./visit-style.js";
 
 /** @type {import("eslint").Rule.RuleModule} */
 export default {
@@ -23,13 +24,11 @@ export default {
     const m = ruleMessages(context);
     const { colors } = tokens;
 
-    return visitStrings(context, findArbitraryColors, (found, { loc }) => {
+    function report(found, { loc }) {
       if (colors.has(normalizeHex(found.value))) return;
-      context.report({
-        loc,
-        messageId: "unknown",
-        data: { text: m.unknownColor({ found: found.text }) },
-      });
-    });
+      context.report({ loc, messageId: "unknown", data: { text: m.unknownColor({ found: found.text }) } });
+    }
+
+    return mergeVisitors(visitStrings(context, findArbitraryColors, report), visitInlineStyleColors(context, report));
   },
 };

@@ -94,11 +94,11 @@ Severity follows one rule.
 
 | Rule | Severity | What it catches |
 | --- | --- | --- |
-| `color-use-token` | Error | A hex color that has a token, written as an arbitrary value (`bg-[#3B82F6]`) or in a CSS declaration (`color: #3B82F6`) |
+| `color-use-token` | Error | A hex color that has a token, written as an arbitrary value (`bg-[#3B82F6]`), in an inline style (`style={{ color: "#3B82F6" }}`) or in a CSS declaration (`color: #3B82F6`) |
 | `color-unknown` | Warning | A hex color with no matching token |
 | `use-ds-component` | Error | A raw tag such as `<button>` used outside the design system directory, when a shared component replaces it |
 
-Every error comes with what to use instead: a class or component in JS and TS files, and `var(--token)` in CSS files.
+Every error comes with what to use instead: a class or component in JS and TS files, and `var(--token)` in inline styles and CSS files. Tailwind v4 outputs a theme variable when the source uses it with `var()`, so `var(--token)` in an inline style renders the same color.
 
 ## Commands
 
@@ -340,6 +340,7 @@ The first line shows how many tokens and components were read from the config. A
 | `violations[].action` | How to handle the violation. `replace`: replacing `found` with the only candidate keeps the screen and the behavior the same. `ask`: a person has to decide: several candidates, a color with no token, a token whose value differs between themes, or a component whose props are dynamic or spread. `repair`: the file could not be parsed. |
 | `decisions` | The `ask` violations grouped into questions: one per color or tag with the same candidates. Each has how often it comes up (`uses`, `files`), up to five `locations`, the `candidates`, a `recommended` candidate when every location agrees, and the `reasons` a person has to decide: `multiple-candidates`, `no-token`, `themed-token` or `dynamic-props`. Most used first. |
 | `next` | What an agent should do with this result, in order |
+| `unchecked` | Hex colors in other strings that were not checked (`hexColors`), and how many files they are in (`files`). The text output adds a line when there are any. |
 
 | Exit code | Meaning |
 | --- | --- |
@@ -473,7 +474,7 @@ designsnitch does not flag default palette classes such as `bg-blue-500`. If the
 
 ## Scope
 
-- **Where it looks in JS and TS:** string literals and template literals. This covers `className` and the arguments of `cn()`, `clsx()` and `cva()`. Comments are ignored.
+- **Where it looks in JS and TS:** arbitrary color classes in string literals and template literals, which covers `className` and the arguments of `cn()`, `clsx()` and `cva()`, and hex colors written as strings in a JSX `style` object. Comments are ignored. Hex colors in other strings, such as theme objects and chart options, are not checked: their purpose cannot be told from the code. The check counts them in `unchecked` so that you know they are there, and `designsnitch colors` lists them.
 - **Where it looks in CSS:** hex colors in declaration values, in `.css` files including CSS Modules. In the token CSS, declarations that define a variable (`--name: ...`) are skipped, since that is where tokens are defined. In every other CSS file they are checked like any other declaration. Only colors are checked in CSS for now.
 - **Themes:** when a token has different values per theme, all of them count as that token's value. Replacing a hex color with such a token changes the color in the other themes, so those errors are marked `ask`.
 - **Fixes:** designsnitch reports candidates and never rewrites code by itself, even when there is only one candidate.
@@ -484,7 +485,7 @@ designsnitch does not flag default palette classes such as `bg-blue-500`. If the
 - Values from Tailwind's default theme. Only the values written in the project's token CSS are read.
 - Tailwind v3 (`tailwind.config.js`)
 - The nearest token for a color that has none
-- Inline styles
+- Inline style values that are computed, such as `color: active ? "#3B82F6" : "#fff"`
 - SCSS and other preprocessors
 - Spacing, font size and radius. They were left out of this version on purpose.
 - Classes inside `@apply`

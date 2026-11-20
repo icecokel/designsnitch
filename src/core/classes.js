@@ -44,3 +44,15 @@ export function findPaletteClasses(text) {
     name: match[2],
   }));
 }
+
+// 예: "#3B82F6", "1px solid #fff". bg-[#fff] 의 hex 도 걸리므로 클래스 검사와 겹치지 않게 쓴다.
+const HEX_COLOR = /(?<![\w&#])#(?:[0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3,4})(?![\w-])/gi;
+
+/**
+ * 문자열에서 hex 색 자체를 찾는다.
+ * @param {string} text
+ * @returns {{ index: number, text: string, value: string }[]}
+ */
+export function findHexColors(text) {
+  return [...text.matchAll(HEX_COLOR)].map((match) => ({ index: match.index, text: match[0], value: match[0] }));
+}
