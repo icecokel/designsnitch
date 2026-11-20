@@ -3,7 +3,7 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 import { check } from "./check.js";
 import { collectColors } from "./colors.js";
-import { CONFIG_FILE, loadConfig } from "./config.js";
+import { CONFIG_FILE, loadConfig, tokenSettings } from "./config.js";
 import { formatColorsText, formatText } from "./format.js";
 import { runHook } from "./hook.js";
 import { AGENT_CHOICES, install } from "./install.js";
@@ -30,7 +30,7 @@ const COMMANDS = {
     const config = hasConfig ? loadConfig(cwd, configPath, resolveLang(flagLang)) : undefined;
     const lang = resolveLang(flagLang, config?.lang);
     const tokens = config ? loadTokens({ designsnitch: { ...config, lang } }, cwd).colors : undefined;
-    const tokenFile = config ? path.resolve(config.root, config.tokens) : undefined;
+    const tokenFile = config ? path.resolve(config.root, tokenSettings(config.tokens).file) : undefined;
     const result = await collectColors({ cwd, paths, tokens, tokenFile });
     return { stdout: format === "json" ? json(result) : formatColorsText(result, lang), exitCode: 0 };
   },

@@ -5,7 +5,7 @@ import { messages } from "./messages.js";
  * @param {Awaited<ReturnType<typeof import("./check.js").check>>} result
  * @param {"en" | "ko"} [lang]
  */
-export function formatText({ designSystem, problems, summary, violations }, lang) {
+export function formatText({ designSystem, problems, summary, violations, decisions = [] }, lang) {
   const m = messages(lang);
   // 첫 줄은 설정에서 무엇을 읽었는지다. 경로를 잘못 적으면 여기서 0개로 드러난다.
   const header = [m.designSystem(designSystem), ...problems.map(m.notice), ""];
@@ -36,7 +36,7 @@ export function formatText({ designSystem, problems, summary, violations }, lang
     ...header,
     ...sections,
     m.summary(summary),
-    m.actions({ replace: count("replace"), ask: count("ask"), repair: count("repair") }),
+    m.actions({ replace: count("replace"), ask: count("ask"), repair: count("repair"), decisions: decisions.length }),
     "",
   ].join("\n");
 }

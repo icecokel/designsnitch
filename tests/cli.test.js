@@ -71,6 +71,23 @@ describe("designsnitch check", () => {
     ]);
   });
 
+  it("tokens 객체를 써도 설정 파일 디렉터리에서 경로를 풀고 토큰 CSS 의 변수 선언은 건너뛴다", async () => {
+    const cwd = tempProject({
+      "other/x.json": JSON.stringify({
+        tokens: { file: "../tokens.css", exclude: ["--color-old-*"], prefer: ["--color-brand-"] },
+      }),
+      "tokens.css": `@theme { --color-brand-500: #3B82F6; --color-blue-500: #3B82F6; --color-old-red: #FF0000; }`,
+      "src/Card.jsx": `export const Card = () => <div className="bg-[#3B82F6] text-[#FF0000]" />;`,
+    });
+    const { exitCode, stdout, stderr } = await runCli(["check", "--config", "other/x.json", "--format", "json"], cwd);
+    expect(stderr).toBe("");
+    expect(exitCode).toBe(1);
+    expect(JSON.parse(stdout).violations).toMatchObject([
+      { file: "src/Card.jsx", rule: "color-use-token", candidates: ["bg-brand-500"], action: "replace" },
+      { file: "src/Card.jsx", rule: "color-unknown", found: "text-[#FF0000]" },
+    ]);
+  });
+
   it("--config 로 지정한 파일의 디렉터리에서 컴포넌트 경로를 푼다", async () => {
     const cwd = tempProject({
       "other/x.json": JSON.stringify({

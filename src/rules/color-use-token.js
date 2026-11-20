@@ -1,5 +1,6 @@
 import { findArbitraryColors, tokenToClass } from "../core/classes.js";
 import { normalizeHex } from "../core/color.js";
+import { selectColorTokens, utilityColorPrefixes } from "../core/tokens.js";
 import { loadTokens } from "./load-tokens.js";
 import { ruleMessages, suggestClasses, TEXT } from "./suggest.js";
 import { visitStrings } from "./visit-strings.js";
@@ -25,11 +26,12 @@ export default {
       };
     }
     const m = ruleMessages(context);
-    const { colors, themed } = tokens;
+    const { colors, themed, prefer } = tokens;
 
     return visitStrings(context, findArbitraryColors, (found, { loc, range }) => {
-      const tokenNames = colors.get(normalizeHex(found.value));
-      if (!tokenNames) return;
+      const names = colors.get(normalizeHex(found.value));
+      if (!names) return;
+      const tokenNames = selectColorTokens(names, prefer, utilityColorPrefixes(found.utility));
       const classes = tokenNames.map((name) => tokenToClass(found.utility, name));
       const messageId = tokenNames.some((name) => themed.has(name)) ? "useTokenThemed" : "useToken";
       context.report({

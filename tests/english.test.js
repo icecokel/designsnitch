@@ -45,17 +45,23 @@ describe("영어 출력 (--lang en)", () => {
         "  2:16  error  #3B82F6 has the same color as --color-primary. Use instead: var(--color-primary)  (color-use-token)",
         "",
         "3 errors, 1 warning (3 files checked)",
-        "2 can be replaced right away, 2 need a person's decision",
+        "2 can be replaced right away, 2 need a person's decision (2 decisions)",
         "",
       ].join("\n"),
     );
   });
 
   it("check 의 next", async () => {
-    const { stdout } = await cli(["check", "--lang", "en", "--format", "json"], tempProject(project));
-    expect(JSON.parse(stdout).next).toEqual([
+    const cwd = tempProject({ ...project, "src/b.css": ".card { color: #123456; }" });
+    const { stdout } = await cli(["check", "--lang", "en", "--format", "json"], cwd);
+    const { next, decisions } = JSON.parse(stdout);
+    expect(decisions).toMatchObject([
+      { subject: "#123456", uses: 2 },
+      { subject: "<button>", uses: 1 },
+    ]);
+    expect(next).toEqual([
       'action "replace" (2): replace found with the value in candidates.',
-      'action "ask" (2): do not change these. Ask the user, and include how often and for what each color is used, which `designsnitch colors` shows.',
+      "Before making changes, ask the user about the 2 entries in decisions. Include how often each comes up, the candidates, and the reasons for asking.",
       "After fixing, run the same command again.",
     ]);
   });

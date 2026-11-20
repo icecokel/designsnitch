@@ -50,6 +50,14 @@ const en = {
     `Node.js ${minimum} or later is required (current version: ${version}).`,
   tokensSettingMissing: () =>
     "designsnitch: set settings.designsnitch.tokens to the path of the token CSS file.",
+  invalidTokenSetting: ({ field, file }) => {
+    const details = {
+      "tokens.file": "a non-empty token CSS file path",
+      "tokens.exclude": "an array of non-empty token names or patterns with a trailing *",
+      "tokens.prefer": "an array of non-empty token name prefixes without wildcards",
+    };
+    return `"${field}" must be ${details[field]}.${file ? ` (${file})` : ""}`;
+  },
   tokensFileMissing: ({ file }) => `designsnitch: token CSS file not found: ${file}`,
   tokensUnreadable: ({ file, line, column, reason }) =>
     `designsnitch: could not read the token CSS: ${file}:${line}:${column} ${reason}`,
@@ -85,6 +93,8 @@ const en = {
   nextRepair: (n) => `action "repair" (${n}): fix the syntax error in that file first.`,
   nextReplace: (n) => `action "replace" (${n}): replace found with the value in candidates.`,
   nextAsk: (n) =>
+    `Before making changes, ask the user about the ${count(n, "entry", "entries")} in decisions. Include how often each comes up, the candidates, and the reasons for asking.`,
+  hookNextAsk: (n) =>
     `action "ask" (${n}): do not change these. Ask the user, and include how often and for what each color is used, which \`designsnitch colors\` shows.`,
   nextRerun: () => "After fixing, run the same command again.",
   nextNone: () => "No violations.",
@@ -97,10 +107,10 @@ const en = {
   severity: { error: "error", warning: "warning" },
   summary: ({ errors, warnings, files }) =>
     `${count(errors, "error")}, ${count(warnings, "warning")} (${count(files, "file")} checked)`,
-  actions: ({ replace, ask, repair }) =>
+  actions: ({ replace, ask, repair, decisions }) =>
     [
       `${replace} can be replaced right away`,
-      `${ask} ${needs(ask)} a person's decision`,
+      `${ask} ${needs(ask)} a person's decision (${count(decisions, "decision")})`,
       ...(repair > 0 ? [`${repair} ${needs(repair)} a syntax fix`] : []),
     ].join(", "),
   noViolations: ({ files }) => `No violations. (${count(files, "file")} checked)`,
@@ -176,6 +186,14 @@ const ko = {
     `Node.js ${minimum} 이상이 필요합니다(현재 버전: ${version}).`,
   tokensSettingMissing: () =>
     "designsnitch: settings.designsnitch.tokens 에 토큰 CSS 파일 경로를 설정하세요.",
+  invalidTokenSetting: ({ field, file }) => {
+    const details = {
+      "tokens.file": "비어 있지 않은 토큰 CSS 파일 경로를 입력하세요",
+      "tokens.exclude": "비어 있지 않은 토큰 이름이나 끝에 *가 있는 패턴을 배열로 입력하세요",
+      "tokens.prefer": "와일드카드가 없는 토큰 이름 접두어를 배열로 입력하세요",
+    };
+    return `"${field}"에 ${details[field]}.${file ? ` (${file})` : ""}`;
+  },
   tokensFileMissing: ({ file }) => `designsnitch: 토큰 CSS 파일을 찾을 수 없습니다: ${file}`,
   tokensUnreadable: ({ file, line, column, reason }) =>
     `designsnitch: 토큰 CSS를 읽을 수 없습니다: ${file}:${line}:${column} ${reason}`,
@@ -209,6 +227,8 @@ const ko = {
   nextRepair: (n) => `action이 repair인 ${n}건은 그 파일의 문법 오류부터 고치세요.`,
   nextReplace: (n) => `action이 replace인 ${n}건은 found를 candidates의 값으로 바꾸세요.`,
   nextAsk: (n) =>
+    `변경하기 전에 decisions의 ${n}건을 사용자에게 물으세요. 사용 횟수와 후보, 확인이 필요한 이유를 함께 알려 주세요.`,
+  hookNextAsk: (n) =>
     `action이 ask인 ${n}건은 바꾸지 말고 사용자에게 물으세요. 물을 때는 \`designsnitch colors\`로 그 색이 몇 곳에서 어떻게 쓰이는지 확인해서 근거로 함께 주세요.`,
   nextRerun: () => "고친 뒤 같은 명령을 다시 실행하세요.",
   nextNone: () => "위반이 없습니다.",
@@ -220,10 +240,10 @@ const ko = {
   severity: { error: "오류", warning: "경고" },
   summary: ({ errors, warnings, files }) =>
     `오류 ${errors}개, 경고 ${warnings}개 (파일 ${files}개 검사)`,
-  actions: ({ replace, ask, repair }) =>
+  actions: ({ replace, ask, repair, decisions }) =>
     [
       `바로 바꿀 수 있는 것 ${replace}건`,
-      `사람이 정해야 하는 것 ${ask}건`,
+      `사람이 정해야 하는 것 ${ask}건 (결정 ${decisions}개)`,
       ...(repair > 0 ? [`문법을 고쳐야 하는 것 ${repair}건`] : []),
     ].join(", "),
   noViolations: ({ files }) => `위반이 없습니다. (파일 ${files}개 검사)`,
