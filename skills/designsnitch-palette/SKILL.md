@@ -58,6 +58,8 @@ Go through `colors` from the top and sort each color into one of these.
 
 **The long tail.** It is used once or twice. Do not give it a token by default. List these for the user.
 
+**A scattered palette.** Sometimes most colors are long tail: dozens of grays, each used once or twice and each a little different, such as `#929b93`, `#8e978f` and `#919a92`. This is common in code an AI wrote one screen at a time. Proposing tokens only for the few colors used most covers almost nothing. Group the colors instead: put colors that look the same at a glance in one group, and treat each group as one color with the summed uses. If an existing token sits in a group, the group belongs to that token. Then sort the groups as above. Tell the user that merging a group changes what is rendered by a small amount, show the spread of each group (its lightest and darkest value), and let them decide group by group.
+
 Then work out what each color of its own is for. `utilities` and `properties` show this.
 
 | Mostly used with | Likely role |
@@ -87,7 +89,7 @@ Naming:
 
 With the table, tell the user:
 
-- How much the proposed tokens cover: the share of all uses, for example "12 tokens cover 81% of uses".
+- How much the proposed tokens cover: the share of all uses, for example "12 tokens cover 81% of uses". If the share is small, say why, and check whether the colors are scattered (see above) before handing over a proposal that covers little.
 - The near duplicates you want to merge, each with both values and their use counts.
 - The long tail you left out.
 - The default palette colors in use, and the question of whether to keep them.
