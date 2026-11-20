@@ -126,7 +126,7 @@ Create `designsnitch.config.json` in the project root.
     "path": "./components/ui",
     "replaces": {
       "button": ["SolidButton", "IconButton"],
-      "input": "Input",
+      "input": { "component": "Input", "when": { "type": ["text", "email", null] } },
       "dialog": "Dialog"
     }
   }
@@ -184,10 +184,20 @@ The [`designsnitch-palette` skill](#agent-skills) uses this output to propose to
 | --- | --- |
 | `tokens` | The CSS file that defines the tokens. Required. |
 | `components.path` | The directory that holds the design system components. Raw tags are allowed inside it. |
-| `components.replaces` | Raw tags and the components that replace them. Use an array when several components replace one tag. |
+| `components.replaces` | Raw tags and the components that replace them. Use an array when several components replace one tag. Use `{ "component": ..., "when": { ... } }` when a component covers only some variants of the tag (see below). |
 | `lang` | The language of the messages: `en` (default) or `ko`. |
 
 Without `components`, the component check is skipped. Use `--config <file>` to read a config file from another path.
+
+A shared component often covers only some variants of a tag. An `Input` component may cover text fields but not `<input type="file">`. `when` lists the attribute values the component covers. `null` means the attribute is absent.
+
+```json
+"input": { "component": "Input", "when": { "type": ["text", "email", null] } }
+```
+
+- `<input type="file">` is not reported, because the component does not cover it.
+- `<input type="text">` and `<input>` are reported as errors that can be replaced.
+- `<input type={kind}>` and `<input {...props}>` are reported, but marked `ask`: the value is only known at runtime, or a spread may override it, so replacing is not known to be safe.
 
 This is what is read from the token CSS.
 
@@ -271,7 +281,7 @@ The first line shows how many tokens and components were read from the config. A
 | `problems` | Config problems that make the result unreliable. Empty when everything is fine. |
 | `violations[].found` | The offending piece of code |
 | `violations[].candidates` | The classes or components to use instead. Empty when there are none. |
-| `violations[].action` | How to handle the violation. `replace`: an error with exactly one candidate, so replace `found` with it. `ask`: a person has to decide (several candidates, or a color with no token). `repair`: the file could not be parsed. |
+| `violations[].action` | How to handle the violation. `replace`: replacing `found` with the only candidate keeps the screen and the behavior the same. `ask`: a person has to decide: several candidates, a color with no token, a token whose value differs between themes, or a component whose props are dynamic or spread. `repair`: the file could not be parsed. |
 | `next` | What an agent should do with this result, in order |
 
 | Exit code | Meaning |
@@ -375,11 +385,13 @@ A skill is advice that an agent may not follow. A hook is run by the agent's run
 }
 ```
 
-`designsnitch hook` checks only the files the agent just changed.
+`designsnitch hook` checks only the files the agent just changed, and blocks only errors the change added.
 
-- After an edit, if the file has errors, the agent receives them along with what to do next.
-- When the agent is about to finish, it is stopped if errors it can fix itself remain. Errors that need a person's decision do not stop it, because it has to stop in order to ask.
-- Warnings never block, and violations in files the agent did not touch are left alone.
+- It compares each file with its version in git `HEAD`. An error counts as new when there are more of it (the same rule and the same code) than in `HEAD`. Errors that were already there do not block, even if lines moved. A file that is not in `HEAD` yet has only new errors.
+- After an edit, if the file has new errors, the agent receives them along with what to do next.
+- When the agent is about to finish, it is stopped if new errors it can fix itself remain. Errors that need a person's decision do not stop it, because it has to stop in order to ask.
+- Warnings never block, and files the agent did not touch are left alone.
+- Outside a git repository, or before the first commit, every error in the changed files counts.
 
 For Codex, `npx designsnitch install --agent codex` writes the same two hooks to `.codex/hooks.json`, with `apply_patch` as the matcher. Codex often edits files with shell commands, which that matcher does not see. Those edits are caught when Codex is about to finish, because the hook then checks every file git reports as changed.
 
@@ -404,7 +416,7 @@ designsnitch does not flag default palette classes such as `bg-blue-500`. If the
 
 - **Where it looks in JS and TS:** string literals and template literals. This covers `className` and the arguments of `cn()`, `clsx()` and `cva()`. Comments are ignored.
 - **Where it looks in CSS:** hex colors in declaration values, in `.css` files including CSS Modules. Declarations that define a variable (`--name: ...`) are skipped, since that is where tokens are defined. Only colors are checked in CSS for now.
-- **Themes:** when a token has different values per theme, all of them count as that token's value.
+- **Themes:** when a token has different values per theme, all of them count as that token's value. Replacing a hex color with such a token changes the color in the other themes, so those errors are marked `ask`.
 - **Fixes:** designsnitch reports candidates and never rewrites code by itself, even when there is only one candidate.
 
 ### Not supported yet

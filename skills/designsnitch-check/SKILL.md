@@ -67,8 +67,8 @@ The exit code is 0 (no errors), 1 (errors found), or 2 (could not run). On 2, re
 
 | `action` | What it means | What to do |
 | --- | --- | --- |
-| `replace` | An error with exactly one candidate. | Replace `found` with the candidate. |
-| `ask` | A person has to decide: an error with several candidates, or a color that has no token. | Do not change it. Ask the user as described in section 4. |
+| `replace` | An error whose only candidate keeps the screen and the behavior the same. | Replace `found` with the candidate. |
+| `ask` | A person has to decide: several candidates, a color that has no token, a token whose value differs between themes, or a component whose props are dynamic or spread. `message` says which. | Do not change it. Ask the user as described in section 4. |
 | `repair` | The file could not be parsed. | Fix the syntax error, then check again. |
 
 For `use-ds-component`, replacing means more than renaming the tag. Read the design system component file to learn its props, add the import, and remove className values that duplicate styles the component already has.

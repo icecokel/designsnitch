@@ -53,6 +53,12 @@ Read the files in that directory and find the components whose root element is a
 
 Leave out components that only happen to contain a raw tag deep inside, such as a modal that has a close button. List the components a developer should reach for instead of writing the tag.
 
+Check which variants of the tag each component covers. An `Input` built for text fields does not replace `<input type="file">`, `<input type="range">` or a checkbox. When a component covers only some variants, write it with `when`, listing the attribute values it covers (`null` means the attribute is absent). Read the component's props and its root element to decide. If you cannot tell, leave `when` out and tell the user which variants you were unsure about.
+
+```json
+"input": { "component": "Input", "when": { "type": ["text", "email", "password", null] } }
+```
+
 ## 4. Write the file
 
 ```json
@@ -62,7 +68,7 @@ Leave out components that only happen to contain a raw tag deep inside, such as 
     "path": "./src/components/ui",
     "replaces": {
       "button": ["SolidButton", "GlassButton", "IconButton"],
-      "input": "Input"
+      "input": { "component": "Input", "when": { "type": ["text", "email", "password", null] } }
     }
   }
 }

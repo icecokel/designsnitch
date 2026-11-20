@@ -11,7 +11,7 @@ A skill is advice: an agent may or may not follow it. A hook is run by the agent
 
 ## What the hook does
 
-`npx designsnitch hook` checks only the files the agent just changed.
+`npx designsnitch hook` checks only the files the agent just changed, and blocks only errors the change added. It compares each file with its version in git `HEAD`: errors that were already there do not block.
 
 | When it runs | What happens |
 | --- | --- |
@@ -20,7 +20,7 @@ A skill is advice: an agent may or may not follow it. A hook is run by the agent
 
 - Warnings never block.
 - Errors that need a person's decision (`ask`) are reported after an edit, but do not stop the agent from finishing. The agent has to stop in order to ask.
-- Violations that were already in files the agent did not touch are left alone.
+- Files the agent did not touch are left alone. Errors that were already in the files it touched are reported only if the change added more of them.
 
 ## 1. Register the hook in Claude Code
 
