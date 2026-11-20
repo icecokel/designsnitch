@@ -99,6 +99,8 @@ export default [
 ];
 ```
 
+Paths in `designsnitch.config.json` are relative to the config file. ESLint resolves them from its own working directory, so this works when both files sit in the project root. If the config file is somewhere else, as in a monorepo where ESLint runs from the repository root, add the directory the paths are relative to: `settings: { designsnitch: { ...designSystem, root: "apps/web" } }`. The same applies to 3A.
+
 If `package.json` has `"type": "module"`, name the file `eslint.config.js`. Otherwise name it `eslint.config.mjs`.
 
 Add a lint script if the project has none.

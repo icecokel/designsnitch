@@ -53,6 +53,8 @@ Read the files in that directory and find the components whose root element is a
 
 Leave out components that only happen to contain a raw tag deep inside, such as a modal that has a close button. List the components a developer should reach for instead of writing the tag.
 
+Open each component before you list it, and check that it fits the ordinary uses of the tag. A component built for one look or one kind of content does not replace the tag in general. An `IconButton` that sizes and styles itself for a single icon is not what a text button should become, and listing it tells every `<button>` with text to switch to it. If the component can only replace some uses, and `when` cannot tell those uses apart by an attribute value, leave it out and tell the user why. Listing a wrong replacement is worse than listing none: it turns correct code into errors.
+
 Check which variants of the tag each component covers. An `Input` built for text fields does not replace `<input type="file">`, `<input type="range">` or a checkbox. When a component covers only some variants, write it with `when`, listing the attribute values it covers (`null` means the attribute is absent). Read the component's props and its root element to decide. If you cannot tell, leave `when` out and tell the user which variants you were unsure about.
 
 ```json
@@ -74,7 +76,13 @@ Check which variants of the tag each component covers. An `Input` built for text
 }
 ```
 
-Paths are relative to the project root.
+Paths are relative to the directory of the config file. Put the file in the project root unless the user asks otherwise.
+
+If two or more tokens share one value, every hex color with that value will need a person's decision. When it is clear which family should win, for example a project whose semantic tokens (`--color-brand-*`) are built on raw scale tokens (`--color-blue-*`), suggest the object form of `tokens` to the user. `prefer` picks a token family when several match, and `exclude` drops tokens that should not be used at all, such as a legacy set. Only add them after the user agrees.
+
+```json
+"tokens": { "file": "./src/app/globals.css", "prefer": ["--color-brand-"], "exclude": ["--color-legacy-*"] }
+```
 
 Messages are in English by default. If the user works in Korean, add `"lang": "ko"` to the file so that the CLI, the ESLint plugin and the hook speak Korean.
 
@@ -90,8 +98,11 @@ Look at `designSystem` and `problems` in the result.
 - `designSystem.components` should match the number of components you listed.
 - `problems` should be empty.
 - Exit code 2 with a message about a missing path means a path in the config is wrong.
+- Every `use-ds-component` error should point to a component that really fits that place. Open two or three of them. If a component keeps being suggested where it does not belong, go back to step 3.
 
 Fix the config until these hold. Ignore the violations for now: fixing them is the job of the `designsnitch-check` skill.
+
+Then look at how many colors have no token. Run `npx designsnitch colors --format json` and count the colors whose `tokens` is empty, and their uses. If the tokens cover only a small part of the colors in use, for example a handful of tokens against dozens of colors with no token, the project does not really have a palette yet. Do not leave this as a pile of warnings. Follow the `designsnitch-palette` skill: it proposes tokens for the colors that have none, next to the ones that exist.
 
 ## 6. Wire the ESLint plugin
 
@@ -113,3 +124,4 @@ If you were unsure about a choice, say so and give the alternative. For example,
 - Do not edit the token CSS without the user's agreement.
 - Do not change an existing config file without asking.
 - Do not start fixing violations as part of setup.
+- Do not list a component as a replacement for a tag without reading it.

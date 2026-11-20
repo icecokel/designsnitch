@@ -1,11 +1,11 @@
 ---
 name: designsnitch-palette
-description: Create color tokens for a React/Next.js + Tailwind project that has none, based on the colors its code already uses. Use when a project has no color tokens or palette, when `designsnitch check` reports that no color token could be read, or when the user asks to derive a color palette or color tokens from existing code.
+description: Create color tokens for a React/Next.js + Tailwind project that has none or too few, based on the colors its code already uses. Use when a project has no color tokens or palette, when `designsnitch check` reports that no color token could be read, when most colors in the code have no token (many color-unknown warnings), or when the user asks to derive a color palette or color tokens from existing code.
 ---
 
 # designsnitch-palette
 
-Some projects have no color tokens: colors are written straight into the code as `bg-[#3B82F6]`, `text-gray-700` or `style={{ color: "#3B82F6" }}`. designsnitch has nothing to check such code against. This skill turns the colors the code already uses into a set of tokens.
+Some projects have no color tokens: colors are written straight into the code as `bg-[#3B82F6]`, `text-gray-700` or `style={{ color: "#3B82F6" }}`. designsnitch has nothing to check such code against. Others have a few tokens, while most colors in the code have none, and every one of those is a warning. This skill turns the colors the code already uses into a set of tokens, or fills the gaps next to the tokens that exist.
 
 The CLI collects the colors. You analyze them and propose tokens. The user decides. Nothing is written before the user approves, because the tokens become the standard all UI code is judged against.
 
@@ -46,7 +46,7 @@ This works without a config file. Pass paths to limit it to part of the project.
 - `colors` are hex colors, most used first. `utilities` counts uses per Tailwind utility (`bg-[#484646]` counts under `bg`). `literals` counts strings that are a hex color on their own, such as inline styles and chart options. `properties` counts uses per CSS property in `.css` files.
 - `palette` are colors from Tailwind's default palette used by name, such as `text-gray-700`.
 - `examples` gives a few locations, each in a different file. Open them when you need to see how a color is used.
-- If a config file exists, each color also has `tokens`: the tokens that already have this value. Colors with a non-empty `tokens` are already covered. Work on the rest.
+- If a config file exists, each color also has `tokens`: the tokens that already have this value. Colors with a non-empty `tokens` are already covered. Work on the rest. A color one step away from an existing token is a near duplicate of that token (see below), not a new color.
 
 ## 2. Analyze
 
@@ -80,7 +80,7 @@ Show the user a proposal before writing anything.
 
 Naming:
 
-- If the project already has CSS variables or a naming habit, follow it.
+- If the project already has tokens, CSS variables or a naming habit, follow it. New tokens sit next to the existing ones and use the same pattern.
 - Otherwise name a color by its role when it has a clear one (`--color-text-primary`, `--color-border-default`, `--color-surface`), and by a scale when it is a general color (`--color-primary-500`, `--color-neutral-200`).
 - Every token starts with `--color-`. Tailwind turns `--color-text-primary` into classes such as `text-text-primary` and `bg-text-primary`.
 - Do not reuse a name from Tailwind's default palette, such as `--color-blue-500`, unless the user wants to override that color.

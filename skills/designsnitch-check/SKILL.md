@@ -28,10 +28,10 @@ The exit code is 0 (no errors), 1 (errors found), or 2 (could not run). On 2, re
   "problems": [],
   "next": [
     "action \"replace\" (1): replace found with the value in candidates.",
-    "action \"ask\" (1): do not change these. Ask the user, and include how often and for what each color is used, which `designsnitch colors` shows.",
+    "Before making changes, ask the user about the 1 entry in decisions. Include how often each comes up, the candidates, and the reasons for asking.",
     "After fixing, run the same command again."
   ],
-  "summary": { "files": 1, "errors": 2, "warnings": 0 },
+  "summary": { "files": 2, "errors": 3, "warnings": 0 },
   "violations": [
     {
       "file": "src/features/checkout/PayButton.tsx",
@@ -44,7 +44,24 @@ The exit code is 0 (no errors), 1 (errors found), or 2 (could not run). On 2, re
       "message": "bg-[#3B82F6] has the same color as --color-primary-500. Use instead: bg-primary-500",
       "found": "bg-[#3B82F6]",
       "candidates": ["bg-primary-500"],
+      "recommended": "bg-primary-500",
       "action": "replace"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "decision-1",
+      "rule": "color-use-token",
+      "subject": "#484646",
+      "uses": 2,
+      "files": 2,
+      "locations": [
+        { "file": "src/features/checkout/PayButton.tsx", "line": 9, "column": 14 },
+        { "file": "src/features/checkout/Summary.tsx", "line": 4, "column": 20 }
+      ],
+      "candidates": ["text-text-primary", "text-neutral-30"],
+      "recommended": "text-text-primary",
+      "reasons": ["multiple-candidates"]
     }
   ]
 }
@@ -53,6 +70,8 @@ The exit code is 0 (no errors), 1 (errors found), or 2 (could not run). On 2, re
 - `next` lists what to do, in order. `next` and `message` are sentences, in English or in Korean depending on the project's `lang` setting. The fields below carry the same information, so you never need to parse them.
 - `action` says how to handle each violation. Section 3 covers each value.
 - `found` is the offending piece of code. `candidates` lists what to use instead: classes or components in JS and TS files, and `var(--token)` in `.css` files.
+- `recommended` is the candidate whose token is named for how the color is used here, such as the text token for a `text-` class. It is a suggestion to put in front of the user, not permission to replace.
+- `decisions` groups every `ask` violation into questions: one per color or tag with the same candidates, most used first. Each has `uses`, `files`, up to five `locations`, the `candidates`, a `recommended` candidate when all locations agree, and `reasons` (`multiple-candidates`, `no-token`, `themed-token`, `dynamic-props`). Ask the user about decisions, not about single violations.
 - `designSystem` counts the tokens and components read from the config. `colorTokens` 0 means the project has no color tokens that can be read: follow the `designsnitch-palette` skill to establish them before touching any color.
 - A non-empty `problems` means the config is broken and the results cannot be trusted. Tell the user before fixing anything.
 
@@ -75,14 +94,18 @@ For `use-ds-component`, replacing means more than renaming the tag. Read the des
 
 ## 4. Ask so the user can decide
 
-Deciding is the user's job. Your job is to make the decision easy. Do not hand over a bare list of violations. For each decision, give:
+Deciding is the user's job. Your job is to make the decision easy. Do not hand over a bare list of violations. Take the questions from `decisions`, most used first. For each one, give:
 
 1. **What has to be decided**, in one sentence.
-2. **The facts.** Run `npx designsnitch colors --format json` and report how often the color is used, in how many files, and for what (text, background, border). Open one or two of the locations if the use is unclear.
+2. **The facts.** `uses`, `files` and `locations` say how often and where. For a color, run `npx designsnitch colors --format json` to see what it is used for (text, background, border) and which tokens are close to it. Open one or two of the locations if the use is unclear.
 3. **What each choice changes.** Say whether the screen will look different, and how many places would be edited.
-4. **Your recommendation and why.**
+4. **Your recommendation and why.** Start from `recommended` when it is set, and say why it fits.
 
-Group decisions that are the same question. Thirty uses of one unknown color are one decision, not thirty.
+`decisions` already groups the same question. Thirty uses of one unknown color are one decision, not thirty.
+
+If many decisions are the same choice between two token families, for example `--color-brand-500` and `--color-blue-500` every time, the config can settle it once. Tell the user that `prefer` in the `tokens` setting of `designsnitch.config.json` would pick the family, and ask before changing the config.
+
+If most decisions are `no-token`, the project is missing tokens rather than making mistakes. Suggest the `designsnitch-palette` skill instead of asking about each color.
 
 An example for an error with several candidates:
 
