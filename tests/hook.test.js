@@ -235,6 +235,14 @@ describe("designsnitch hook: 작업을 끝내려 할 때 (Stop)", () => {
     expect(stderr).toContain("[replace]");
   });
 
+  it("컴포넌트로 옮길 오류(migrate)도 스스로 할 일이므로 끝내지 못하게 한다", async () => {
+    const config = JSON.stringify({ tokens: "tokens.css", components: { path: "ui", replaces: { button: "SolidButton" } } });
+    const cwd = repoWithChanges({ "designsnitch.config.json": config }, { "src/b.tsx": ASK });
+    const { exitCode, stderr } = await hook(cwd, { hook_event_name: "Stop" });
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain("[migrate]");
+  });
+
   it("사람이 정해야 하는 오류만 남았으면 끝낼 수 있게 한다. 물어보려면 멈춰야 하기 때문이다", async () => {
     const result = await hook(repo({ "src/b.tsx": ASK }), { hook_event_name: "Stop" });
     expect(result).toEqual({ exitCode: 0, stdout: "", stderr: "" });

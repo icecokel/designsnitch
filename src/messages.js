@@ -92,6 +92,8 @@ const en = {
     "There are no color tokens, so there is nothing to judge colors against. Before fixing any color, collect the colors in use with `designsnitch colors` and decide the tokens.",
   nextRepair: (n) => `action "repair" (${n}): fix the syntax error in that file first.`,
   nextReplace: (n) => `action "replace" (${n}): replace found with the value in candidates.`,
+  nextMigrate: (n) =>
+    `action "migrate" (${n}): replace the tag with the component in candidates. Read that component first: add the import, pass on the props it accepts, and drop className values it already applies. If it cannot do what the tag did, ask the user instead.`,
   nextAsk: (n) =>
     `Before making changes, ask the user about the ${count(n, "entry", "entries")} in decisions. Include how often each comes up, the candidates, and the reasons for asking.`,
   hookNextAsk: (n) =>
@@ -107,9 +109,10 @@ const en = {
   severity: { error: "error", warning: "warning" },
   summary: ({ errors, warnings, files }) =>
     `${count(errors, "error")}, ${count(warnings, "warning")} (${count(files, "file")} checked)`,
-  actions: ({ replace, ask, repair, decisions }) =>
+  actions: ({ replace, migrate = 0, ask, repair, decisions }) =>
     [
       `${replace} can be replaced right away`,
+      ...(migrate > 0 ? [`${migrate} to move to a component`] : []),
       `${ask} ${needs(ask)} a person's decision (${count(decisions, "decision")})`,
       ...(repair > 0 ? [`${repair} ${needs(repair)} a syntax fix`] : []),
     ].join(", "),
@@ -228,6 +231,8 @@ const ko = {
     "색 토큰이 없어서 색을 판정할 기준이 없습니다. 색을 고치기 전에 `designsnitch colors`로 쓰이는 색을 모아 토큰부터 정하세요.",
   nextRepair: (n) => `action이 repair인 ${n}건은 그 파일의 문법 오류부터 고치세요.`,
   nextReplace: (n) => `action이 replace인 ${n}건은 found를 candidates의 값으로 바꾸세요.`,
+  nextMigrate: (n) =>
+    `action이 migrate인 ${n}건은 태그를 candidates의 컴포넌트로 바꾸세요. 먼저 그 컴포넌트를 읽고, import를 더하고, 컴포넌트가 받는 props를 넘기고, 컴포넌트가 이미 주는 className은 지우세요. 태그가 하던 일을 컴포넌트가 못 하면 바꾸지 말고 사용자에게 물으세요.`,
   nextAsk: (n) =>
     `변경하기 전에 decisions의 ${n}건을 사용자에게 물으세요. 사용 횟수와 후보, 확인이 필요한 이유를 함께 알려 주세요.`,
   hookNextAsk: (n) =>
@@ -242,9 +247,10 @@ const ko = {
   severity: { error: "오류", warning: "경고" },
   summary: ({ errors, warnings, files }) =>
     `오류 ${errors}개, 경고 ${warnings}개 (파일 ${files}개 검사)`,
-  actions: ({ replace, ask, repair, decisions }) =>
+  actions: ({ replace, migrate = 0, ask, repair, decisions }) =>
     [
       `바로 바꿀 수 있는 것 ${replace}건`,
+      ...(migrate > 0 ? [`컴포넌트로 옮길 것 ${migrate}건`] : []),
       `사람이 정해야 하는 것 ${ask}건 (결정 ${decisions}개)`,
       ...(repair > 0 ? [`문법을 고쳐야 하는 것 ${repair}건`] : []),
     ].join(", "),

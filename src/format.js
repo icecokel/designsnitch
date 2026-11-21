@@ -37,7 +37,7 @@ export function formatText({ designSystem, problems, summary, violations, decisi
     ...header,
     ...sections,
     m.summary(summary),
-    m.actions({ replace: count("replace"), ask: count("ask"), repair: count("repair"), decisions: decisions.length }),
+    m.actions({ replace: count("replace"), migrate: count("migrate"), ask: count("ask"), repair: count("repair"), decisions: decisions.length }),
     ...uncheckedLine,
     "",
   ].join("\n");

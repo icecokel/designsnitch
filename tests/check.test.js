@@ -28,7 +28,7 @@ describe("check", () => {
         found: "button",
         candidates: ["Button"],
         recommended: "Button",
-        action: "replace",
+        action: "migrate",
       },
       {
         file: "src/PayButton.tsx",
@@ -72,7 +72,7 @@ describe("check", () => {
     });
   });
 
-  it("컴포넌트 교체는 정적 조건이 맞을 때만 가능하고 동적 속성과 spread 는 확인을 요청한다", async () => {
+  it("컴포넌트로 옮기기는 정적 조건이 맞을 때만 가능하고 동적 속성과 spread 는 확인을 요청한다", async () => {
     const cwd = tempProject({
       "designsnitch.config.json": JSON.stringify({
         tokens: "tokens.css",
@@ -106,15 +106,15 @@ describe("check", () => {
 
     expect(result.designSystem).toEqual({ colorTokens: 1, components: 6, replacedTags: 4 });
     expect(result.violations.map(({ line, severity, action, candidates }) => [line, severity, action, candidates])).toEqual([
-      [2, "error", "replace", ["InputCell"]],
-      [3, "error", "replace", ["InputCell"]],
+      [2, "error", "migrate", ["InputCell"]],
+      [3, "error", "migrate", ["InputCell"]],
       [4, "error", "ask", ["InputCell"]],
       [5, "error", "ask", ["InputCell"]],
-      [6, "error", "replace", ["Button"]],
+      [6, "error", "migrate", ["Button"]],
       [7, "error", "ask", ["Button"]],
       [8, "error", "ask", ["Dialog", "AlertDialog"]],
       [9, "error", "ask", ["Select", "Listbox"]],
-      [10, "error", "replace", ["InputCell"]],
+      [10, "error", "migrate", ["InputCell"]],
     ]);
     expect(result.violations[2].message).toContain('"type" 속성 값이 동적');
     expect(result.violations[3].message).toContain("spread 속성");
@@ -646,5 +646,33 @@ describe("검사하지 못한 hex 색", () => {
 
     expect(result.unchecked).toEqual({ hexColors: 0, files: 0 });
     expect(formatText(result, "en")).not.toContain("Not checked");
+  });
+});
+
+describe("컴포넌트로 옮기기", () => {
+  it("후보 컴포넌트가 하나인 raw 태그는 replace 가 아니라 migrate 다", async () => {
+    const cwd = tempProject({
+      "designsnitch.config.json": JSON.stringify({
+        tokens: "tokens.css",
+        components: { path: "ui", replaces: { button: "Button" } },
+      }),
+      "tokens.css": `@theme { --color-primary: #3B82F6; }`,
+      "ui/Button.jsx": `export const Button = (props) => <button {...props} />;`,
+      "src/Pay.jsx": `export const Pay = () => <button onClick={pay} className="bg-[#3B82F6]">Pay</button>;`,
+    });
+    const result = await check({ cwd, config: loadConfig(cwd), lang: "en" });
+
+    expect(result.violations.map((v) => [v.rule, v.action, v.recommended])).toEqual([
+      ["use-ds-component", "migrate", "Button"],
+      ["color-use-token", "replace", "bg-primary"],
+    ]);
+    expect(result.next).toEqual([
+      'action "replace" (1): replace found with the value in candidates.',
+      'action "migrate" (1): replace the tag with the component in candidates. Read that component first: add the import, pass on the props it accepts, and drop className values it already applies. If it cannot do what the tag did, ask the user instead.',
+      "After fixing, run the same command again.",
+    ]);
+    expect(formatText(result, "en")).toContain(
+      "1 can be replaced right away, 1 to move to a component, 0 need a person's decision (0 decisions)",
+    );
   });
 });

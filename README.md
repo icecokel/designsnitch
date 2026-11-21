@@ -23,7 +23,7 @@ It has four parts.
 
 It supports **React/Next.js projects that use Tailwind CSS v4**.
 
-> **Status:** MVP (0.2.x). Messages are in English by default and can be switched to Korean. See [Language](#language).
+> **Status:** MVP (0.4.x). It checks colors and shared components for now. Spacing, font size and radius are not checked yet (see [Scope](#scope)). Messages are in English by default and can be switched to Korean. See [Language](#language).
 
 ## Getting started
 
@@ -209,7 +209,7 @@ A shared component often covers only some variants of a tag. An `Input` componen
 ```
 
 - `<input type="file">` is not reported, because the component does not cover it.
-- `<input type="text">` and `<input>` are reported as errors that can be replaced.
+- `<input type="text">` and `<input>` are reported as errors to move to the component (`migrate`).
 - `<input type={kind}>` and `<input {...props}>` are reported, but marked `ask`: the value is only known at runtime, or a spread may override it, so replacing is not known to be safe.
 
 This is what is read from the token CSS.
@@ -253,10 +253,10 @@ src/PayButton.tsx
   8:26  warning  The color of bg-[#3B82F5] is not in the tokens.  (color-unknown)
 
 2 errors, 1 warning (3 files checked)
-2 can be replaced right away, 1 needs a person's decision (1 decision)
+1 can be replaced right away, 1 to move to a component, 1 needs a person's decision (1 decision)
 ```
 
-The first line shows how many tokens and components were read from the config. A wrong path shows up here as a zero. If no color token could be read, a line starting with `Note:` explains why. The last line says how many violations can be replaced right away, how many need a person's decision, and how many separate questions those come down to.
+The first line shows how many tokens and components were read from the config. A wrong path shows up here as a zero. If no color token could be read, a line starting with `Note:` explains why. The last line says how many violations can be replaced right away, how many are tags to move to a component, how many need a person's decision, and how many separate questions those come down to.
 
 `--format json` prints the same result as structured data. This example has one violation of each kind, and leaves the rest out.
 
@@ -265,7 +265,8 @@ The first line shows how many tokens and components were read from the config. A
   "designSystem": { "colorTokens": 4, "components": 1, "replacedTags": 1 },
   "problems": [],
   "next": [
-    "action \"replace\" (2): replace found with the value in candidates.",
+    "action \"replace\" (1): replace found with the value in candidates.",
+    "action \"migrate\" (1): replace the tag with the component in candidates. Read that component first: add the import, pass on the props it accepts, and drop className values it already applies. If it cannot do what the tag did, ask the user instead.",
     "Before making changes, ask the user about the 2 entries in decisions. Include how often each comes up, the candidates, and the reasons for asking.",
     "After fixing, run the same command again."
   ],
@@ -336,8 +337,8 @@ The first line shows how many tokens and components were read from the config. A
 | `problems` | Config problems that make the result unreliable. Empty when everything is fine. |
 | `violations[].found` | The offending piece of code |
 | `violations[].candidates` | The classes or components to use instead. Empty when there are none. |
-| `violations[].recommended` | The candidate that fits how the color is used: a `text-` class gets the token named for text, a border gets the one named for borders. Only set when exactly one candidate fits, and only a suggestion: an `ask` stays an `ask`. For `replace`, it is the candidate. |
-| `violations[].action` | How to handle the violation. `replace`: replacing `found` with the only candidate keeps the screen and the behavior the same. `ask`: a person has to decide: several candidates, a color with no token, a token whose value differs between themes, or a component whose props are dynamic or spread. `repair`: the file could not be parsed. |
+| `violations[].recommended` | The candidate that fits how the color is used: a `text-` class gets the token named for text, a border gets the one named for borders. Only set when exactly one candidate fits, and only a suggestion: an `ask` stays an `ask`. For `replace` and `migrate`, it is the candidate. |
+| `violations[].action` | How to handle the violation. `replace`: replacing `found` with the only candidate keeps the screen and the behavior the same. Only color errors get this. `migrate`: a raw tag with exactly one design system component to move to. The tool cannot tell whether the component passes on the same props or renders the same default styles, so read the component first, then move the tag's props and drop classes the component already applies. The agent can do this itself, so the hook treats it like `replace`. `ask`: a person has to decide: several candidates, a color with no token, a token whose value differs between themes, or a component whose props are dynamic or spread. `repair`: the file could not be parsed. |
 | `decisions` | The `ask` violations grouped into questions: one per color or tag with the same candidates. Each has how often it comes up (`uses`, `files`), up to five `locations`, the `candidates`, a `recommended` candidate when every location agrees, and the `reasons` a person has to decide: `multiple-candidates`, `no-token`, `themed-token` or `dynamic-props`. Most used first. |
 | `next` | What an agent should do with this result, in order |
 | `unchecked` | Hex colors in other strings that were not checked (`hexColors`), and how many files they are in (`files`). The text output adds a line when there are any. |

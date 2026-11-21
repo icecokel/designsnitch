@@ -87,11 +87,12 @@ The exit code is 0 (no errors), 1 (errors found), or 2 (could not run). On 2, re
 
 | `action` | What it means | What to do |
 | --- | --- | --- |
-| `replace` | An error whose only candidate keeps the screen and the behavior the same. | Replace `found` with the candidate. |
+| `replace` | A color error whose only candidate keeps the screen and the behavior the same. | Replace `found` with the candidate. |
+| `migrate` | A raw tag with exactly one design system component to move to. Whether the component behaves like the tag is not known. | Move the tag to the component as described below. If the component cannot do what the tag did, such as a missing prop or a different element, do not force it: ask the user. |
 | `ask` | A person has to decide: several candidates, a color that has no token, a token whose value differs between themes, or a component whose props are dynamic or spread. `message` says which. | Do not change it. Ask the user as described in section 4. |
 | `repair` | The file could not be parsed. | Fix the syntax error, then check again. |
 
-For `use-ds-component`, replacing means more than renaming the tag. Read the design system component file to learn its props, add the import, and remove className values that duplicate styles the component already has.
+For `migrate`, replacing means more than renaming the tag. Read the design system component file to learn its props, add the import, pass on the tag's props the component accepts, and remove className values that duplicate styles the component already has. Check that event handlers such as `onClick` and attributes such as `type` still reach the rendered element.
 
 ## 4. Ask so the user can decide
 

@@ -30,8 +30,9 @@ const MAX_DECISION_LOCATIONS = 5;
  * @property {string} found 위반한 코드 조각 (클래스나 태그 이름)
  * @property {string[]} candidates 대신 쓸 클래스나 컴포넌트. 없으면 빈 배열
  * @property {string | null} recommended 바로 바꿀 후보 또는 역할에 맞는 유일한 후보
- * @property {"replace" | "ask" | "repair"} action 이 위반을 어떻게 다룰지.
- *   replace: found 를 candidates 의 값으로 바꿀 수 있다 (교체가 안전하고 후보가 하나뿐인 오류)
+ * @property {"replace" | "migrate" | "ask" | "repair"} action 이 위반을 어떻게 다룰지.
+ *   replace: found 를 candidates 의 값으로 바꿔도 화면과 동작이 같다 (후보가 하나뿐인 색 오류)
+ *   migrate: raw 태그를 하나뿐인 후보 컴포넌트로 옮긴다. 컴포넌트를 읽고 props 와 스타일을 맞춰야 한다
  *   ask: 사람이 정해야 한다 (교체가 확실하지 않거나 후보가 하나가 아닌 경우)
  *   repair: 파일을 읽지 못했다. 문법 오류부터 고쳐야 한다
  */
@@ -122,7 +123,7 @@ export async function check({ cwd, config, paths = ["."], lang, sourceCwd = cwd 
     .sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.column - b.column)
     .map((finding) => {
       const action = actionFor(finding, finding.messageId);
-      const recommended = action === "replace" ? finding.candidates[0] : finding.recommended ?? null;
+      const recommended = action === "replace" || action === "migrate" ? finding.candidates[0] : finding.recommended ?? null;
       return { ...finding, action, recommended };
     });
   const violations = findings.map(({ messageId, ...violation }) => violation);
@@ -205,7 +206,9 @@ function checkCss(file, source, tokens, m, options) {
 function actionFor({ rule, severity, candidates }, messageId) {
   if (rule === "parse-error") return "repair";
   if (messageId === "useComponentAsk" || messageId === "useTokenThemed") return "ask";
-  return severity === "error" && candidates.length === 1 ? "replace" : "ask";
+  if (severity !== "error" || candidates.length !== 1) return "ask";
+  // 컴포넌트는 props 와 기본 스타일이 태그와 다를 수 있어서, 바꿔도 같다고 보장할 수 없다.
+  return rule === "use-ds-component" ? "migrate" : "replace";
 }
 
 function decisionSubject({ rule, found }) {
@@ -270,7 +273,7 @@ export function nextSteps(designSystem, violations, lang, decisions) {
     ? violations.filter((v) => !v.rule.startsWith("color-"))
     : violations;
   const count = (action) => actionable.filter((v) => v.action === action).length;
-  const [repair, replace] = ["repair", "replace"].map(count);
+  const [repair, replace, migrate] = ["repair", "replace", "migrate"].map(count);
   const ask = decisions === undefined
     ? count("ask")
     : decisions.filter((decision) => !noColorTokens || !decision.rule.startsWith("color-")).length;
@@ -279,8 +282,9 @@ export function nextSteps(designSystem, violations, lang, decisions) {
   if (noColorTokens) steps.push(m.nextNoTokens());
   if (repair > 0) steps.push(m.nextRepair(repair));
   if (replace > 0) steps.push(m.nextReplace(replace));
+  if (migrate > 0) steps.push(m.nextMigrate(migrate));
   if (ask > 0) steps.push(decisions === undefined ? m.hookNextAsk(ask) : m.nextAsk(ask));
-  if (repair + replace > 0) steps.push(m.nextRerun());
+  if (repair + replace + migrate > 0) steps.push(m.nextRerun());
 
   return steps.length > 0 ? steps : [m.nextNone()];
 }
