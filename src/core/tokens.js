@@ -27,7 +27,8 @@ export function parseColorTokens(css) {
  * 색 값 → 토큰 표와 서로 다른 최종 값이 있는 토큰 이름을 함께 읽는다.
  * @param {string} css
  * @param {string[]} [exclude] 정확한 이름 또는 끝에 *가 붙은 이름 패턴
- * @returns {{ colors: Map<string, string[]>, themed: Set<string> }}
+ * @returns {{ colors: Map<string, string[]>, themed: Set<string>, names: Set<string>, resets: string[] }}
+ *   names 는 값을 읽었든 못 읽었든 선언된 --color-* 이름, resets 는 initial 로 비운 네임스페이스(예: "--color-*")
  */
 export function parseColorTokenData(css, exclude = []) {
   /** @type {Map<string, string[]>} 변수 이름 → 선언된 값들 */
@@ -53,13 +54,21 @@ export function parseColorTokenData(css, exclude = []) {
 
   const colors = new Map();
   const themed = new Set();
+  const names = new Set();
+  const resets = [];
   for (const [name, values] of declared) {
+    // Tailwind 는 --color-*: initial 처럼 네임스페이스를 비울 수 있다. 토큰이 아니라 기본 테마를 지우는 선언이다.
+    if (name.endsWith("*")) {
+      if (values.some((value) => value.trim() === "initial")) resets.push(name);
+      continue;
+    }
     if (!COLOR_TOKEN.test(name)) continue;
+    names.add(name);
     if (exclude.some((pattern) => pattern.endsWith("*") ? name.startsWith(pattern.slice(0, -1)) : name === pattern)) continue;
     const resolved = new Set();
     for (const value of values.flatMap((value) => resolve(value, new Set([name])))) {
-      const color = normalizeHex(value);
-      // hex 가 아닌 값도 테마 차이는 만들 수 있지만 색 후보로는 쓰지 않는다.
+      const color = normalizeHex(value) ?? oklchToHex(value);
+      // hex 나 sRGB 안의 oklch 가 아닌 값도 테마 차이는 만들 수 있지만 색 후보로는 쓰지 않는다.
       const key = color ?? value;
       if (resolved.has(key)) continue;
       resolved.add(key);
@@ -69,7 +78,7 @@ export function parseColorTokenData(css, exclude = []) {
     }
     if (resolved.size > 1) themed.add(name);
   }
-  return { colors, themed };
+  return { colors, themed, names, resets };
 }
 
 export function utilityColorPrefixes(utility) {

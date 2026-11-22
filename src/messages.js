@@ -91,7 +91,7 @@ const en = {
   // check
   noColorTokens: ({ tokens }) =>
     `No color token could be read from ${tokens}. ` +
-    "A --color-* variable is read when its value is a hex color or a var() that leads to one. " +
+    "A --color-* variable is read when its value is a hex color, an oklch() color inside sRGB, or a var() that leads to one. " +
     'Until then every hex color is reported as "not in the tokens".',
   nextNoTokens: () =>
     "There are no color tokens, so there is nothing to judge colors against. Before fixing any color, collect the colors in use with `designsnitch colors` and decide the tokens.",
@@ -237,7 +237,7 @@ const ko = {
 
   noColorTokens: ({ tokens }) =>
     `색 토큰을 하나도 읽지 못했습니다: ${tokens}. ` +
-    "--color-* 변수의 값이 hex이거나 var()로 hex를 가리켜야 읽을 수 있습니다. " +
+    "--color-* 변수의 값이 hex나 sRGB 안의 oklch() 색이거나, var()로 그런 값을 가리켜야 읽을 수 있습니다. " +
     '지금은 모든 hex가 "토큰에 없음" 경고로 나옵니다.',
   nextNoTokens: () =>
     "색 토큰이 없어서 색을 판정할 기준이 없습니다. 색을 고치기 전에 `designsnitch colors`로 쓰이는 색을 모아 토큰부터 정하세요.",

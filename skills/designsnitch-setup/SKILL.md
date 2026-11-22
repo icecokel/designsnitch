@@ -26,7 +26,7 @@ npm install --save-dev designsnitch
 
 It is the CSS file with an `@theme` block or `--color-*` variables, usually `app/globals.css` or `src/app/globals.css`. If you cannot tell which CSS file is the right one, ask the user.
 
-designsnitch reads a variable as a color token only when its name starts with `--color-` and its value is a hex color or a `var()` that leads to one. Two cases need a decision before you go on.
+designsnitch reads a variable as a color token only when its name starts with `--color-` and its value is a hex color, an `oklch()` color inside sRGB, or a `var()` that leads to one. Some cases need a decision before you go on.
 
 **The project uses Tailwind's default palette as its colors.** Run `npx designsnitch colors --format json`. If most uses are in `palette` (classes such as `bg-slate-100`) and few are hex colors, the project already has a standard: the default palette. Do not turn palette colors into new hex tokens. Propose `"palette": "tailwind"` in the config instead, which makes the default palette part of the standard and flags hex colors that duplicate it. Tell the user what this means, and add it after they agree. Colors that are not in the palette can still get project tokens through the `designsnitch-palette` skill.
 
@@ -96,7 +96,7 @@ npx designsnitch check --format json
 
 Look at `designSystem` and `problems` in the result.
 
-- `designSystem.colorTokens` should match the number of `--color-*` tokens in the CSS. A 0 means the path is wrong or the tokens are in a format that cannot be read (only hex values and `var()` references to hex values are read).
+- `designSystem.colorTokens` should match the number of `--color-*` tokens in the CSS. A 0 means the path is wrong or the tokens are in a format that cannot be read (only hex values, `oklch()` values inside sRGB, and `var()` references to them are read).
 - `designSystem.components` should match the number of components you listed.
 - `problems` should be empty.
 - Exit code 2 with a message about a missing path means a path in the config is wrong.

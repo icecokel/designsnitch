@@ -13,7 +13,7 @@ import { messages, resolveLang } from "../messages.js";
  * @property {Set<string>} paletteNames 기본 팔레트에서 온 토큰 이름들. palette 설정이 없으면 비어 있다
  */
 
-/** @type {Map<string, { mtimeMs: number, tokens: Pick<Tokens, "colors" | "themed"> }>} */
+/** @type {Map<string, { mtimeMs: number, tokens: ReturnType<typeof parseColorTokenData> }>} */
 const cache = new Map();
 /** @type {Map<string, { mtimeMs: number, palette: Map<string, string> }>} */
 const paletteCache = new Map();
@@ -34,7 +34,9 @@ export function loadTokens(settings, cwd) {
   const root = path.resolve(cwd, settings?.designsnitch?.root ?? ".");
   const file = path.resolve(root, tokensPath);
   const project = readProjectTokens(file, exclude, m);
-  if (settings?.designsnitch?.palette !== "tailwind") return { ...project, prefer, paletteNames: new Set() };
+  if (settings?.designsnitch?.palette !== "tailwind") {
+    return { colors: project.colors, themed: project.themed, prefer, paletteNames: new Set() };
+  }
   return { ...withPalette(project, readTailwindPalette(file, m), exclude), prefer };
 }
 
@@ -88,18 +90,21 @@ function readTailwindPalette(tokensFile, m) {
 }
 
 /**
- * 프로젝트 토큰 뒤에 팔레트 색을 더한다. 프로젝트가 같은 이름을 정의했거나 exclude 에 걸린 색은 뺀다.
- * @param {Pick<Tokens, "colors" | "themed">} project
+ * 프로젝트 토큰 뒤에 팔레트 색을 더한다. 다음 색은 뺀다.
+ * - 프로젝트가 같은 이름을 다시 정의한 색 (값을 읽지 못했어도 기본값은 더 이상 쓰이지 않는다)
+ * - 프로젝트가 --color-*: initial, --*: initial 같은 선언으로 비운 네임스페이스의 색
+ * - exclude 에 걸린 색
+ * @param {ReturnType<typeof parseColorTokenData>} project
  * @param {Map<string, string>} palette
  * @param {string[]} exclude
  */
 function withPalette(project, palette, exclude) {
-  const own = new Set([...project.colors.values()].flat());
-  const excluded = (name) => exclude.some((p) => (p.endsWith("*") ? name.startsWith(p.slice(0, -1)) : name === p));
+  const matches = (name, pattern) => (pattern.endsWith("*") ? name.startsWith(pattern.slice(0, -1)) : name === pattern);
+  const excluded = (name) => [...exclude, ...project.resets].some((pattern) => matches(name, pattern));
   const colors = new Map([...project.colors].map(([hex, names]) => [hex, [...names]]));
   const paletteNames = new Set();
   for (const [name, hex] of palette) {
-    if (own.has(name) || excluded(name)) continue;
+    if (project.names.has(name) || excluded(name)) continue;
     paletteNames.add(name);
     colors.set(hex, [...(colors.get(hex) ?? []), name]);
   }

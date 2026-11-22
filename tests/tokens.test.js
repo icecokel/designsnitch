@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseColorTokens } from "../src/core/tokens.js";
+import { parseColorTokenData, parseColorTokens } from "../src/core/tokens.js";
 
 describe("parseColorTokens", () => {
   it("@theme 안의 --color-* 변수를 색 값 → 토큰 표로 만든다", () => {
@@ -103,5 +103,14 @@ describe("parseColorTokens", () => {
       `;
       expect(parseColorTokens(css).get("#ffffff")).toEqual(["--color-white"]);
     });
+  });
+});
+
+describe("oklch 토큰", () => {
+  it("sRGB 안의 oklch 값은 hex 로 읽고, 밖이면 읽지 않는다", () => {
+    const { colors } = parseColorTokenData(
+      "@theme { --color-brand: oklch(55.4% 0.046 257.417); --color-wide: oklch(84.1% 0.238 128.85); }",
+    );
+    expect(colors).toEqual(new Map([["#62748e", ["--color-brand"]]]));
   });
 });

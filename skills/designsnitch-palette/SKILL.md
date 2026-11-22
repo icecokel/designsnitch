@@ -107,7 +107,7 @@ After the user approves, add the tokens to the CSS file that imports Tailwind (`
 }
 ```
 
-Write the values as hex. designsnitch reads hex values and `var()` references to hex values, and nothing else.
+Write the values as hex, the form the code already uses. designsnitch reads hex values, `oklch()` values inside sRGB, and `var()` references to either, and nothing else.
 
 If the project uses Tailwind v3 (a `tailwind.config.js` and no `@theme`), stop and tell the user: designsnitch does not read v3 config yet.
 

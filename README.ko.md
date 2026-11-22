@@ -218,7 +218,7 @@ Tailwind 기본 팔레트
 
 | 변수 | 쓰임 | 없을 때 |
 | --- | --- | --- |
-| `--color-*` | 색. 값이 hex이거나, `var()`를 따라가면 hex가 나와야 합니다. | 모든 hex 색이 경고가 됩니다 |
+| `--color-*` | 색. 값이 hex나 sRGB 안의 `oklch()` 색이거나, `var()`를 따라가면 그런 값이 나와야 합니다. | 모든 hex 색이 경고가 됩니다 |
 
 아래 두 형태를 모두 읽습니다.
 
@@ -474,7 +474,8 @@ Tailwind 기본 팔레트(`bg-slate-100`, `text-indigo-600`)를 기준으로 쓰
 
 - 팔레트는 프로젝트에 설치된 `tailwindcss/theme.css`에서 읽습니다. 토큰 CSS 위치에서 찾으므로 언제나 설치된 버전과 맞습니다. Tailwind CSS v4(4.0 이상)가 필요합니다. v3이거나 tailwindcss를 찾지 못하면 검사를 멈추고 어느 쪽인지 알립니다. 4.0.0, 4.1.0, 4.2.0, 4.3.0, 4.3.5로 확인했습니다. 버전 사이에 값이 바뀐 색은 없고, 4.2.0에서 `mauve`, `olive`, `mist`, `taupe` 계열이 추가됐습니다.
 - 팔레트 색과 값이 같은 hex는 오류이고, 팔레트 클래스가 후보입니다: `bg-[#62748e]` → `bg-slate-500`. Tailwind v4는 팔레트를 `oklch()`로 적어서, 비교할 때 hex로 바꿉니다. sRGB 밖의 팔레트 색은 같은 색을 내는 hex가 없으므로 비교에서 뺍니다.
-- 프로젝트 토큰 CSS에 팔레트와 같은 이름의 토큰이 있으면 프로젝트 값을 씁니다.
+- 프로젝트 토큰 CSS에 팔레트와 같은 이름의 토큰이 있으면 프로젝트 값을 씁니다. Tailwind 문서의 기본색 덮어쓰기 예시처럼 hex로 적어도, `oklch()`로 적어도 됩니다.
+- Tailwind 문서에 나온 대로 프로젝트가 비운 네임스페이스는 뺍니다. `--color-*: initial`은 팔레트 전체를, `--color-lime-*: initial`은 그 계열을, `--*: initial`은 기본 테마 전체를 지웁니다.
 - `tokens`의 `exclude`와 `prefer`는 팔레트 색에도 적용됩니다.
 - 팔레트도 토큰으로 세므로, 자기 토큰이 없는 프로젝트도 "토큰 없음"으로 보지 않습니다.
 
@@ -496,7 +497,9 @@ Tailwind 기본 팔레트(`bg-slate-100`, `text-indigo-600`)를 기준으로 쓰
 
 ### 아직 안 되는 것
 
-- hex가 아닌 색(`rgb()`, `hsl()`, `oklch()`)
+- `rgb()`나 `hsl()`로 적은 색, sRGB 밖의 `oklch()` 색
+- Tailwind 접두어(`@import "tailwindcss" prefix(tw)`). 후보는 접두어 없이 나옵니다.
+- `@config`로 불러오는 JavaScript 설정의 색, 토큰 CSS가 `@import`하는 다른 CSS 파일의 토큰
 - 색 팔레트를 뺀 Tailwind 기본 테마의 값. 팔레트 중 sRGB 밖의 색은 비교하지 않습니다.
 - Tailwind v3(`tailwind.config.js`)
 - 토큰이 없는 색에 가장 가까운 토큰 제시

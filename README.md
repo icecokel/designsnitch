@@ -217,7 +217,7 @@ This is what is read from the token CSS.
 
 | Variable | Used for | When missing |
 | --- | --- | --- |
-| `--color-*` | Colors. The value must be a hex color, or a `var()` that leads to one. | Every hex color becomes a warning |
+| `--color-*` | Colors. The value must be a hex color or an `oklch()` color inside sRGB, or a `var()` that leads to one. | Every hex color becomes a warning |
 
 Both of these shapes work.
 
@@ -473,7 +473,8 @@ Many projects use Tailwind's default palette (`bg-slate-100`, `text-indigo-600`)
 
 - The palette is read from the `tailwindcss/theme.css` installed in the project, found from the token CSS, so it always matches the installed version. This needs Tailwind CSS v4 (4.0 or later). With v3, or when tailwindcss cannot be found, the check stops and says which. Tested against 4.0.0, 4.1.0, 4.2.0, 4.3.0 and 4.3.5: no color changed value between them, and 4.2.0 added the `mauve`, `olive`, `mist` and `taupe` scales.
 - A hex color with the same value as a palette color is an error, with the palette class as its candidate: `bg-[#62748e]` → `bg-slate-500`. Tailwind v4 writes the palette in `oklch()`, and it is converted to hex for the comparison. Palette colors outside sRGB are left out, because no hex value renders them the same.
-- A token in the project's token CSS with the same name as a palette color replaces it.
+- A token in the project's token CSS with the same name as a palette color replaces it, in hex or in `oklch()`, as in Tailwind's own example of overriding a color.
+- Namespaces the project clears are left out, as Tailwind documents: `--color-*: initial` removes the whole palette, `--color-lime-*: initial` removes one scale, and `--*: initial` removes the whole default theme.
 - `exclude` and `prefer` in `tokens` apply to palette colors too.
 - The palette counts as tokens, so a project with no tokens of its own is not reported as having none.
 
@@ -495,7 +496,9 @@ Without `palette`, designsnitch does not flag default palette classes, and does 
 
 ### Not supported yet
 
-- Colors that are not hex (`rgb()`, `hsl()`, `oklch()`)
+- Colors written as `rgb()` or `hsl()`, and `oklch()` colors outside sRGB
+- A Tailwind prefix (`@import "tailwindcss" prefix(tw)`). Candidates are written without the prefix.
+- Colors from a JavaScript config loaded with `@config`, and tokens in CSS files that the token CSS imports
 - Values from Tailwind's default theme other than the color palette. Colors of the palette that are outside sRGB are not compared.
 - Tailwind v3 (`tailwind.config.js`)
 - The nearest token for a color that has none

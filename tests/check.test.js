@@ -747,6 +747,40 @@ describe("Tailwind 기본 팔레트를 기준으로 쓰기 (palette: tailwind)",
     );
   });
 
+  // 공식 문서의 설정법: https://tailwindcss.com/docs/colors, https://tailwindcss.com/docs/theme
+  it.each([
+    ["--color-*: initial 은 팔레트 전체를 없앤다", "--color-*: initial;", 0],
+    ["--*: initial 은 테마 전체를 없앤다", "--*: initial;", 0],
+    ["--color-slate-*: initial 은 그 계열만 없앤다", "--color-slate-*: initial;", 2],
+  ])("%s", async (_name, reset, paletteColors) => {
+    const cwd = tempProject({
+      ...tailwind,
+      "designsnitch.config.json": `{ "tokens": "app/globals.css", "palette": "tailwind" }`,
+      "app/globals.css": `@import "tailwindcss";\n@theme { ${reset} --color-brand: #3B82F6; }`,
+      "src/Card.jsx": `export const Card = () => <div className="bg-[#62748e] text-[#3B82F6]" />;`,
+    });
+    const result = await check({ cwd, config: loadConfig(cwd), lang: "en" });
+    expect(result.designSystem).toMatchObject({ colorTokens: 1, paletteColors });
+    expect(result.violations.map((v) => [v.found, v.rule, v.candidates])).toEqual([
+      ["bg-[#62748e]", "color-unknown", []],
+      ["text-[#3B82F6]", "color-use-token", ["text-brand"]],
+    ]);
+  });
+
+  it("기본색을 oklch 로 덮어쓰면 프로젝트 값을 쓴다", async () => {
+    const cwd = tempProject({
+      ...tailwind,
+      "designsnitch.config.json": `{ "tokens": "app/globals.css", "palette": "tailwind" }`,
+      "app/globals.css": `@import "tailwindcss";\n@theme { --color-slate-500: oklch(51.1% 0.262 276.966); }`,
+      "src/Card.jsx": `export const Card = () => <div className="bg-[#62748e] text-[#4f39f6]" />;`,
+    });
+    const result = await check({ cwd, config: loadConfig(cwd), lang: "en" });
+    expect(result.violations.map((v) => [v.found, v.rule, v.candidates])).toEqual([
+      ["bg-[#62748e]", "color-unknown", []],
+      ["text-[#4f39f6]", "color-use-token", ["text-slate-500", "text-indigo-600"]],
+    ]);
+  });
+
   it("Tailwind v3 이면 v4 가 필요하다고 알린다", async () => {
     const cwd = tempProject({
       "node_modules/tailwindcss/package.json": JSON.stringify({ name: "tailwindcss", version: "3.4.19" }),
