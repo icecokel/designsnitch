@@ -1,5 +1,5 @@
 import { findArbitraryColors } from "../core/classes.js";
-import { normalizeHex } from "../core/color.js";
+import { normalizeColor } from "../core/color.js";
 import { loadTokens } from "./load-tokens.js";
 import { ruleMessages, TEXT } from "./suggest.js";
 import { visitStrings } from "./visit-strings.js";
@@ -25,7 +25,7 @@ export default {
     const { colors } = tokens;
 
     function report(found, { loc }) {
-      if (colors.has(normalizeHex(found.value))) return;
+      if (colors.has(normalizeColor(found.value))) return;
       context.report({ loc, messageId: "unknown", data: { text: m.unknownColor({ found: found.text }) } });
     }
 

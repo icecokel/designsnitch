@@ -30,12 +30,12 @@ describe("parseColorTokens", () => {
     ]);
   });
 
-  it("색이 아닌 변수와 hex가 아닌 값은 건너뛴다", () => {
+  it("색이 아닌 변수와 색으로 읽을 수 없는 값은 건너뛴다", () => {
     const css = `
       @theme {
         --spacing: 0.25rem;
         --radius-md: 6px;
-        --color-brand: oklch(0.6 0.2 250);
+        --color-brand: color-mix(in srgb, red, blue);
         /* --color-old: #000000; */
       }
     `;
@@ -107,10 +107,15 @@ describe("parseColorTokens", () => {
 });
 
 describe("oklch 토큰", () => {
-  it("sRGB 안의 oklch 값은 hex 로 읽고, 밖이면 읽지 않는다", () => {
+  it("sRGB 안의 oklch 값은 hex 로 읽고, 밖이면 oklch 표기로 읽는다", () => {
     const { colors } = parseColorTokenData(
       "@theme { --color-brand: oklch(55.4% 0.046 257.417); --color-wide: oklch(84.1% 0.238 128.85); }",
     );
-    expect(colors).toEqual(new Map([["#62748e", ["--color-brand"]]]));
+    expect(colors).toEqual(
+      new Map([
+        ["#62748e", ["--color-brand"]],
+        ["oklch(0.841 0.238 128.85)", ["--color-wide"]],
+      ]),
+    );
   });
 });

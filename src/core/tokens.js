@@ -1,6 +1,5 @@
 import postcss from "postcss";
-import { normalizeHex } from "./color.js";
-import { oklchToHex } from "./oklch.js";
+import { normalizeColor } from "./color.js";
 
 const COLOR_TOKEN = /^--color-/;
 const ROLE_PREFIXES = {
@@ -67,8 +66,8 @@ export function parseColorTokenData(css, exclude = []) {
     if (exclude.some((pattern) => pattern.endsWith("*") ? name.startsWith(pattern.slice(0, -1)) : name === pattern)) continue;
     const resolved = new Set();
     for (const value of values.flatMap((value) => resolve(value, new Set([name])))) {
-      const color = normalizeHex(value) ?? oklchToHex(value);
-      // hex 나 sRGB 안의 oklch 가 아닌 값도 테마 차이는 만들 수 있지만 색 후보로는 쓰지 않는다.
+      const color = normalizeColor(value);
+      // 색으로 읽지 못한 값도 테마 차이는 만들 수 있지만 색 후보로는 쓰지 않는다.
       const key = color ?? value;
       if (resolved.has(key)) continue;
       resolved.add(key);
@@ -114,16 +113,16 @@ export function recommendColorCandidate(candidates, rolePrefixes) {
 }
 
 /**
- * Tailwind theme.css 같은 팔레트 CSS 에서 --color-* 의 값을 hex 로 읽는다.
- * oklch 는 sRGB 안에 있을 때만 hex 로 바꾼다. 밖이면 hex 와 비교할 수 없으니 뺀다.
+ * Tailwind theme.css 같은 팔레트 CSS 에서 --color-* 의 값을 비교용 표기로 읽는다.
+ * sRGB 안의 색은 hex 가 되고, 밖의 oklch 는 oklch 표기로 남아 같은 oklch 값과만 맞는다.
  * @param {string} css
- * @returns {Map<string, string>} 토큰 이름 → hex
+ * @returns {Map<string, string>} 토큰 이름 → 비교용 색 표기
  */
 export function parsePaletteColors(css) {
   const palette = new Map();
   postcss.parse(css).walkDecls(COLOR_TOKEN, (decl) => {
-    const hex = normalizeHex(decl.value) ?? oklchToHex(decl.value);
-    if (hex) palette.set(decl.prop, hex);
+    const color = normalizeColor(decl.value);
+    if (color) palette.set(decl.prop, color);
   });
   return palette;
 }

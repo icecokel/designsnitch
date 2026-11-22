@@ -1,4 +1,5 @@
-import { findArbitraryColors, findHexColors } from "../core/classes.js";
+import { findArbitraryColors } from "../core/classes.js";
+import { findColorValues } from "../core/color.js";
 import { visitStrings } from "./visit-strings.js";
 import { inlineStyleProperty } from "./visit-style.js";
 
@@ -12,7 +13,7 @@ export default {
   create(context) {
     const findUnchecked = (text) => {
       const inClasses = findArbitraryColors(text).map(({ index, text: found }) => [index, index + found.length]);
-      return findHexColors(text).filter(({ index }) => !inClasses.some(([start, end]) => index >= start && index < end));
+      return findColorValues(text).filter(({ index }) => !inClasses.some(([start, end]) => index >= start && index < end));
     };
     const visitor = visitStrings(context, findUnchecked, (found, { loc }) =>
       context.report({ loc, messageId: "unchecked", data: { color: found.value } }),

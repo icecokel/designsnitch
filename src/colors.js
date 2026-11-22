@@ -1,23 +1,20 @@
 import fs from "node:fs";
 import path from "node:path";
 import { findArbitraryColors, findPaletteClasses } from "./core/classes.js";
-import { normalizeHex } from "./core/color.js";
+import { colorLabel, parseColor } from "./core/color.js";
 import { findCssColors } from "./core/css.js";
 import { createEngine } from "./engine.js";
 import { splitPaths } from "./files.js";
 import { visitStrings } from "./rules/visit-strings.js";
 
 const RULE_ID = "designsnitch-internal/collect-colors";
-const HEX_LITERAL = /^#(?:[0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3,4})$/i;
 const MAX_EXAMPLES = 3;
 
-// 알파가 붙은 hex 는 6자리로 펼칠 수 없으니 소문자로만 맞춘다.
-const colorKey = (hex) => normalizeHex(hex) ?? hex.toLowerCase();
 
 const findColors = (text) => [
   ...findArbitraryColors(text).map((found) => ({
     ...found,
-    payload: { kind: "hex", key: colorKey(found.value), utility: found.utility },
+    payload: { kind: "hex", key: colorLabel(found.value), utility: found.utility },
   })),
   ...findPaletteClasses(text).map((found) => ({
     ...found,
@@ -36,9 +33,9 @@ const collectRule = {
     return {
       ...visitor,
       Literal(node) {
-        // 문자열 전체가 hex 색인 경우. 예: style={{ color: "#3B82F6" }}
-        if (typeof node.value === "string" && HEX_LITERAL.test(node.value)) {
-          report(node.loc, { kind: "hex", key: colorKey(node.value), utility: null });
+        // 문자열 전체가 색인 경우. 예: style={{ color: "#3B82F6" }}
+        if (typeof node.value === "string" && parseColor(node.value) !== null) {
+          report(node.loc, { kind: "hex", key: colorLabel(node.value), utility: null });
           return;
         }
         visitor.Literal(node);
@@ -101,7 +98,7 @@ export async function collectColors({ cwd, paths = ["."], tokens, tokenFile }) {
       continue; // 읽지 못한 CSS 는 건너뛴다
     }
     for (const { line, value, prop } of found) {
-      uses.push({ file, line, kind: "hex", key: colorKey(value), prop });
+      uses.push({ file, line, kind: "hex", key: colorLabel(value), prop });
     }
   }
   uses.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);

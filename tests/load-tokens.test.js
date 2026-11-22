@@ -15,7 +15,7 @@ describe("loadTokens", () => {
     const cwd = tempProject({
       "tokens.css": `
         :root { --surface: #fff; --fixed: #aBc; --color-mixed: #f00; }
-        .dark { --surface: #111827; --fixed: #aabbcc; --color-mixed: oklch(0.5 0.2 250); }
+        .dark { --surface: #111827; --fixed: #aabbcc; --color-mixed: color-mix(in srgb, red, blue); }
         @theme {
           --alias: var(--surface);
           --color-surface: var(--alias);

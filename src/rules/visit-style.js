@@ -1,4 +1,4 @@
-import { findHexColors } from "../core/classes.js";
+import { findColorValues } from "../core/color.js";
 
 /**
  * 노드가 JSX style 속성 객체의 값이면 CSS 속성 이름을, 아니면 null 을 돌려준다.
@@ -19,7 +19,7 @@ export function inlineStyleProperty(node) {
 }
 
 /**
- * JSX style 속성에 문자열로 적은 hex 색마다 onFound 를 부르는 visitor 를 만든다.
+ * JSX style 속성에 문자열로 적은 색마다 onFound 를 부르는 visitor 를 만든다.
  * @param {import("eslint").Rule.RuleContext} context
  * @param {(found: { text: string, value: string, property: string }, where: { loc: import("estree").SourceLocation, range: [number, number] }) => void} onFound
  */
@@ -27,7 +27,7 @@ export function visitInlineStyleColors(context, onFound) {
   const { sourceCode } = context;
 
   function scan(node, property) {
-    for (const found of findHexColors(sourceCode.getText(node))) {
+    for (const found of findColorValues(sourceCode.getText(node))) {
       const start = node.range[0] + found.index;
       const end = start + found.text.length;
       onFound({ ...found, property }, {

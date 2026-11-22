@@ -1,19 +1,23 @@
-// 예: bg-[#3B82F6], ring-offset-[#fff]
+import { parseColor } from "./color.js";
+
+// 예: bg-[#3B82F6], ring-offset-[#fff], text-[rgb(59,130,246)], bg-[oklch(62.3%_0.214_259.815)]
 const ARBITRARY_COLOR =
-  /(?<![\w-])([a-z][a-z0-9]*(?:-[a-z0-9]+)*)-\[(#(?:[0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3,4}))\]/gi;
+  /(?<![\w-])([a-z][a-z0-9]*(?:-[a-z0-9]+)*)-\[(#[0-9a-f]{3,8}|(?:rgba?|hsla?|oklch)\([^()[\]\s]*\))\]/gi;
 
 /**
- * 문자열에서 hex를 임의 값으로 쓴 Tailwind 클래스를 찾는다.
+ * 문자열에서 색을 임의 값으로 쓴 Tailwind 클래스를 찾는다.
  * @param {string} text
  * @returns {{ index: number, text: string, utility: string, value: string }[]}
  */
 export function findArbitraryColors(text) {
-  return [...text.matchAll(ARBITRARY_COLOR)].map((match) => ({
-    index: match.index,
-    text: match[0],
-    utility: match[1],
-    value: match[2],
-  }));
+  return [...text.matchAll(ARBITRARY_COLOR)]
+    .filter((match) => parseColor(match[2]) !== null)
+    .map((match) => ({
+      index: match.index,
+      text: match[0],
+      utility: match[1],
+      value: match[2],
+    }));
 }
 
 /** 예: ("bg", "--color-primary-500") → "bg-primary-500" */
@@ -43,16 +47,4 @@ export function findPaletteClasses(text) {
     utility: match[1],
     name: match[2],
   }));
-}
-
-// 예: "#3B82F6", "1px solid #fff". bg-[#fff] 의 hex 도 걸리므로 클래스 검사와 겹치지 않게 쓴다.
-const HEX_COLOR = /(?<![\w&#])#(?:[0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3,4})(?![\w-])/gi;
-
-/**
- * 문자열에서 hex 색 자체를 찾는다.
- * @param {string} text
- * @returns {{ index: number, text: string, value: string }[]}
- */
-export function findHexColors(text) {
-  return [...text.matchAll(HEX_COLOR)].map((match) => ({ index: match.index, text: match[0], value: match[0] }));
 }

@@ -1,5 +1,5 @@
 import { findArbitraryColors, tokenToClass } from "../core/classes.js";
-import { normalizeHex } from "../core/color.js";
+import { normalizeColor } from "../core/color.js";
 import { cssColorPrefixes, selectColorTokens, utilityColorPrefixes } from "../core/tokens.js";
 import { loadTokens } from "./load-tokens.js";
 import { ruleMessages, suggestClasses, TEXT } from "./suggest.js";
@@ -43,14 +43,14 @@ export default {
 
     return mergeVisitors(
       visitStrings(context, findArbitraryColors, (found, where) => {
-        const names = colors.get(normalizeHex(found.value));
+        const names = colors.get(normalizeColor(found.value));
         if (!names) return;
         const tokenNames = selectColorTokens(names, prefer, utilityColorPrefixes(found.utility));
         report(found, where, tokenNames, tokenNames.map((name) => tokenToClass(found.utility, name)));
       }),
       // 인라인 스타일은 클래스가 아니라 var(--토큰) 으로 바꾼다. Tailwind 는 소스에서 쓴 var() 의 변수를 내보낸다.
       visitInlineStyleColors(context, (found, where) => {
-        const names = colors.get(normalizeHex(found.value));
+        const names = colors.get(normalizeColor(found.value));
         if (!names) return;
         const tokenNames = selectColorTokens(names, prefer, cssColorPrefixes(found.property));
         report(found, where, tokenNames, tokenNames.map((name) => `var(${name})`));

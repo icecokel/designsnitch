@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { replacementNames, tokenSettings } from "./config.js";
 import { findArbitraryColors, tokenToClass } from "./core/classes.js";
-import { normalizeHex } from "./core/color.js";
+import { colorLabel, normalizeColor, parseColor } from "./core/color.js";
 import { findCssColors } from "./core/css.js";
 import { cssColorPrefixes, recommendColorCandidate, selectColorTokens, utilityColorPrefixes } from "./core/tokens.js";
 import { createEngine } from "./engine.js";
@@ -173,7 +173,7 @@ function checkCss(file, source, tokens, m, options) {
     .filter((color) => !color.disabled)
     .map(({ value, prop, disabled, ...location }) => {
       const prefixes = cssColorPrefixes(prop);
-      const tokenNames = selectColorTokens(tokens.colors.get(normalizeHex(value)) ?? [], tokens.prefer, prefixes);
+      const tokenNames = selectColorTokens(tokens.colors.get(normalizeColor(value)) ?? [], tokens.prefer, prefixes);
       const candidates = tokenNames.map((name) => `var(${name})`);
       const recommendedToken = recommendColorCandidate(tokenNames, prefixes);
       const messageId = tokenNames.some((name) => tokens.themed.has(name)) ? "useTokenThemed" : "useToken";
@@ -213,10 +213,8 @@ function actionFor({ rule, severity, candidates }, messageId) {
 
 function decisionSubject({ rule, found }) {
   if (rule === "use-ds-component") return `<${found}>`;
-  const value = found.startsWith("#") ? found : findArbitraryColors(found)[0]?.value;
-  if (!value) return found;
-  const hex = value.toLowerCase();
-  return normalizeHex(hex) ?? (hex.length === 5 ? hex.replace(/[0-9a-f]/g, "$&$&") : hex);
+  const value = parseColor(found) ? found : findArbitraryColors(found)[0]?.value;
+  return value ? colorLabel(value) : found;
 }
 
 /**
