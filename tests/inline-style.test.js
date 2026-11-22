@@ -8,7 +8,6 @@ ruleTester.run("color-use-token (인라인 스타일)", colorUseToken, {
     { name: "style 이 아닌 속성의 객체", code: `<Chart options={{ color: "#3B82F6" }} />` },
     { name: "JSX 밖의 객체", code: `const theme = { color: "#3B82F6" };` },
     { name: "계산된 키", code: `<div style={{ [key]: "#3B82F6" }} />` },
-    { name: "조건식 안의 값은 아직 보지 않는다", code: `<div style={{ color: on ? "#3B82F6" : "red" }} />` },
   ],
   invalid: [
     {
@@ -73,6 +72,29 @@ ruleTester.run("color-unknown (인라인 스타일)", colorUnknown, {
       name: "토큰에 없는 색",
       code: `<div style={{ color: "#3B82F5" }} />`,
       errors: [{ message: "#3B82F5의 색은 토큰에 없습니다.", line: 1, column: 23, endColumn: 30 }],
+    },
+  ],
+});
+
+ruleTester.run("color-use-token (계산되는 인라인 스타일)", colorUseToken, {
+  valid: [{ name: "조건식의 조건 쪽은 값이 아니다", code: `<div style={{ color: mode === "#3B82F6" ? a : b }} />` }],
+  invalid: [
+    {
+      name: "삼항 연산의 두 값",
+      code: `<div style={{ color: on ? "#3B82F6" : "#123456" }} />`,
+      errors: [
+        {
+          message: "#3B82F6의 색은 토큰 --color-primary-500의 값입니다. 대신 사용: var(--color-primary-500)",
+          suggestions: [
+            { desc: "var(--color-primary-500)(으)로 바꾸기", output: `<div style={{ color: on ? "var(--color-primary-500)" : "#123456" }} />` },
+          ],
+        },
+      ],
+    },
+    {
+      name: "&&, ||, ?? 와 겹친 조건식",
+      code: `<div style={{ color: a ? (b && "#3B82F6") : c ?? "#3b82f6", background: x || "#3B82F6" }} />`,
+      errors: [{ messageId: "useToken", suggestions: 1 }, { messageId: "useToken", suggestions: 1 }, { messageId: "useToken", suggestions: 1 }],
     },
   ],
 });

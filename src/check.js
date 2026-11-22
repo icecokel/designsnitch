@@ -171,10 +171,13 @@ function checkCss(file, source, tokens, m, options) {
 
   return colors
     .filter((color) => !color.disabled)
-    .map(({ value, prop, disabled, ...location }) => {
-      const prefixes = cssColorPrefixes(prop);
+    .map(({ value, prop, utility, text, disabled, ...location }) => {
+      // @apply 의 클래스는 JS 의 클래스처럼 토큰 클래스로, 선언의 값은 var(--토큰) 으로 바꾼다.
+      const found = text ?? value;
+      const prefixes = utility ? utilityColorPrefixes(utility) : cssColorPrefixes(prop);
+      const toCandidate = (name) => (utility ? tokenToClass(utility, name) : `var(${name})`);
       const tokenNames = selectColorTokens(tokens.colors.get(normalizeColor(value)) ?? [], tokens.prefer, prefixes);
-      const candidates = tokenNames.map((name) => `var(${name})`);
+      const candidates = tokenNames.map(toCandidate);
       const recommendedToken = recommendColorCandidate(tokenNames, prefixes);
       const messageId = tokenNames.some((name) => tokens.themed.has(name)) ? "useTokenThemed" : "useToken";
       return {
@@ -186,7 +189,7 @@ function checkCss(file, source, tokens, m, options) {
               severity: "error",
               messageId,
               message: m[messageId]({
-                found: value,
+                found,
                 tokens: tokenNames.join(", "),
                 candidates: candidates.join(", "),
               }),
@@ -194,11 +197,11 @@ function checkCss(file, source, tokens, m, options) {
           : {
               rule: "color-unknown",
               severity: "warning",
-              message: m.unknownCssColor({ value }),
+              message: utility ? m.unknownColor({ found }) : m.unknownCssColor({ value }),
             }),
-        found: value,
+        found,
         candidates,
-        recommended: recommendedToken ? `var(${recommendedToken})` : null,
+        recommended: recommendedToken ? toCandidate(recommendedToken) : null,
       };
     });
 }

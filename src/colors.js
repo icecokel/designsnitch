@@ -97,8 +97,8 @@ export async function collectColors({ cwd, paths = ["."], tokens, tokenFile }) {
     } catch {
       continue; // 읽지 못한 CSS 는 건너뛴다
     }
-    for (const { line, value, prop } of found) {
-      uses.push({ file, line, kind: "hex", key: colorLabel(value), prop });
+    for (const { line, value, prop, utility } of found) {
+      uses.push({ file, line, kind: "hex", key: colorLabel(value), prop, utility });
     }
   }
   uses.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);

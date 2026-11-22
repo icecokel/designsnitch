@@ -95,3 +95,26 @@ describe("hex 가 아닌 색 표기", () => {
     ]);
   });
 });
+
+describe("@apply 안의 클래스", () => {
+  it("CSS 의 @apply 에 쓴 임의 값 색을 찾고, 토큰 클래스를 후보로 낸다", async () => {
+    const cwd = tempProject({
+      "designsnitch.config.json": `{ "tokens": "tokens.css" }`,
+      "tokens.css": `@theme { --color-brand: #3B82F6; }`,
+      "src/a.css": `.btn {\n  @apply px-4 bg-[#3B82F6] hover:text-[#123456];\n}`,
+    });
+    const result = await check({ cwd, config: loadConfig(cwd), lang: "en" });
+
+    expect(result.violations.map((v) => [v.line, v.column, v.endColumn, v.found, v.rule, v.candidates, v.action])).toEqual([
+      [2, 15, 27, "bg-[#3B82F6]", "color-use-token", ["bg-brand"], "replace"],
+      [2, 34, 48, "text-[#123456]", "color-unknown", [], "ask"],
+    ]);
+    expect(result.violations[0].message).toBe("bg-[#3B82F6] has the same color as --color-brand. Use instead: bg-brand");
+
+    const colors = await collectColors({ cwd });
+    expect(colors.colors.map(({ color, utilities }) => [color, utilities])).toEqual([
+      ["#3b82f6", { bg: 1 }],
+      ["#123456", { text: 1 }],
+    ]);
+  });
+});

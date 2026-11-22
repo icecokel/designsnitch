@@ -1,4 +1,5 @@
 import postcss from "postcss";
+import { findArbitraryColors } from "./classes.js";
 import { findColorValues } from "./color.js";
 
 // 색이 아닌 # 이 들어갈 수 있는 곳: url(#id), "문자열", /* 주석 */
@@ -11,7 +12,8 @@ const DISABLE_NEXT_LINE = "designsnitch-disable-next-line";
  * 바로 앞에 designsnitch-disable-next-line 주석이 있는 선언의 색은 disabled 로 표시한다.
  * @param {string} css
  * @param {{ skipCustomProperties?: boolean }} [options]
- * @returns {{ line: number, column: number, endLine: number, endColumn: number, value: string, prop: string, disabled: boolean }[]}
+ * @apply 에 쓴 임의 값 색 클래스도 찾는다. 그때는 prop 대신 utility 와 클래스 전체(text)가 붙는다.
+ * @returns {{ line: number, column: number, endLine: number, endColumn: number, value: string, prop?: string, utility?: string, text?: string, disabled: boolean }[]}
  * @throws {import("postcss").CssSyntaxError} CSS 를 읽지 못했을 때
  */
 export function findCssColors(css, { skipCustomProperties = false } = {}) {
@@ -26,11 +28,35 @@ export function findCssColors(css, { skipCustomProperties = false } = {}) {
   };
 
   const found = [];
-  postcss.parse(css).walkDecls((decl) => {
+  const root = postcss.parse(css);
+  const isDisabled = (node) => {
+    const previous = node.prev();
+    return previous?.type === "comment" && previous.text.includes(DISABLE_NEXT_LINE);
+  };
+
+  root.walkAtRules("apply", (rule) => {
+    const raw = rule.raws.params?.raw ?? rule.params;
+    const paramsStart = rule.source.start.offset + 1 + rule.name.length + (rule.raws.afterName ?? "").length;
+    for (const match of findArbitraryColors(raw)) {
+      const start = position(paramsStart + match.index);
+      const end = position(paramsStart + match.index + match.text.length);
+      found.push({
+        line: start.line,
+        column: start.column,
+        endLine: end.line,
+        endColumn: end.column,
+        value: match.value,
+        utility: match.utility,
+        text: match.text,
+        disabled: isDisabled(rule),
+      });
+    }
+  });
+
+  root.walkDecls((decl) => {
     if (skipCustomProperties && decl.prop.startsWith("--")) return;
 
-    const previous = decl.prev();
-    const disabled = previous?.type === "comment" && previous.text.includes(DISABLE_NEXT_LINE);
+    const disabled = isDisabled(decl);
 
     // 위치를 정확히 잡으려고 정리된 값이 아니라 원본 텍스트에서 찾는다.
     const raw = decl.raws.value?.raw ?? decl.value;
@@ -51,5 +77,5 @@ export function findCssColors(css, { skipCustomProperties = false } = {}) {
       });
     }
   });
-  return found;
+  return found.sort((a, b) => a.line - b.line || a.column - b.column);
 }

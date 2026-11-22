@@ -50,6 +50,10 @@ describe("findCssColors", () => {
 
   it("Tailwind v4 의 @theme, @apply, @utility 가 있어도 읽는다", () => {
     const css = `@import "tailwindcss";\n@theme { --color-a: #fff; }\n@utility card { color: #111111; }\n.b { @apply bg-[#222222]; }`;
-    expect(findCssColors(css).map((c) => c.value)).toEqual(["#fff", "#111111"]);
+    expect(findCssColors(css).map((c) => [c.value, c.utility])).toEqual([
+      ["#fff", undefined],
+      ["#111111", undefined],
+      ["#222222", "bg"], // @apply 의 클래스
+    ]);
   });
 });

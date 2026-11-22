@@ -7,6 +7,13 @@ import { findColorValues } from "../core/color.js";
  * @returns {string | null}
  */
 export function inlineStyleProperty(node) {
+  // color: on ? "#fff" : "#000", color: x || "#fff" 처럼 값이 고르는 식이면 그 식을 거슬러 올라간다.
+  while (
+    (node.parent?.type === "ConditionalExpression" && node.parent.test !== node) ||
+    node.parent?.type === "LogicalExpression"
+  ) {
+    node = node.parent;
+  }
   const property = node.parent;
   if (property?.type !== "Property" || property.value !== node || property.computed) return null;
   const object = property.parent;
