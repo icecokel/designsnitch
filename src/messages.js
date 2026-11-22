@@ -93,8 +93,8 @@ const en = {
   // check
   noColorTokens: ({ tokens }) =>
     `No color token could be read from ${tokens}. ` +
-    "A --color-* variable is read when its value is a hex color, an oklch() color inside sRGB, or a var() that leads to one. " +
-    'Until then every hex color is reported as "not in the tokens".',
+    "A --color-* variable is read when its value is a hex, rgb(), hsl() or oklch() color, or a var() that leads to one. " +
+    'Until then every color written by hand is reported as "not in the tokens".',
   nextNoTokens: () =>
     "There are no color tokens, so there is nothing to judge colors against. Before fixing any color, collect the colors in use with `designsnitch colors` and decide the tokens.",
   nextRepair: (n) => `action "repair" (${n}): fix the syntax error in that file first.`,
@@ -126,8 +126,8 @@ const en = {
       ...(repair > 0 ? [`${repair} ${needs(repair)} a syntax fix`] : []),
     ].join(", "),
   noViolations: ({ files }) => `No violations. (${count(files, "file")} checked)`,
-  unchecked: ({ hexColors, files }) =>
-    `Not checked: ${count(hexColors, "hex color")} in other strings in ${count(files, "file")}, such as theme objects and chart options. \`designsnitch colors\` lists them.`,
+  unchecked: ({ colors, files }) =>
+    `Not checked: ${count(colors, "color")} in other strings in ${count(files, "file")}, such as theme objects and chart options. \`designsnitch colors\` lists them.`,
 
   // colors
   colorsNone: ({ files }) => `No colors found in the code. (${count(files, "file")} checked)`,
@@ -241,8 +241,8 @@ const ko = {
 
   noColorTokens: ({ tokens }) =>
     `색 토큰을 하나도 읽지 못했습니다: ${tokens}. ` +
-    "--color-* 변수의 값이 hex나 sRGB 안의 oklch() 색이거나, var()로 그런 값을 가리켜야 읽을 수 있습니다. " +
-    '지금은 모든 hex가 "토큰에 없음" 경고로 나옵니다.',
+    "--color-* 변수의 값이 hex, rgb(), hsl(), oklch() 색이거나, var()로 그런 값을 가리켜야 읽을 수 있습니다. " +
+    '지금은 직접 쓴 색이 모두 "토큰에 없음" 경고로 나옵니다.',
   nextNoTokens: () =>
     "색 토큰이 없어서 색을 판정할 기준이 없습니다. 색을 고치기 전에 `designsnitch colors`로 쓰이는 색을 모아 토큰부터 정하세요.",
   nextRepair: (n) => `action이 repair인 ${n}건은 그 파일의 문법 오류부터 고치세요.`,
@@ -273,8 +273,8 @@ const ko = {
       ...(repair > 0 ? [`문법을 고쳐야 하는 것 ${repair}건`] : []),
     ].join(", "),
   noViolations: ({ files }) => `위반이 없습니다. (파일 ${files}개 검사)`,
-  unchecked: ({ hexColors, files }) =>
-    `검사하지 못함: 테마 객체나 차트 옵션 같은 다른 문자열에 hex 색 ${hexColors}개 (파일 ${files}개). \`designsnitch colors\`로 볼 수 있습니다.`,
+  unchecked: ({ colors, files }) =>
+    `검사하지 못함: 테마 객체나 차트 옵션 같은 다른 문자열에 색 ${colors}개 (파일 ${files}개). \`designsnitch colors\`로 볼 수 있습니다.`,
 
   colorsNone: ({ files }) => `코드에서 색을 찾지 못했습니다. (파일 ${files}개 검사)`,
   colorsSummary: ({ colors, paletteColors, uses, files }) =>

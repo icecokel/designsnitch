@@ -4,8 +4,8 @@ import { visitStrings } from "./visit-strings.js";
 import { inlineStyleProperty } from "./visit-style.js";
 
 /**
- * 검사 규칙이 보지 않는 문자열 속 hex 색을 알린다. 위반이 아니라 check 가 개수를 세는 데 쓴다.
- * 임의 값 클래스(bg-[#fff])와 인라인 스타일의 hex 는 다른 규칙이 검사하므로 빼고 센다.
+ * 검사 규칙이 보지 않는 문자열 속 색을 알린다. 위반이 아니라 check 가 개수를 세는 데 쓴다.
+ * 임의 값 클래스(bg-[#fff])와 인라인 스타일의 색은 다른 규칙이 검사하므로 빼고 센다.
  * @type {import("eslint").Rule.RuleModule}
  */
 export default {

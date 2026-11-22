@@ -94,9 +94,11 @@ Severity follows one rule.
 
 | Rule | Severity | What it catches |
 | --- | --- | --- |
-| `color-use-token` | Error | A hex color that has a token, written as an arbitrary value (`bg-[#3B82F6]`), in an inline style (`style={{ color: "#3B82F6" }}`) or in a CSS declaration (`color: #3B82F6`) |
-| `color-unknown` | Warning | A hex color with no matching token |
+| `color-use-token` | Error | A color that has a token, written by hand as an arbitrary value (`bg-[#3B82F6]`), in an inline style (`style={{ color: "#3B82F6" }}`), in a CSS declaration (`color: #3B82F6`) or in `@apply` |
+| `color-unknown` | Warning | A color written by hand with no matching token |
 | `use-ds-component` | Error | A raw tag such as `<button>` used outside the design system directory, when a shared component replaces it |
+
+A color written by hand is a hex color, or `rgb()`, `hsl()` or `oklch()` with literal numbers. Notation does not matter: `#3B82F6`, `rgb(59 130 246)` and `hsl(217 91% 60%)` are the same color to the check.
 
 Every error comes with what to use instead: a class or component in JS and TS files, and `var(--token)` in inline styles and CSS files. Tailwind v4 outputs a theme variable when the source uses it with `var()`, so `var(--token)` in an inline style renders the same color.
 
@@ -170,7 +172,7 @@ Tailwind default palette
 | --- | --- |
 | `Hex colors` | Hex colors, most used first, with the number of uses and files. |
 | `bg 2`, `text 1` | Uses per Tailwind utility. `bg-[#3a11d8]` counts under `bg`. |
-| `string 1` | Strings that are a hex color on their own, such as inline styles and chart options. |
+| `string 1` | Strings that are a color on their own, such as inline styles and chart options. |
 | `CSS 2` | Uses in CSS declarations. The JSON output breaks these down by property. |
 | `Tailwind default palette` | Colors from Tailwind's default palette used by name, such as `text-gray-700`. |
 
@@ -217,7 +219,7 @@ This is what is read from the token CSS.
 
 | Variable | Used for | When missing |
 | --- | --- | --- |
-| `--color-*` | Colors. The value must be a hex color or an `oklch()` color inside sRGB, or a `var()` that leads to one. | Every hex color becomes a warning |
+| `--color-*` | Colors. The value must be a hex, `rgb()`, `hsl()` or `oklch()` color, or a `var()` that leads to one. | Every color written by hand becomes a warning |
 
 Both of these shapes work.
 
@@ -236,6 +238,12 @@ Both of these shapes work.
   --color-primary-500: var(--primary-500);
 }
 ```
+
+Tokens are also read from where Tailwind itself reads them.
+
+- **Imported CSS.** If the token CSS imports other CSS files (`@import "../brand/theme.css"`, or a package), their `@theme` tokens are read too.
+- **A prefix.** With `@import "tailwindcss" prefix(tw)`, Tailwind names its CSS variables `--tw-color-*`, so `var()` candidates are written that way. Class candidates replace only the part after `tw:`.
+- **A JavaScript config.** With `@config "./tailwind.config.js"`, colors in `theme.extend.colors` (and in presets) become tokens, and `theme.colors` replaces the default palette, as Tailwind v4 does. These colors exist only as classes: Tailwind makes no CSS variable for them, so they are not offered for inline styles or CSS declarations. Loading the config runs it, so what it requires must be installed. If it cannot be loaded, the result says so in `problems`.
 
 ## Language
 
@@ -342,7 +350,7 @@ The first line shows how many tokens and components were read from the config. A
 | `violations[].action` | How to handle the violation. `replace`: replacing `found` with the only candidate keeps the screen and the behavior the same. Only color errors get this. `migrate`: a raw tag with exactly one design system component to move to. The tool cannot tell whether the component passes on the same props or renders the same default styles, so read the component first, then move the tag's props and drop classes the component already applies. The agent can do this itself, so the hook treats it like `replace`. `ask`: a person has to decide: several candidates, a color with no token, a token whose value differs between themes, or a component whose props are dynamic or spread. `repair`: the file could not be parsed. |
 | `decisions` | The `ask` violations grouped into questions: one per color or tag with the same candidates. Each has how often it comes up (`uses`, `files`), up to five `locations`, the `candidates`, a `recommended` candidate when every location agrees, and the `reasons` a person has to decide: `multiple-candidates`, `no-token`, `themed-token` or `dynamic-props`. Most used first. |
 | `next` | What an agent should do with this result, in order |
-| `unchecked` | Hex colors in other strings that were not checked (`hexColors`), and how many files they are in (`files`). The text output adds a line when there are any. |
+| `unchecked` | Colors in other strings that were not checked (`colors`), and how many files they are in (`files`). The text output adds a line when there are any. |
 
 | Exit code | Meaning |
 | --- | --- |
@@ -472,7 +480,7 @@ Many projects use Tailwind's default palette (`bg-slate-100`, `text-indigo-600`)
 ```
 
 - The palette is read from the `tailwindcss/theme.css` installed in the project, found from the token CSS, so it always matches the installed version. This needs Tailwind CSS v4 (4.0 or later). With v3, or when tailwindcss cannot be found, the check stops and says which. Tested against 4.0.0, 4.1.0, 4.2.0, 4.3.0 and 4.3.5: no color changed value between them, and 4.2.0 added the `mauve`, `olive`, `mist` and `taupe` scales.
-- A hex color with the same value as a palette color is an error, with the palette class as its candidate: `bg-[#62748e]` → `bg-slate-500`. Tailwind v4 writes the palette in `oklch()`, and it is converted to hex for the comparison. Palette colors outside sRGB are left out, because no hex value renders them the same.
+- A hex color with the same value as a palette color is an error, with the palette class as its candidate: `bg-[#62748e]` → `bg-slate-500`. Tailwind v4 writes the palette in `oklch()`, and it is converted to hex for the comparison. Palette colors outside sRGB have no hex value that renders the same, so they match only the same `oklch()` value.
 - A token in the project's token CSS with the same name as a palette color replaces it, in hex or in `oklch()`, as in Tailwind's own example of overriding a color.
 - Namespaces the project clears are left out, as Tailwind documents: `--color-*: initial` removes the whole palette, `--color-lime-*: initial` removes one scale, and `--*: initial` removes the whole default theme.
 - `exclude` and `prefer` in `tokens` apply to palette colors too.
@@ -489,23 +497,23 @@ Without `palette`, designsnitch does not flag default palette classes, and does 
 
 ## Scope
 
-- **Where it looks in JS and TS:** arbitrary color classes in string literals and template literals, which covers `className` and the arguments of `cn()`, `clsx()` and `cva()`, and hex colors written as strings in a JSX `style` object. Comments are ignored. Hex colors in other strings, such as theme objects and chart options, are not checked: their purpose cannot be told from the code. The check counts them in `unchecked` so that you know they are there, and `designsnitch colors` lists them.
-- **Where it looks in CSS:** hex colors in declaration values, in `.css` files including CSS Modules. In the token CSS, declarations that define a variable (`--name: ...`) are skipped, since that is where tokens are defined. In every other CSS file they are checked like any other declaration. Only colors are checked in CSS for now.
-- **Themes:** when a token has different values per theme, all of them count as that token's value. Replacing a hex color with such a token changes the color in the other themes, so those errors are marked `ask`.
+- **Where it looks in JS and TS:** arbitrary color classes in string literals and template literals, which covers `className` and the arguments of `cn()`, `clsx()` and `cva()`, and colors written as strings in a JSX `style` object, including the branches of `a ? "#fff" : "#000"` and `x || "#fff"`. Comments are ignored. Colors in other strings, such as theme objects and chart options, are not checked: their purpose cannot be told from the code. The check counts them in `unchecked` so that you know they are there, and `designsnitch colors` lists them.
+- **Where it looks in CSS:** colors in declaration values and arbitrary color classes in `@apply`, in `.css` files including CSS Modules. In the token CSS, declarations that define a variable (`--name: ...`) are skipped, since that is where tokens are defined. In every other CSS file they are checked like any other declaration. Only colors are checked in CSS for now.
+- **Themes:** when a token has different values per theme, all of them count as that token's value. Replacing a color with such a token changes the color in the other themes, so those errors are marked `ask`.
 - **Fixes:** designsnitch reports candidates and never rewrites code by itself, even when there is only one candidate.
 
 ### Not supported yet
 
-- Colors written as `rgb()` or `hsl()`, and `oklch()` colors outside sRGB
-- A Tailwind prefix (`@import "tailwindcss" prefix(tw)`). Candidates are written without the prefix.
-- Colors from a JavaScript config loaded with `@config`, and tokens in CSS files that the token CSS imports
-- Values from Tailwind's default theme other than the color palette. Colors of the palette that are outside sRGB are not compared.
-- Tailwind v3 (`tailwind.config.js`)
+- Translucent colors (`#3B82F680`, `rgb(0 0 0 / 50%)`). They are reported as colors with no token, even when the opaque color has one.
+- Named colors (`white`, `red`) and other notations (`hwb()`, `lab()`, `lch()`, `oklab()`, `color()`)
+- `oklch()` colors outside sRGB match only a token with the same `oklch()` value, since no hex color renders the same.
+- Colors a Tailwind plugin adds, and a JavaScript config that is not loaded from the token CSS with `@config`
+- Values from Tailwind's default theme other than the color palette
+- Tailwind v3
 - The nearest token for a color that has none
-- Inline style values that are computed, such as `color: active ? "#3B82F6" : "#fff"`
+- Style objects outside a JSX `style` attribute, such as `const style = { color: "#fff" }`
 - SCSS and other preprocessors
 - Spacing, font size and radius. They were left out of this version on purpose.
-- Classes inside `@apply`
 - Comparing a hand-made component's styles with the design system component
 - Installing the hook for agents other than Claude Code, Codex, Gemini CLI and Grok Build
 

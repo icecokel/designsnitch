@@ -9,7 +9,7 @@ export function formatText({ designSystem, problems, summary, violations, decisi
   const m = messages(lang);
   // 첫 줄은 설정에서 무엇을 읽었는지다. 경로를 잘못 적으면 여기서 0개로 드러난다.
   const header = [m.designSystem(designSystem), ...problems.map(m.notice), ""];
-  const uncheckedLine = unchecked?.hexColors > 0 ? [m.unchecked(unchecked)] : [];
+  const uncheckedLine = unchecked?.colors > 0 ? [m.unchecked(unchecked)] : [];
 
   if (violations.length === 0) {
     return [...header, m.noViolations(summary), ...uncheckedLine, ""].join("\n");

@@ -107,7 +107,7 @@ describe("영어 출력 (--lang en)", () => {
     const { stdout } = await cli(["check", "--lang", "en", "--format", "json"], noTokens);
     const result = JSON.parse(stdout);
     expect(result.problems).toEqual([
-      'No color token could be read from t.css. A --color-* variable is read when its value is a hex color, an oklch() color inside sRGB, or a var() that leads to one. Until then every hex color is reported as "not in the tokens".',
+      'No color token could be read from t.css. A --color-* variable is read when its value is a hex, rgb(), hsl() or oklch() color, or a var() that leads to one. Until then every color written by hand is reported as "not in the tokens".',
     ]);
     expect(result.next).toEqual([
       "There are no color tokens, so there is nothing to judge colors against. Before fixing any color, collect the colors in use with `designsnitch colors` and decide the tokens.",

@@ -72,14 +72,14 @@ The exit code is 0 (no errors), 1 (errors found), or 2 (could not run). On 2, re
 - `found` is the offending piece of code. `candidates` lists what to use instead: classes or components in JS and TS files, and `var(--token)` in inline styles and `.css` files.
 - `recommended` is the candidate whose token is named for how the color is used here, such as the text token for a `text-` class. It is a suggestion to put in front of the user, not permission to replace.
 - `decisions` groups every `ask` violation into questions: one per color or tag with the same candidates, most used first. Each has `uses`, `files`, up to five `locations`, the `candidates`, a `recommended` candidate when all locations agree, and `reasons` (`multiple-candidates`, `no-token`, `themed-token`, `dynamic-props`). Ask the user about decisions, not about single violations.
-- `unchecked` counts hex colors in other strings, such as theme objects and chart options, that the check could not judge. They are not violations. If the count is large and those strings feed the UI, mention it to the user: `npx designsnitch colors` lists them.
+- `unchecked` counts colors in other strings, such as theme objects and chart options, that the check could not judge. They are not violations. If the count is large and those strings feed the UI, mention it to the user: `npx designsnitch colors` lists them.
 - `designSystem` counts the tokens and components read from the config. `paletteColors` is the number of Tailwind default palette colors in the standard, when the config has `"palette": "tailwind"`. `colorTokens` 0 means the project has no color tokens that can be read: follow the `designsnitch-palette` skill to establish them before touching any color.
 - A non-empty `problems` means the config is broken and the results cannot be trusted. Tell the user before fixing anything.
 
 | `rule` | Severity | Meaning |
 | --- | --- | --- |
-| `color-use-token` | error | A hex color that has a token was written as an arbitrary value, in an inline style, or directly in a CSS declaration. |
-| `color-unknown` | warning | A hex color with no matching token. |
+| `color-use-token` | error | A color that has a token was written by hand (hex, `rgb()`, `hsl()` or `oklch()`): as an arbitrary value, in an inline style, in a CSS declaration or in `@apply`. |
+| `color-unknown` | warning | A color written by hand with no matching token. |
 | `use-ds-component` | error | A raw tag was used outside the design system directory although a shared component replaces it. |
 | `parse-error` | error | The file could not be parsed. |
 

@@ -10,11 +10,11 @@ import { splitPaths } from "./files.js";
 import plugin from "./index.js";
 import { messages, resolveLang } from "./messages.js";
 import { loadTokens } from "./rules/load-tokens.js";
-import uncheckedHex from "./rules/unchecked-hex.js";
+import uncheckedColors from "./rules/unchecked-colors.js";
 
 const RULE_PREFIX = "designsnitch/";
-const UNCHECKED_RULE = "designsnitch-internal/unchecked-hex";
-const internalPlugin = { rules: { "unchecked-hex": uncheckedHex } };
+const UNCHECKED_RULE = "designsnitch-internal/unchecked-colors";
+const internalPlugin = { rules: { "unchecked-colors": uncheckedColors } };
 const MAX_DECISION_LOCATIONS = 5;
 
 /**
@@ -101,11 +101,11 @@ export async function check({ cwd, config, paths = ["."], lang, sourceCwd = cwd 
     },
   });
   const results = scriptPaths.length > 0 ? await eslint.lintFiles(scriptPaths) : [];
-  // 검사하지 못한 hex 색은 위반이 아니라 개수로만 알린다. 놓친 것이 있다는 사실을 숨기지 않기 위해서다.
+  // 검사하지 못한 색은 위반이 아니라 개수로만 알린다. 놓친 것이 있다는 사실을 숨기지 않기 위해서다.
   const uncheckedFiles = results
     .map((result) => result.messages.filter((message) => message.ruleId === UNCHECKED_RULE).length)
     .filter((n) => n > 0);
-  const unchecked = { hexColors: uncheckedFiles.reduce((a, b) => a + b, 0), files: uncheckedFiles.length };
+  const unchecked = { colors: uncheckedFiles.reduce((a, b) => a + b, 0), files: uncheckedFiles.length };
   const scriptViolations = results.flatMap((result) => {
     const file = path.relative(cwd, result.filePath).split(path.sep).join("/");
     return result.messages
@@ -144,7 +144,7 @@ export async function check({ cwd, config, paths = ["."], lang, sourceCwd = cwd 
 }
 
 /**
- * CSS 파일 하나의 hex 색을 토큰과 비교한다. 대체 후보는 var(--토큰) 이다.
+ * CSS 파일 하나의 색을 토큰과 비교한다. 대체 후보는 선언에서는 var(--토큰), @apply 에서는 토큰 클래스다.
  * @returns {(Omit<Violation, "action" | "recommended"> & { recommended?: string | null, messageId?: string })[]}
  */
 function checkCss(file, source, tokens, m, options) {
