@@ -63,7 +63,7 @@ it.each([
 
 it("토큰 CSS 경로에 접근할 권한이 없으면 읽을 수 없는 이유를 알려준다", () => {
   const settings = { designsnitch: { tokens: "tokens.css" } };
-  const stat = vi.spyOn(fs, "statSync").mockImplementationOnce(() => {
+  const stat = vi.spyOn(fs, "readFileSync").mockImplementationOnce(() => {
     throw Object.assign(new Error("EACCES"), { code: "EACCES" });
   });
 

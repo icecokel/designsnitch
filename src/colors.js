@@ -58,7 +58,7 @@ const collectRule = {
  * @param {string} options.cwd 프로젝트 디렉터리
  * @param {string[]} [options.paths] 검사할 파일이나 디렉터리 (cwd 기준)
  * @param {Map<string, string[]>} [options.tokens] 색 값 → 토큰 이름들. 주면 색마다 tokens 를 붙인다
- * @param {string} [options.tokenFile] 사용자 정의 속성 선언을 건너뛸 토큰 CSS 의 절대 경로
+ * @param {Set<string>} [options.tokenFiles] 사용자 정의 속성 선언을 건너뛸 토큰 CSS 들의 절대 경로
  * @returns {Promise<{
  *   summary: { files: number, colors: number, paletteColors: number, uses: number },
  *   colors: (ColorUse & { color: string, literals: number, properties: Record<string, number>, tokens?: string[] })[],
@@ -66,7 +66,7 @@ const collectRule = {
  * }>} colors 는 hex 색, palette 는 Tailwind 기본 팔레트 색. 둘 다 많이 쓰인 순서.
  *   literals 는 문자열 전체가 hex 인 곳의 수, properties 는 CSS 속성별 횟수
  */
-export async function collectColors({ cwd, paths = ["."], tokens, tokenFile }) {
+export async function collectColors({ cwd, paths = ["."], tokens, tokenFiles }) {
   const eslint = createEngine({
     cwd,
     // 수집이 목적이므로 eslint-disable 주석이 있어도 빠뜨리지 않는다.
@@ -93,7 +93,7 @@ export async function collectColors({ cwd, paths = ["."], tokens, tokenFile }) {
     const absolute = path.resolve(cwd, file);
     let found;
     try {
-      found = findCssColors(fs.readFileSync(absolute, "utf8"), { skipCustomProperties: absolute === tokenFile });
+      found = findCssColors(fs.readFileSync(absolute, "utf8"), { skipCustomProperties: tokenFiles?.has(absolute) ?? false });
     } catch {
       continue; // 읽지 못한 CSS 는 건너뛴다
     }

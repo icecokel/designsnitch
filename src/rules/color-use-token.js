@@ -1,6 +1,6 @@
 import { findArbitraryColors, tokenToClass } from "../core/classes.js";
 import { normalizeColor } from "../core/color.js";
-import { cssColorPrefixes, selectColorTokens, utilityColorPrefixes } from "../core/tokens.js";
+import { cssColorPrefixes, selectColorTokens, tokenVar, utilityColorPrefixes } from "../core/tokens.js";
 import { loadTokens } from "./load-tokens.js";
 import { ruleMessages, suggestClasses, TEXT } from "./suggest.js";
 import { visitStrings } from "./visit-strings.js";
@@ -53,7 +53,7 @@ export default {
         const names = colors.get(normalizeColor(found.value));
         if (!names) return;
         const tokenNames = selectColorTokens(names, prefer, cssColorPrefixes(found.property));
-        report(found, where, tokenNames, tokenNames.map((name) => `var(${name})`));
+        report(found, where, tokenNames, tokenNames.map((name) => tokenVar(name, tokens.prefix)));
       }),
     );
   },

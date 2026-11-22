@@ -80,6 +80,11 @@ export function parseColorTokenData(css, exclude = []) {
   return { colors, themed, names, resets };
 }
 
+/** 토큰을 CSS 에서 가리키는 표기. Tailwind 접두어가 있으면 변수 이름에 붙는다. 예: var(--tw-color-brand) */
+export function tokenVar(name, prefix) {
+  return `var(${prefix ? name.replace(/^--/, `--${prefix}-`) : name})`;
+}
+
 export function utilityColorPrefixes(utility) {
   const kind = utility.toLowerCase().split("-", 1)[0];
   if (["border", "ring", "outline", "divide"].includes(kind)) return ROLE_PREFIXES.border;

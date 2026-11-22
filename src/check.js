@@ -4,7 +4,7 @@ import { replacementNames, tokenSettings } from "./config.js";
 import { findArbitraryColors, tokenToClass } from "./core/classes.js";
 import { colorLabel, normalizeColor, parseColor } from "./core/color.js";
 import { findCssColors } from "./core/css.js";
-import { cssColorPrefixes, recommendColorCandidate, selectColorTokens, utilityColorPrefixes } from "./core/tokens.js";
+import { cssColorPrefixes, recommendColorCandidate, selectColorTokens, tokenVar, utilityColorPrefixes } from "./core/tokens.js";
 import { createEngine } from "./engine.js";
 import { splitPaths } from "./files.js";
 import plugin from "./index.js";
@@ -112,10 +112,9 @@ export async function check({ cwd, config, paths = ["."], lang, sourceCwd = cwd 
       .filter(isOurs)
       .map((message) => toViolation(file, result.source, message, config));
   });
-  const tokenFile = path.resolve(root, tokenSettings(config.tokens).file);
   const cssViolations = cssFiles.flatMap((file) => {
     const source = fs.readFileSync(path.resolve(cwd, file), "utf8");
-    const skipCustomProperties = path.resolve(sourceCwd, file) === tokenFile;
+    const skipCustomProperties = tokens.files.has(path.resolve(sourceCwd, file));
     return checkCss(file, source, tokens, m, { skipCustomProperties });
   });
 
@@ -175,7 +174,7 @@ function checkCss(file, source, tokens, m, options) {
       // @apply 의 클래스는 JS 의 클래스처럼 토큰 클래스로, 선언의 값은 var(--토큰) 으로 바꾼다.
       const found = text ?? value;
       const prefixes = utility ? utilityColorPrefixes(utility) : cssColorPrefixes(prop);
-      const toCandidate = (name) => (utility ? tokenToClass(utility, name) : `var(${name})`);
+      const toCandidate = (name) => (utility ? tokenToClass(utility, name) : tokenVar(name, tokens.prefix));
       const tokenNames = selectColorTokens(tokens.colors.get(normalizeColor(value)) ?? [], tokens.prefer, prefixes);
       const candidates = tokenNames.map(toCandidate);
       const recommendedToken = recommendColorCandidate(tokenNames, prefixes);

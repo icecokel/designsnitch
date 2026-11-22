@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import postcss from "postcss";
 import { invalidTokenField, tokenSettings } from "../config.js";
 import { parseColorTokenData, parsePaletteColors } from "../core/tokens.js";
 import { messages, resolveLang } from "../messages.js";
@@ -11,9 +12,13 @@ import { messages, resolveLang } from "../messages.js";
  * @property {Set<string>} themed 테마마다 값이 다른 토큰 이름들
  * @property {string[]} prefer 먼저 적용할 토큰 접두어
  * @property {Set<string>} paletteNames 기본 팔레트에서 온 토큰 이름들. palette 설정이 없으면 비어 있다
+ * @property {Set<string>} files 토큰을 읽은 CSS 파일들의 절대 경로. 토큰 CSS 와 그것이 @import 한 파일들
+ * @property {string | null} prefix Tailwind 접두어. @import "tailwindcss" prefix(tw) 의 tw
  */
 
-/** @type {Map<string, { mtimeMs: number, tokens: ReturnType<typeof parseColorTokenData> }>} */
+/** @typedef {ReturnType<typeof parseColorTokenData> & { files: Set<string>, prefix: string | null }} ProjectTokens */
+
+/** @type {Map<string, { deps: [string, number][], tokens: ProjectTokens }>} */
 const cache = new Map();
 /** @type {Map<string, { mtimeMs: number, palette: Map<string, string> }>} */
 const paletteCache = new Map();
@@ -34,35 +39,84 @@ export function loadTokens(settings, cwd) {
   const root = path.resolve(cwd, settings?.designsnitch?.root ?? ".");
   const file = path.resolve(root, tokensPath);
   const project = readProjectTokens(file, exclude, m);
+  const { files, prefix } = project;
   if (settings?.designsnitch?.palette !== "tailwind") {
-    return { colors: project.colors, themed: project.themed, prefer, paletteNames: new Set() };
+    return { colors: project.colors, themed: project.themed, prefer, paletteNames: new Set(), files, prefix };
   }
-  return { ...withPalette(project, readTailwindPalette(file, m), exclude), prefer };
+  return { ...withPalette(project, readTailwindPalette(file, m), exclude), prefer, files, prefix };
 }
 
+/** @returns {ProjectTokens} */
 function readProjectTokens(file, exclude, m) {
   const key = JSON.stringify([file, exclude]);
-  try {
-    const { mtimeMs } = fs.statSync(file);
-    const cached = cache.get(key);
-    if (cached?.mtimeMs === mtimeMs) return cached.tokens;
+  const cached = cache.get(key);
+  if (cached && cached.deps.every(([dep, mtimeMs]) => mtimeOf(dep) === mtimeMs)) return cached.tokens;
 
-    const parsed = parseColorTokenData(fs.readFileSync(file, "utf8"), exclude);
-    cache.set(key, { mtimeMs, tokens: parsed });
-    return parsed;
+  let current = file;
+  try {
+    const sources = [];
+    let prefix = null;
+    // 토큰 CSS 가 @import 한 CSS 도 토큰을 정의할 수 있다. 예: @import "../brand/theme.css"
+    const visit = (cssFile) => {
+      if (sources.some(([seen]) => seen === cssFile)) return;
+      current = cssFile;
+      const css = fs.readFileSync(cssFile, "utf8");
+      const entry = [cssFile, css];
+      sources.push(entry);
+      postcss.parse(css, { from: cssFile }).walkAtRules("import", (rule) => {
+        const spec = /^(?:url\(\s*)?["']([^"']+)["']/.exec(rule.params)?.[1];
+        if (!spec) return;
+        if (spec === "tailwindcss") {
+          prefix = /\bprefix\(\s*([\w-]+)\s*\)/.exec(rule.params)?.[1] ?? prefix;
+          return;
+        }
+        // Tailwind 자신의 CSS 는 palette 설정이 맡는다.
+        if (spec.startsWith("tailwindcss/") || /^[a-z][a-z0-9+.-]*:|^\/\//i.test(spec)) return;
+        const imported = resolveImport(cssFile, spec);
+        if (imported) visit(imported);
+      });
+      current = cssFile;
+    };
+    visit(file);
+
+    // import 된 파일의 선언이 먼저 오도록 뒤집어 합친다. 순서는 결과에 영향을 주지 않지만 읽기 쉽다.
+    const parsed = parseColorTokenData(sources.map(([, css]) => css).reverse().join("\n"), exclude);
+    const tokens = { ...parsed, files: new Set(sources.map(([cssFile]) => cssFile)), prefix };
+    cache.set(key, { deps: sources.map(([cssFile]) => [cssFile, mtimeOf(cssFile)]), tokens });
+    return tokens;
   } catch (error) {
     if (error.code === "ENOENT" || error.code === "ENOTDIR") {
-      throw new Error(m.tokensFileMissing({ file }));
+      throw new Error(m.tokensFileMissing({ file: current }));
     }
     // 기준이 되는 파일이 깨져 있으면 무엇도 판정할 수 없다. 어디가 깨졌는지 알려준다.
     throw new Error(
       m.tokensUnreadable({
-        file,
+        file: current,
         line: error.line ?? 1,
         column: error.column ?? 1,
         reason: error.reason ?? error.message,
       }),
     );
+  }
+}
+
+function mtimeOf(file) {
+  try {
+    return fs.statSync(file).mtimeMs;
+  } catch {
+    return -1;
+  }
+}
+
+/** @import 의 경로를 파일로 푼다. CSS 처럼 상대 경로를 먼저 보고, 없으면 패키지에서 찾는다. 못 찾으면 null. */
+function resolveImport(fromFile, spec) {
+  const relative = path.resolve(path.dirname(fromFile), spec);
+  if (fs.existsSync(relative) && fs.statSync(relative).isFile()) return relative;
+  if (spec.startsWith(".") || spec.startsWith("/")) return null;
+  try {
+    return createRequire(fromFile).resolve(spec);
+  } catch {
+    return null;
   }
 }
 
