@@ -82,6 +82,8 @@ const en = {
     `"components.replaces.${tag}.when.${attribute}" in the config file must be an array of strings or null values: ${file}`,
   configBadLang: ({ file }) => `"lang" in the config file must be "en" or "ko": ${file}`,
   configBadPalette: ({ file }) => `"palette" in the config file must be "tailwind": ${file}`,
+  paletteNeedsV4: ({ version }) =>
+    `"palette": "tailwind" reads the palette of Tailwind CSS v4, but the project has tailwindcss ${version}. Remove "palette" from the config.`,
   paletteMissing: ({ root }) =>
     `The config sets "palette": "tailwind", but tailwindcss could not be found from ${root}. Install the project's dependencies, or remove "palette".`,
   settingsUnreadable: ({ file }) => `Could not read ${file}. Fix the JSON and run again.`,
@@ -227,6 +229,8 @@ const ko = {
     `설정 파일의 "components.replaces.${tag}.when.${attribute}"는 문자열 또는 null을 담은 배열이어야 합니다: ${file}`,
   configBadLang: ({ file }) => `설정 파일의 "lang"은 "en"이나 "ko"여야 합니다: ${file}`,
   configBadPalette: ({ file }) => `설정 파일의 "palette"는 "tailwind"여야 합니다: ${file}`,
+  paletteNeedsV4: ({ version }) =>
+    `"palette": "tailwind"는 Tailwind CSS v4의 팔레트를 읽는데, 이 프로젝트의 tailwindcss는 ${version}입니다. 설정에서 "palette"를 지우세요.`,
   paletteMissing: ({ root }) =>
     `설정에 "palette": "tailwind"가 있지만 ${root}에서 tailwindcss를 찾지 못했습니다. 프로젝트의 의존성을 설치하거나 "palette"를 지우세요.`,
   settingsUnreadable: ({ file }) => `${file} 을 읽을 수 없습니다. JSON 형식을 고친 뒤 다시 실행하세요.`,

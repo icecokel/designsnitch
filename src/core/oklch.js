@@ -1,5 +1,8 @@
 // oklch(L C H) → sRGB hex. 공식은 CSS Color 4 의 OKLab 정의를 따른다.
-const OKLCH = /^oklch\(\s*([\d.]+)(%?)\s+([\d.]+)\s+([\d.]+)(?:deg)?\s*(?:\/\s*[\d.]+%?\s*)?\)$/i;
+// 값 대신 none 을 쓸 수 있다(CSS Color 4). Tailwind 4.3.5 부터 회색의 색상(hue)을 none 으로 적는다.
+const OKLCH = /^oklch\(\s*([\d.]+|none)(%?)\s+([\d.]+|none)\s+([\d.]+|none)(?:deg)?\s*(?:\/\s*(?:[\d.]+%?|none)\s*)?\)$/i;
+// none 은 계산할 때 0 으로 본다.
+const num = (text) => (text.toLowerCase() === "none" ? 0 : Number(text));
 // 반올림 오차로 범위를 조금 넘는 것은 sRGB 안으로 본다.
 const EPSILON = 0.0005;
 
@@ -11,9 +14,9 @@ const EPSILON = 0.0005;
 export function oklchToHex(value) {
   const match = OKLCH.exec(value.trim());
   if (!match) return null;
-  const L = Number(match[1]) / (match[2] ? 100 : 1);
-  const C = Number(match[3]);
-  const h = (Number(match[4]) * Math.PI) / 180;
+  const L = num(match[1]) / (match[2] ? 100 : 1);
+  const C = num(match[3]);
+  const h = (num(match[4]) * Math.PI) / 180;
   const a = C * Math.cos(h);
   const b = C * Math.sin(h);
 

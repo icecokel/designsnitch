@@ -69,10 +69,14 @@ function readProjectTokens(file, exclude, m) {
  * 토큰 CSS 가 tailwindcss 를 불러오는 파일이므로, 그 위치에서 찾는다.
  */
 function readTailwindPalette(tokensFile, m) {
+  const require = createRequire(tokensFile);
   let file;
   try {
-    file = createRequire(tokensFile).resolve("tailwindcss/theme.css");
+    file = require.resolve("tailwindcss/theme.css");
   } catch {
+    // v3 에는 theme.css 가 없다. 설치가 안 된 것과 구분해서 알린다.
+    const version = installedVersion(require);
+    if (version && !version.startsWith("4.")) throw new Error(m.paletteNeedsV4({ version }));
     throw new Error(m.paletteMissing({ root: path.dirname(tokensFile) }));
   }
   const { mtimeMs } = fs.statSync(file);
@@ -100,4 +104,12 @@ function withPalette(project, palette, exclude) {
     colors.set(hex, [...(colors.get(hex) ?? []), name]);
   }
   return { colors, themed: project.themed, paletteNames };
+}
+
+function installedVersion(require) {
+  try {
+    return JSON.parse(fs.readFileSync(require.resolve("tailwindcss/package.json"), "utf8")).version;
+  } catch {
+    return null;
+  }
 }

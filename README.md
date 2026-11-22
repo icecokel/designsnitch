@@ -471,7 +471,7 @@ Many projects use Tailwind's default palette (`bg-slate-100`, `text-indigo-600`)
 { "tokens": "app/globals.css", "palette": "tailwind" }
 ```
 
-- The palette is read from the `tailwindcss/theme.css` installed in the project, found from the token CSS. If it cannot be found, the check stops and says so.
+- The palette is read from the `tailwindcss/theme.css` installed in the project, found from the token CSS, so it always matches the installed version. This needs Tailwind CSS v4 (4.0 or later). With v3, or when tailwindcss cannot be found, the check stops and says which. Tested against 4.0.0, 4.1.0, 4.2.0, 4.3.0 and 4.3.5: no color changed value between them, and 4.2.0 added the `mauve`, `olive`, `mist` and `taupe` scales.
 - A hex color with the same value as a palette color is an error, with the palette class as its candidate: `bg-[#62748e]` → `bg-slate-500`. Tailwind v4 writes the palette in `oklch()`, and it is converted to hex for the comparison. Palette colors outside sRGB are left out, because no hex value renders them the same.
 - A token in the project's token CSS with the same name as a palette color replaces it.
 - `exclude` and `prefer` in `tokens` apply to palette colors too.

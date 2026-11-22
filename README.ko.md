@@ -472,7 +472,7 @@ Tailwind 기본 팔레트(`bg-slate-100`, `text-indigo-600`)를 기준으로 쓰
 { "tokens": "app/globals.css", "palette": "tailwind" }
 ```
 
-- 팔레트는 프로젝트에 설치된 `tailwindcss/theme.css`에서 읽습니다. 토큰 CSS 위치에서 찾고, 찾지 못하면 검사를 멈추고 알립니다.
+- 팔레트는 프로젝트에 설치된 `tailwindcss/theme.css`에서 읽습니다. 토큰 CSS 위치에서 찾으므로 언제나 설치된 버전과 맞습니다. Tailwind CSS v4(4.0 이상)가 필요합니다. v3이거나 tailwindcss를 찾지 못하면 검사를 멈추고 어느 쪽인지 알립니다. 4.0.0, 4.1.0, 4.2.0, 4.3.0, 4.3.5로 확인했습니다. 버전 사이에 값이 바뀐 색은 없고, 4.2.0에서 `mauve`, `olive`, `mist`, `taupe` 계열이 추가됐습니다.
 - 팔레트 색과 값이 같은 hex는 오류이고, 팔레트 클래스가 후보입니다: `bg-[#62748e]` → `bg-slate-500`. Tailwind v4는 팔레트를 `oklch()`로 적어서, 비교할 때 hex로 바꿉니다. sRGB 밖의 팔레트 색은 같은 색을 내는 hex가 없으므로 비교에서 뺍니다.
 - 프로젝트 토큰 CSS에 팔레트와 같은 이름의 토큰이 있으면 프로젝트 값을 씁니다.
 - `tokens`의 `exclude`와 `prefer`는 팔레트 색에도 적용됩니다.
