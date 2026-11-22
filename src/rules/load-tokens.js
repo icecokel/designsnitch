@@ -5,6 +5,7 @@ import postcss from "postcss";
 import { invalidTokenField, tokenSettings } from "../config.js";
 import { parseColorTokenData, parsePaletteColors } from "../core/tokens.js";
 import { messages, resolveLang } from "../messages.js";
+import { loadConfigColors } from "./tailwind-config.js";
 
 /**
  * @typedef {object} Tokens
@@ -14,9 +15,11 @@ import { messages, resolveLang } from "../messages.js";
  * @property {Set<string>} paletteNames 기본 팔레트에서 온 토큰 이름들. palette 설정이 없으면 비어 있다
  * @property {Set<string>} files 토큰을 읽은 CSS 파일들의 절대 경로. 토큰 CSS 와 그것이 @import 한 파일들
  * @property {string | null} prefix Tailwind 접두어. @import "tailwindcss" prefix(tw) 의 tw
+ * @property {Set<string>} classOnly 클래스로만 쓸 수 있는 토큰 이름들. JavaScript 설정의 색에는 CSS 변수가 없다
+ * @property {string[]} problems 토큰을 다 읽지 못하게 만든 문제. 예: 불러오지 못한 JavaScript 설정
  */
 
-/** @typedef {ReturnType<typeof parseColorTokenData> & { files: Set<string>, prefix: string | null }} ProjectTokens */
+/** @typedef {ReturnType<typeof parseColorTokenData> & Pick<Tokens, "files" | "prefix" | "classOnly" | "problems">} ProjectTokens */
 
 /** @type {Map<string, { deps: [string, number][], tokens: ProjectTokens }>} */
 const cache = new Map();
@@ -39,11 +42,12 @@ export function loadTokens(settings, cwd) {
   const root = path.resolve(cwd, settings?.designsnitch?.root ?? ".");
   const file = path.resolve(root, tokensPath);
   const project = readProjectTokens(file, exclude, m);
-  const { files, prefix } = project;
+  const { files, prefix, classOnly, problems } = project;
+  const shared = { prefer, files, prefix, classOnly, problems };
   if (settings?.designsnitch?.palette !== "tailwind") {
-    return { colors: project.colors, themed: project.themed, prefer, paletteNames: new Set(), files, prefix };
+    return { colors: project.colors, themed: project.themed, paletteNames: new Set(), ...shared };
   }
-  return { ...withPalette(project, readTailwindPalette(file, m), exclude), prefer, files, prefix };
+  return { ...withPalette(project, readTailwindPalette(file, m), exclude), ...shared };
 }
 
 /** @returns {ProjectTokens} */
@@ -55,6 +59,7 @@ function readProjectTokens(file, exclude, m) {
   let current = file;
   try {
     const sources = [];
+    const configFiles = [];
     let prefix = null;
     // 토큰 CSS 가 @import 한 CSS 도 토큰을 정의할 수 있다. 예: @import "../brand/theme.css"
     const visit = (cssFile) => {
@@ -63,7 +68,12 @@ function readProjectTokens(file, exclude, m) {
       const css = fs.readFileSync(cssFile, "utf8");
       const entry = [cssFile, css];
       sources.push(entry);
-      postcss.parse(css, { from: cssFile }).walkAtRules("import", (rule) => {
+      const root = postcss.parse(css, { from: cssFile });
+      root.walkAtRules("config", (rule) => {
+        const spec = /^["']([^"']+)["']/.exec(rule.params)?.[1];
+        if (spec) configFiles.push(path.resolve(path.dirname(cssFile), spec));
+      });
+      root.walkAtRules("import", (rule) => {
         const spec = /^(?:url\(\s*)?["']([^"']+)["']/.exec(rule.params)?.[1];
         if (!spec) return;
         if (spec === "tailwindcss") {
@@ -81,8 +91,10 @@ function readProjectTokens(file, exclude, m) {
 
     // import 된 파일의 선언이 먼저 오도록 뒤집어 합친다. 순서는 결과에 영향을 주지 않지만 읽기 쉽다.
     const parsed = parseColorTokenData(sources.map(([, css]) => css).reverse().join("\n"), exclude);
-    const tokens = { ...parsed, files: new Set(sources.map(([cssFile]) => cssFile)), prefix };
-    cache.set(key, { deps: sources.map(([cssFile]) => [cssFile, mtimeOf(cssFile)]), tokens });
+    const { classOnly, problems } = addConfigColors(parsed, configFiles, exclude, m);
+    const tokens = { ...parsed, files: new Set(sources.map(([cssFile]) => cssFile)), prefix, classOnly, problems };
+    const deps = [...sources.map(([cssFile]) => cssFile), ...configFiles];
+    cache.set(key, { deps: deps.map((dep) => [dep, mtimeOf(dep)]), tokens });
     return tokens;
   } catch (error) {
     if (error.code === "ENOENT" || error.code === "ENOTDIR") {
@@ -98,6 +110,33 @@ function readProjectTokens(file, exclude, m) {
       }),
     );
   }
+}
+
+/**
+ * @config 로 불러온 JavaScript 설정의 색을 CSS 에서 읽은 토큰에 더한다. 같은 이름이면 CSS 가 이긴다.
+ * @param {ReturnType<typeof parseColorTokenData>} parsed 여기에 더한다
+ */
+function addConfigColors(parsed, configFiles, exclude, m) {
+  const classOnly = new Set();
+  const problems = [];
+  const excluded = (name) => exclude.some((p) => (p.endsWith("*") ? name.startsWith(p.slice(0, -1)) : name === p));
+  for (const file of configFiles) {
+    let config;
+    try {
+      config = loadConfigColors(file);
+    } catch (error) {
+      problems.push(m.tailwindConfigFailed({ file, reason: error.message.split("\n")[0] }));
+      continue;
+    }
+    if (config.replacesPalette) parsed.resets.push("--color-*");
+    for (const [name, color] of config.colors) {
+      if (parsed.names.has(name) || excluded(name)) continue;
+      parsed.names.add(name);
+      classOnly.add(name);
+      parsed.colors.set(color, [...(parsed.colors.get(color) ?? []), name]);
+    }
+  }
+  return { classOnly, problems };
 }
 
 function mtimeOf(file) {

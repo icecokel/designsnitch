@@ -27,7 +27,7 @@ export default {
       };
     }
     const m = ruleMessages(context);
-    const { colors, themed, prefer } = tokens;
+    const { colors, themed, prefer, classOnly } = tokens;
 
     function report(found, { loc, range }, tokenNames, candidates) {
       const messageId = tokenNames.some((name) => themed.has(name)) ? "useTokenThemed" : "useToken";
@@ -50,8 +50,9 @@ export default {
       }),
       // 인라인 스타일은 클래스가 아니라 var(--토큰) 으로 바꾼다. Tailwind 는 소스에서 쓴 var() 의 변수를 내보낸다.
       visitInlineStyleColors(context, (found, where) => {
-        const names = colors.get(normalizeColor(found.value));
-        if (!names) return;
+        // 클래스로만 쓸 수 있는 토큰은 스타일 값을 대신할 수 없다.
+        const names = (colors.get(normalizeColor(found.value)) ?? []).filter((name) => !classOnly.has(name));
+        if (names.length === 0) return;
         const tokenNames = selectColorTokens(names, prefer, cssColorPrefixes(found.property));
         report(found, where, tokenNames, tokenNames.map((name) => tokenVar(name, tokens.prefix)));
       }),

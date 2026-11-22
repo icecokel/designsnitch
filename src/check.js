@@ -83,7 +83,7 @@ export async function check({ cwd, config, paths = ["."], lang, sourceCwd = cwd 
     }
   }
   const designSystem = describeDesignSystem(tokens, config);
-  const problems = [];
+  const problems = [...tokens.problems];
   if (designSystem.colorTokens + designSystem.paletteColors === 0) {
     problems.push(m.noColorTokens({ tokens: tokenSettings(config.tokens).file }));
   }
@@ -175,7 +175,11 @@ function checkCss(file, source, tokens, m, options) {
       const found = text ?? value;
       const prefixes = utility ? utilityColorPrefixes(utility) : cssColorPrefixes(prop);
       const toCandidate = (name) => (utility ? tokenToClass(utility, name) : tokenVar(name, tokens.prefix));
-      const tokenNames = selectColorTokens(tokens.colors.get(normalizeColor(value)) ?? [], tokens.prefer, prefixes);
+      const known = tokens.colors.get(normalizeColor(value)) ?? [];
+      // 클래스로만 쓸 수 있는 토큰은 선언의 값을 대신할 수 없다.
+      const usable = utility ? known : known.filter((name) => !tokens.classOnly.has(name));
+      if (known.length > 0 && usable.length === 0) return null;
+      const tokenNames = selectColorTokens(usable, tokens.prefer, prefixes);
       const candidates = tokenNames.map(toCandidate);
       const recommendedToken = recommendColorCandidate(tokenNames, prefixes);
       const messageId = tokenNames.some((name) => tokens.themed.has(name)) ? "useTokenThemed" : "useToken";
@@ -202,7 +206,8 @@ function checkCss(file, source, tokens, m, options) {
         candidates,
         recommended: recommendedToken ? toCandidate(recommendedToken) : null,
       };
-    });
+    })
+    .filter(Boolean);
 }
 
 function actionFor({ rule, severity, candidates }, messageId) {

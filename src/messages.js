@@ -82,6 +82,8 @@ const en = {
     `"components.replaces.${tag}.when.${attribute}" in the config file must be an array of strings or null values: ${file}`,
   configBadLang: ({ file }) => `"lang" in the config file must be "en" or "ko": ${file}`,
   configBadPalette: ({ file }) => `"palette" in the config file must be "tailwind": ${file}`,
+  tailwindConfigFailed: ({ file, reason }) =>
+    `Could not load the Tailwind config ${file}: ${reason}. Colors defined there are not known, so they are reported as "not in the tokens".`,
   paletteNeedsV4: ({ version }) =>
     `"palette": "tailwind" reads the palette of Tailwind CSS v4, but the project has tailwindcss ${version}. Remove "palette" from the config.`,
   paletteMissing: ({ root }) =>
@@ -229,6 +231,8 @@ const ko = {
     `설정 파일의 "components.replaces.${tag}.when.${attribute}"는 문자열 또는 null을 담은 배열이어야 합니다: ${file}`,
   configBadLang: ({ file }) => `설정 파일의 "lang"은 "en"이나 "ko"여야 합니다: ${file}`,
   configBadPalette: ({ file }) => `설정 파일의 "palette"는 "tailwind"여야 합니다: ${file}`,
+  tailwindConfigFailed: ({ file, reason }) =>
+    `Tailwind 설정을 불러오지 못했습니다: ${file}: ${reason}. 거기에 정의된 색을 알 수 없어서 "토큰에 없음"으로 나옵니다.`,
   paletteNeedsV4: ({ version }) =>
     `"palette": "tailwind"는 Tailwind CSS v4의 팔레트를 읽는데, 이 프로젝트의 tailwindcss는 ${version}입니다. 설정에서 "palette"를 지우세요.`,
   paletteMissing: ({ root }) =>
