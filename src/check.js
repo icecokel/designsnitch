@@ -84,7 +84,7 @@ export async function check({ cwd, config, paths = ["."], lang, sourceCwd = cwd 
   }
   const designSystem = describeDesignSystem(tokens, config);
   const problems = [];
-  if (designSystem.colorTokens === 0) {
+  if (designSystem.colorTokens + designSystem.paletteColors === 0) {
     problems.push(m.noColorTokens({ tokens: tokenSettings(config.tokens).file }));
   }
 
@@ -267,7 +267,7 @@ function groupDecisions(violations) {
  */
 export function nextSteps(designSystem, violations, lang, decisions) {
   const m = messages(lang);
-  const noColorTokens = designSystem.colorTokens === 0;
+  const noColorTokens = designSystem.colorTokens + (designSystem.paletteColors ?? 0) === 0;
   // 색 토큰이 없으면 색 위반은 하나씩 다룰 일이 아니라 토큰을 정하는 일 하나로 묶인다.
   const actionable = noColorTokens
     ? violations.filter((v) => !v.rule.startsWith("color-"))
@@ -290,10 +290,11 @@ export function nextSteps(designSystem, violations, lang, decisions) {
 }
 
 function describeDesignSystem(tokens, config) {
-  const countNames = (map) => new Set([...map.values()].flat()).size;
   const replaces = Object.values(config.components?.replaces ?? {});
+  const names = new Set([...tokens.colors.values()].flat());
   return {
-    colorTokens: countNames(tokens.colors),
+    colorTokens: [...names].filter((name) => !tokens.paletteNames.has(name)).length,
+    paletteColors: tokens.paletteNames.size,
     components: new Set(replaces.flatMap(replacementNames)).size,
     replacedTags: replaces.length,
   };

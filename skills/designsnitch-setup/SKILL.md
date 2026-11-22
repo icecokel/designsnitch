@@ -7,7 +7,7 @@ description: Set up designsnitch in a React/Next.js + Tailwind project. Finds th
 
 designsnitch needs to know where the project's design system lives. Read the codebase, write that down in `designsnitch.config.json`, and then make the ESLint plugin use it. The CLI and the plugin read the same file.
 
-Only create the file when it is missing. If it already exists and seems wrong, explain why and ask the user before changing it: this file is the standard the code is judged against.
+Create the file when it is missing. This does not need the user's approval: it only records where the existing standard is. If it already exists and seems wrong, explain why and ask the user before changing it: this file is the standard the code is judged against.
 
 ## 0. Check that the project is supported, and install the package
 
@@ -28,7 +28,9 @@ It is the CSS file with an `@theme` block or `--color-*` variables, usually `app
 
 designsnitch reads a variable as a color token only when its name starts with `--color-` and its value is a hex color or a `var()` that leads to one. Two cases need a decision before you go on.
 
-**The project has no color variables at all.** There are no color tokens yet. Follow the `designsnitch-palette` skill to create them from the colors the code already uses, then continue here.
+**The project uses Tailwind's default palette as its colors.** Run `npx designsnitch colors --format json`. If most uses are in `palette` (classes such as `bg-slate-100`) and few are hex colors, the project already has a standard: the default palette. Do not turn palette colors into new hex tokens. Propose `"palette": "tailwind"` in the config instead, which makes the default palette part of the standard and flags hex colors that duplicate it. Tell the user what this means, and add it after they agree. Colors that are not in the palette can still get project tokens through the `designsnitch-palette` skill.
+
+**The project has no color variables at all, and does not rely on the default palette.** There are no color tokens yet. Follow the `designsnitch-palette` skill to create them from the colors the code already uses, then continue here.
 
 **The project has color variables under other names**, such as `--ink` or `--brand` in `:root`. These are the project's tokens, but designsnitch cannot see them. Do not create a second set of tokens next to them. Propose to the user that the existing variables be exposed as tokens by referencing them from `@theme`:
 

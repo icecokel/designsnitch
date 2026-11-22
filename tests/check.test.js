@@ -11,7 +11,7 @@ describe("check", () => {
   it("프로젝트를 검사해서 위반 목록과 요약을 돌려준다", async () => {
     const result = await check({ cwd, config: loadConfig(cwd) });
 
-    expect(result.designSystem).toEqual({ colorTokens: 3, components: 1, replacedTags: 1 });
+    expect(result.designSystem).toEqual({ colorTokens: 3, paletteColors: 0, components: 1, replacedTags: 1 });
     expect(result.problems).toEqual([]);
     // tsx 3개와 토큰 CSS(app/globals.css) 1개
     expect(result.summary).toEqual({ files: 4, errors: 3, warnings: 0 });
@@ -104,7 +104,7 @@ describe("check", () => {
     });
     const result = await check({ cwd, config: loadConfig(cwd) });
 
-    expect(result.designSystem).toEqual({ colorTokens: 1, components: 6, replacedTags: 4 });
+    expect(result.designSystem).toEqual({ colorTokens: 1, paletteColors: 0, components: 6, replacedTags: 4 });
     expect(result.violations.map(({ line, severity, action, candidates }) => [line, severity, action, candidates])).toEqual([
       [2, "error", "migrate", ["InputCell"]],
       [3, "error", "migrate", ["InputCell"]],
@@ -205,7 +205,7 @@ describe("설정을 읽은 결과", () => {
       "designsnitch.config.json": `{ "tokens": "tokens.css" }`,
       "tokens.css": `@theme { --color-primary: #3B82F6; --text-sm: 0.875rem; }`,
     });
-    expect(result.designSystem).toEqual({ colorTokens: 1, components: 0, replacedTags: 0 });
+    expect(result.designSystem).toEqual({ colorTokens: 1, paletteColors: 0, components: 0, replacedTags: 0 });
   });
 
   it("색 토큰을 하나도 읽지 못하면 problems 로 알린다", async () => {
@@ -674,5 +674,81 @@ describe("컴포넌트로 옮기기", () => {
     expect(formatText(result, "en")).toContain(
       "1 can be replaced right away, 1 to move to a component, 0 need a person's decision (0 decisions)",
     );
+  });
+});
+
+describe("Tailwind 기본 팔레트를 기준으로 쓰기 (palette: tailwind)", () => {
+  const tailwind = {
+    "node_modules/tailwindcss/package.json": JSON.stringify({
+      name: "tailwindcss",
+      exports: { "./theme.css": "./theme.css" },
+    }),
+    "node_modules/tailwindcss/theme.css": `@theme default {
+  --color-slate-500: oklch(55.4% 0.046 257.417);
+  --color-indigo-600: oklch(51.1% 0.262 276.966);
+  --color-lime-400: oklch(84.1% 0.238 128.85);
+  --color-white: #fff;
+}`,
+    "package.json": `{ "name": "app" }`,
+  };
+
+  it("팔레트 색을 hex 로 쓰면 팔레트 클래스로 바꾸라는 오류다. 팔레트 클래스는 문제가 아니다", async () => {
+    const cwd = tempProject({
+      ...tailwind,
+      "designsnitch.config.json": `{ "tokens": "app/globals.css", "palette": "tailwind" }`,
+      "app/globals.css": `@import "tailwindcss";`,
+      "src/Card.jsx": `export const Card = () => <div className="bg-[#62748e] text-slate-500 border-[#123456]" />;`,
+    });
+    const result = await check({ cwd, config: loadConfig(cwd), lang: "en" });
+
+    expect(result.designSystem).toMatchObject({ colorTokens: 0, paletteColors: 3 });
+    expect(result.problems).toEqual([]);
+    expect(result.violations.map((v) => [v.found, v.rule, v.action, v.candidates])).toEqual([
+      ["bg-[#62748e]", "color-use-token", "replace", ["bg-slate-500"]],
+      ["border-[#123456]", "color-unknown", "ask", []],
+    ]);
+    expect(formatText(result, "en")).toContain("Design system: 0 color tokens and the Tailwind palette (3 colors)");
+  });
+
+  it("sRGB 밖의 팔레트 색은 hex 와 비교하지 않는다", async () => {
+    const cwd = tempProject({
+      ...tailwind,
+      "designsnitch.config.json": `{ "tokens": "app/globals.css", "palette": "tailwind" }`,
+      "app/globals.css": `@import "tailwindcss";`,
+      "src/Card.jsx": `export const Card = () => <div className="bg-[#9ae600]" />;`,
+    });
+    const result = await check({ cwd, config: loadConfig(cwd), lang: "en" });
+    expect(result.violations.map((v) => v.rule)).toEqual(["color-unknown"]);
+  });
+
+  it("프로젝트가 같은 이름의 토큰을 정의하면 프로젝트 값을 쓴다", async () => {
+    const cwd = tempProject({
+      ...tailwind,
+      "designsnitch.config.json": `{ "tokens": "app/globals.css", "palette": "tailwind" }`,
+      "app/globals.css": `@theme { --color-slate-500: #111111; }`,
+      "src/Card.jsx": `export const Card = () => <div className="bg-[#111111] text-[#62748e]" />;`,
+    });
+    const result = await check({ cwd, config: loadConfig(cwd), lang: "en" });
+    expect(result.designSystem).toMatchObject({ colorTokens: 1, paletteColors: 2 });
+    expect(result.violations.map((v) => [v.found, v.rule])).toEqual([
+      ["bg-[#111111]", "color-use-token"],
+      ["text-[#62748e]", "color-unknown"],
+    ]);
+  });
+
+  it("tailwindcss 를 찾지 못하면 실행하지 못한다고 알린다", async () => {
+    const cwd = tempProject({
+      "designsnitch.config.json": `{ "tokens": "app/globals.css", "palette": "tailwind" }`,
+      "app/globals.css": `@import "tailwindcss";`,
+      "src/Card.jsx": `export const Card = () => <div />;`,
+    });
+    await expect(check({ cwd, config: loadConfig(cwd), lang: "en" })).rejects.toThrow(
+      /"palette": "tailwind".*tailwindcss/,
+    );
+  });
+
+  it("palette 값은 tailwind 만 받는다", () => {
+    const cwd = tempProject({ "designsnitch.config.json": `{ "tokens": "a.css", "palette": "material" }` });
+    expect(() => loadConfig(cwd, undefined, "en")).toThrow(/"palette"/);
   });
 });

@@ -186,6 +186,7 @@ Tailwind 기본 팔레트
 | `tokens` | 토큰이 정의된 CSS 파일입니다. 필수입니다. 경로를 적거나, `file`과 선택 항목 `exclude`, `prefer`를 담은 객체로 적습니다(아래 참고). |
 | `components.path` | 디자인 시스템 컴포넌트가 있는 경로입니다. 이 안에서는 raw 태그를 써도 됩니다. |
 | `components.replaces` | raw 태그와 그것을 대체하는 컴포넌트입니다. 한 태그를 대체하는 컴포넌트가 여러 개면 배열로 적습니다. 컴포넌트가 태그의 일부 변형만 맡으면 `{ "component": ..., "when": { ... } }`로 적습니다(아래 참고). |
+| `palette` | `"tailwind"`로 두면 Tailwind 기본 팔레트를 기준에 넣습니다([Tailwind 기본 팔레트](#tailwind-기본-팔레트) 참고). |
 | `lang` | 메시지의 언어입니다. `en`(기본) 또는 `ko`입니다. |
 
 `components`를 생략하면 컴포넌트 검사를 하지 않습니다. 다른 경로의 설정 파일을 쓰려면 `--config <파일>`을 붙입니다. 설정 파일 안의 경로는 설정 파일이 있는 디렉터리를 기준으로 풉니다.
@@ -465,7 +466,19 @@ Grok Build에는 `npx designsnitch install --agent grok`이 `PostToolUse`와 `St
 
 ### Tailwind 기본 팔레트
 
-designsnitch는 `bg-blue-500` 같은 기본 팔레트 클래스를 위반으로 잡지 않습니다. 프로젝트가 자기 토큰만 써야 한다면, Tailwind v4에서 기본 팔레트를 없앨 수 있습니다. 그러면 그런 클래스가 아예 동작하지 않습니다.
+Tailwind 기본 팔레트(`bg-slate-100`, `text-indigo-600`)를 기준으로 쓰는 프로젝트가 많습니다. `"palette": "tailwind"`를 두면 기본 팔레트를 기준에 넣습니다.
+
+```json
+{ "tokens": "app/globals.css", "palette": "tailwind" }
+```
+
+- 팔레트는 프로젝트에 설치된 `tailwindcss/theme.css`에서 읽습니다. 토큰 CSS 위치에서 찾고, 찾지 못하면 검사를 멈추고 알립니다.
+- 팔레트 색과 값이 같은 hex는 오류이고, 팔레트 클래스가 후보입니다: `bg-[#62748e]` → `bg-slate-500`. Tailwind v4는 팔레트를 `oklch()`로 적어서, 비교할 때 hex로 바꿉니다. sRGB 밖의 팔레트 색은 같은 색을 내는 hex가 없으므로 비교에서 뺍니다.
+- 프로젝트 토큰 CSS에 팔레트와 같은 이름의 토큰이 있으면 프로젝트 값을 씁니다.
+- `tokens`의 `exclude`와 `prefer`는 팔레트 색에도 적용됩니다.
+- 팔레트도 토큰으로 세므로, 자기 토큰이 없는 프로젝트도 "토큰 없음"으로 보지 않습니다.
+
+`palette`가 없으면 기본 팔레트 클래스를 위반으로 잡지 않고, hex와 비교하지도 않습니다. 프로젝트가 자기 토큰만 써야 한다면, Tailwind v4에서 기본 팔레트를 없앨 수 있습니다. 그러면 그런 클래스가 아예 동작하지 않습니다.
 
 ```css
 @theme {
@@ -484,7 +497,7 @@ designsnitch는 `bg-blue-500` 같은 기본 팔레트 클래스를 위반으로 
 ### 아직 안 되는 것
 
 - hex가 아닌 색(`rgb()`, `hsl()`, `oklch()`)
-- Tailwind 기본 테마의 값. 프로젝트의 토큰 CSS에 적힌 값만 읽습니다.
+- 색 팔레트를 뺀 Tailwind 기본 테마의 값. 팔레트 중 sRGB 밖의 색은 비교하지 않습니다.
 - Tailwind v3(`tailwind.config.js`)
 - 토큰이 없는 색에 가장 가까운 토큰 제시
 - 계산되는 인라인 스타일 값. 예: `color: active ? "#3B82F6" : "#fff"`

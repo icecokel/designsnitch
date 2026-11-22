@@ -71,6 +71,7 @@ export function loadConfig(cwd, configPath = CONFIG_FILE, lang) {
   if (tokenField === "tokens") throw new Error(m.configNoTokens({ file }));
   if (tokenField) throw new Error(m.invalidTokenSetting({ field: tokenField, file }));
   if (config.lang !== undefined && !isLang(config.lang)) throw new Error(m.configBadLang({ file }));
+  if (config.palette !== undefined && config.palette !== "tailwind") throw new Error(m.configBadPalette({ file }));
   if (config.components !== undefined) validateComponents(config.components, file, m);
   return { ...config, root: path.dirname(file) };
 }

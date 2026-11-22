@@ -1,5 +1,6 @@
 import postcss from "postcss";
 import { normalizeHex } from "./color.js";
+import { oklchToHex } from "./oklch.js";
 
 const COLOR_TOKEN = /^--color-/;
 const ROLE_PREFIXES = {
@@ -101,4 +102,19 @@ export function selectColorTokens(names, prefer, rolePrefixes) {
 export function recommendColorCandidate(candidates, rolePrefixes) {
   const matching = candidates.filter((candidate) => startsWithAny(candidate, rolePrefixes));
   return matching.length === 1 ? matching[0] : null;
+}
+
+/**
+ * Tailwind theme.css 같은 팔레트 CSS 에서 --color-* 의 값을 hex 로 읽는다.
+ * oklch 는 sRGB 안에 있을 때만 hex 로 바꾼다. 밖이면 hex 와 비교할 수 없으니 뺀다.
+ * @param {string} css
+ * @returns {Map<string, string>} 토큰 이름 → hex
+ */
+export function parsePaletteColors(css) {
+  const palette = new Map();
+  postcss.parse(css).walkDecls(COLOR_TOKEN, (decl) => {
+    const hex = normalizeHex(decl.value) ?? oklchToHex(decl.value);
+    if (hex) palette.set(decl.prop, hex);
+  });
+  return palette;
 }

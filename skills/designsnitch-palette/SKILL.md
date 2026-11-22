@@ -69,7 +69,7 @@ Then work out what each color of its own is for. `utilities` and `properties` sh
 | `bg`, or `background` properties | Background or surface |
 | A mix, or mostly `literals` | A general color such as a brand or chart color. Open the examples to see. |
 
-For `palette`, note which default palette colors the project relies on. They already work as classes and designsnitch does not flag them. Whether they belong to the design system is the user's call, so include them in the proposal as a question.
+For `palette`, note which default palette colors the project relies on. If they carry most of the color uses, the default palette is the project's standard already. Do not copy palette colors into new hex tokens: that changes nothing on screen and doubles the names. Propose `"palette": "tailwind"` in `designsnitch.config.json` instead, and limit new tokens to colors outside the palette. If the palette is a minor part, whether it belongs to the design system is the user's call, so include it in the proposal as a question.
 
 ## 3. Propose
 

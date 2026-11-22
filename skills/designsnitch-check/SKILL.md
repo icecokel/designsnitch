@@ -73,7 +73,7 @@ The exit code is 0 (no errors), 1 (errors found), or 2 (could not run). On 2, re
 - `recommended` is the candidate whose token is named for how the color is used here, such as the text token for a `text-` class. It is a suggestion to put in front of the user, not permission to replace.
 - `decisions` groups every `ask` violation into questions: one per color or tag with the same candidates, most used first. Each has `uses`, `files`, up to five `locations`, the `candidates`, a `recommended` candidate when all locations agree, and `reasons` (`multiple-candidates`, `no-token`, `themed-token`, `dynamic-props`). Ask the user about decisions, not about single violations.
 - `unchecked` counts hex colors in other strings, such as theme objects and chart options, that the check could not judge. They are not violations. If the count is large and those strings feed the UI, mention it to the user: `npx designsnitch colors` lists them.
-- `designSystem` counts the tokens and components read from the config. `colorTokens` 0 means the project has no color tokens that can be read: follow the `designsnitch-palette` skill to establish them before touching any color.
+- `designSystem` counts the tokens and components read from the config. `paletteColors` is the number of Tailwind default palette colors in the standard, when the config has `"palette": "tailwind"`. `colorTokens` 0 means the project has no color tokens that can be read: follow the `designsnitch-palette` skill to establish them before touching any color.
 - A non-empty `problems` means the config is broken and the results cannot be trusted. Tell the user before fixing anything.
 
 | `rule` | Severity | Meaning |

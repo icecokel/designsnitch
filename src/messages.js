@@ -81,6 +81,9 @@ const en = {
   configBadWhenValues: ({ tag, attribute, file }) =>
     `"components.replaces.${tag}.when.${attribute}" in the config file must be an array of strings or null values: ${file}`,
   configBadLang: ({ file }) => `"lang" in the config file must be "en" or "ko": ${file}`,
+  configBadPalette: ({ file }) => `"palette" in the config file must be "tailwind": ${file}`,
+  paletteMissing: ({ root }) =>
+    `The config sets "palette": "tailwind", but tailwindcss could not be found from ${root}. Install the project's dependencies, or remove "palette".`,
   settingsUnreadable: ({ file }) => `Could not read ${file}. Fix the JSON and run again.`,
 
   // check
@@ -102,8 +105,10 @@ const en = {
   nextNone: () => "No violations.",
 
   // 사람용 출력
-  designSystem: ({ colorTokens, components }) =>
-    `Design system: ${count(colorTokens, "color token")}, ` +
+  designSystem: ({ colorTokens, paletteColors = 0, components }) =>
+    `Design system: ${count(colorTokens, "color token")}` +
+    (paletteColors > 0 ? ` and the Tailwind palette (${count(paletteColors, "color")})` : "") +
+    ", " +
     (components > 0 ? count(components, "component") : "no components configured"),
   notice: (problem) => `Note: ${problem}`,
   severity: { error: "error", warning: "warning" },
@@ -221,6 +226,9 @@ const ko = {
   configBadWhenValues: ({ tag, attribute, file }) =>
     `설정 파일의 "components.replaces.${tag}.when.${attribute}"는 문자열 또는 null을 담은 배열이어야 합니다: ${file}`,
   configBadLang: ({ file }) => `설정 파일의 "lang"은 "en"이나 "ko"여야 합니다: ${file}`,
+  configBadPalette: ({ file }) => `설정 파일의 "palette"는 "tailwind"여야 합니다: ${file}`,
+  paletteMissing: ({ root }) =>
+    `설정에 "palette": "tailwind"가 있지만 ${root}에서 tailwindcss를 찾지 못했습니다. 프로젝트의 의존성을 설치하거나 "palette"를 지우세요.`,
   settingsUnreadable: ({ file }) => `${file} 을 읽을 수 없습니다. JSON 형식을 고친 뒤 다시 실행하세요.`,
 
   noColorTokens: ({ tokens }) =>
@@ -240,8 +248,10 @@ const ko = {
   nextRerun: () => "고친 뒤 같은 명령을 다시 실행하세요.",
   nextNone: () => "위반이 없습니다.",
 
-  designSystem: ({ colorTokens, components }) =>
-    `디자인 시스템: 색 토큰 ${colorTokens}개, ` +
+  designSystem: ({ colorTokens, paletteColors = 0, components }) =>
+    `디자인 시스템: 색 토큰 ${colorTokens}개` +
+    (paletteColors > 0 ? `와 Tailwind 기본 팔레트(색 ${paletteColors}개)` : "") +
+    ", " +
     (components > 0 ? `컴포넌트 ${components}개` : "컴포넌트 설정 없음"),
   notice: (problem) => `주의: ${problem}`,
   severity: { error: "오류", warning: "경고" },

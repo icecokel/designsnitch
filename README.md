@@ -185,6 +185,7 @@ The [`designsnitch-palette` skill](#agent-skills) uses this output to propose to
 | `tokens` | The CSS file that defines the tokens. Required. Either a path, or an object with `file` and the optional `exclude` and `prefer` (see below). |
 | `components.path` | The directory that holds the design system components. Raw tags are allowed inside it. |
 | `components.replaces` | Raw tags and the components that replace them. Use an array when several components replace one tag. Use `{ "component": ..., "when": { ... } }` when a component covers only some variants of the tag (see below). |
+| `palette` | `"tailwind"` to use Tailwind's default palette as part of the standard (see [Tailwind's default palette](#tailwinds-default-palette)). |
 | `lang` | The language of the messages: `en` (default) or `ko`. |
 
 Without `components`, the component check is skipped. Use `--config <file>` to read a config file from another path. Paths in the config file are relative to the directory of the config file.
@@ -464,7 +465,19 @@ The command reads an optional JSON object from stdin (`tool_input.file_path`, `h
 
 ### Tailwind's default palette
 
-designsnitch does not flag default palette classes such as `bg-blue-500`. If the project should only use its own tokens, Tailwind v4 can remove the default palette, and then those classes stop working at all.
+Many projects use Tailwind's default palette (`bg-slate-100`, `text-indigo-600`) as their standard. Set `"palette": "tailwind"` to make it part of the standard.
+
+```json
+{ "tokens": "app/globals.css", "palette": "tailwind" }
+```
+
+- The palette is read from the `tailwindcss/theme.css` installed in the project, found from the token CSS. If it cannot be found, the check stops and says so.
+- A hex color with the same value as a palette color is an error, with the palette class as its candidate: `bg-[#62748e]` → `bg-slate-500`. Tailwind v4 writes the palette in `oklch()`, and it is converted to hex for the comparison. Palette colors outside sRGB are left out, because no hex value renders them the same.
+- A token in the project's token CSS with the same name as a palette color replaces it.
+- `exclude` and `prefer` in `tokens` apply to palette colors too.
+- The palette counts as tokens, so a project with no tokens of its own is not reported as having none.
+
+Without `palette`, designsnitch does not flag default palette classes, and does not compare hex colors with them. If the project should use only its own tokens, Tailwind v4 can remove the default palette, and then those classes stop working at all.
 
 ```css
 @theme {
@@ -483,7 +496,7 @@ designsnitch does not flag default palette classes such as `bg-blue-500`. If the
 ### Not supported yet
 
 - Colors that are not hex (`rgb()`, `hsl()`, `oklch()`)
-- Values from Tailwind's default theme. Only the values written in the project's token CSS are read.
+- Values from Tailwind's default theme other than the color palette. Colors of the palette that are outside sRGB are not compared.
 - Tailwind v3 (`tailwind.config.js`)
 - The nearest token for a color that has none
 - Inline style values that are computed, such as `color: active ? "#3B82F6" : "#fff"`
