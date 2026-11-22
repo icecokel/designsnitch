@@ -114,7 +114,7 @@ export async function check({ cwd, config, paths = ["."], lang, sourceCwd = cwd 
   });
   const cssViolations = cssFiles.flatMap((file) => {
     const source = fs.readFileSync(path.resolve(cwd, file), "utf8");
-    const skipCustomProperties = tokens.files.has(path.resolve(sourceCwd, file));
+    const skipCustomProperties = tokens.files.has(realPath(path.resolve(sourceCwd, file)));
     return checkCss(file, source, tokens, m, { skipCustomProperties });
   });
 
@@ -208,6 +208,14 @@ function checkCss(file, source, tokens, m, options) {
       };
     })
     .filter(Boolean);
+}
+
+function realPath(file) {
+  try {
+    return fs.realpathSync(file);
+  } catch {
+    return file; // HEAD 비교처럼 원본 위치에 파일이 없을 수 있다
+  }
 }
 
 function actionFor({ rule, severity, candidates }, messageId) {

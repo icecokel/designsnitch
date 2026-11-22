@@ -93,7 +93,7 @@ export async function collectColors({ cwd, paths = ["."], tokens, tokenFiles }) 
     const absolute = path.resolve(cwd, file);
     let found;
     try {
-      found = findCssColors(fs.readFileSync(absolute, "utf8"), { skipCustomProperties: tokenFiles?.has(absolute) ?? false });
+      found = findCssColors(fs.readFileSync(absolute, "utf8"), { skipCustomProperties: tokenFiles?.has(fs.realpathSync(absolute)) ?? false });
     } catch {
       continue; // 읽지 못한 CSS 는 건너뛴다
     }

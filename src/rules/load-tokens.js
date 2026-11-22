@@ -92,7 +92,9 @@ function readProjectTokens(file, exclude, m) {
     // import 된 파일의 선언이 먼저 오도록 뒤집어 합친다. 순서는 결과에 영향을 주지 않지만 읽기 쉽다.
     const parsed = parseColorTokenData(sources.map(([, css]) => css).reverse().join("\n"), exclude);
     const { classOnly, problems } = addConfigColors(parsed, configFiles, exclude, m);
-    const tokens = { ...parsed, files: new Set(sources.map(([cssFile]) => cssFile)), prefix, classOnly, problems };
+    // 링크된 경로로 들어와도 같은 파일로 알아보도록 실제 경로로 적어 둔다.
+    const files = new Set(sources.map(([cssFile]) => fs.realpathSync(cssFile)));
+    const tokens = { ...parsed, files, prefix, classOnly, problems };
     const deps = [...sources.map(([cssFile]) => cssFile), ...configFiles];
     cache.set(key, { deps: deps.map((dep) => [dep, mtimeOf(dep)]), tokens });
     return tokens;

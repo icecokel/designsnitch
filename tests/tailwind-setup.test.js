@@ -179,3 +179,21 @@ describe("@config 로 불러오는 JavaScript 설정", () => {
     expect([...loadTokens(settings(cwd), cwd).colors.keys()]).toEqual(["#222222"]);
   });
 });
+
+describe("심볼릭 링크 경로", () => {
+  it("설정 파일을 링크된 경로로 가리켜도 토큰 CSS 의 변수 선언은 검사하지 않는다", async () => {
+    const cwd = tempProject({
+      "designsnitch.config.json": `{ "tokens": "app/globals.css" }`,
+      "app/globals.css": `:root { --raw: #111111; }\n@theme { --color-a: var(--raw); }`,
+    });
+    const link = `${cwd}-link`;
+    fs.symlinkSync(cwd, link);
+    let stdout = "";
+    const io = { cwd, stdout: { write: (c) => (stdout += c) }, stderr: { write() {} } };
+    await run(["check", "--config", path.join(link, "designsnitch.config.json"), "--format", "json"], io);
+    expect(JSON.parse(stdout).violations).toEqual([]);
+    stdout = "";
+    await run(["colors", "--config", path.join(link, "designsnitch.config.json"), "--format", "json"], io);
+    expect(JSON.parse(stdout).colors).toEqual([]);
+  });
+});
