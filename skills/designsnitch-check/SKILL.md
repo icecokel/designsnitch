@@ -130,3 +130,4 @@ Report what you fixed and what you left, separately. For what you left, use the 
 - Do not edit `designsnitch.config.json` or the token CSS to make the check pass. They are the standard the code is judged against. If one of them seems wrong, explain why and ask the user.
 - Do not add `eslint-disable` or `designsnitch-disable-next-line` comments, lower a rule's severity, or turn a rule off to make the check pass. If an exception seems necessary, ask the user.
 - Do not pick one of several candidates on your own.
+- Do not change how the tokens are declared, such as turning `@theme` into `@theme static`, to make a `var(--token)` candidate work. Tailwind outputs a theme variable as soon as a class, a style or a CSS file uses it. A variable missing from the compiled CSS before the replacement is expected.
