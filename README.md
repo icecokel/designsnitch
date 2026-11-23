@@ -2,24 +2,34 @@
 
 English | [Korean](./README.ko.md)
 
-designsnitch helps keep a UI codebase manageable and consistent when the project has no design system, or has one in name only. It is built for code written by AI agents, which produce plausible UI quickly and scatter colors, spacing and components across screens as they go.
+**Not every developer gets to work with a good design system.**
 
-It works inside the code, with no designer or Figma file required.
+Some projects have no design system at all, and some have one in name only: a team with no designer, a product whose screens were built against a deadline, a token file that nobody follows. Tools that assume a well-kept design system have nothing to work with there.
 
-1. **Establish a standard.** It collects the values the code already uses so you can turn them into tokens.
-2. **Keep to it.** It checks new code against that standard and tells you what to use instead.
+AI agents make this grow faster. An agent produces a plausible screen in minutes, and with no standard to follow, every screen makes its own choices.
+
+- The same blue is `#3B82F6` on one screen and `#3B82F5` on another.
+- A color is written by hand in a hundred places, so changing the brand color or adding dark mode means finding every one of them.
+- A shared button exists, and each screen still builds its own from `<button>`, each a little different.
+
+The result is a codebase that is hard to manage and a product that is hard to keep consistent. And with no standard, there is nothing to check new code against.
+
+**The goal of designsnitch is to keep AI-written UI code manageable and consistent in exactly these projects.** It works inside the code, with no designer or Figma file required, and does three things.
+
+1. **Establish a standard.** It collects the colors the code already uses so you can turn them into tokens. It starts from what is there instead of inventing a standard.
+2. **Keep to it.** It checks new code against that standard and tells you what to use instead. It blocks while the agent is writing.
 3. **Clean up.** It helps bring code that has already drifted back to the standard.
 
-Deciding what the standard is stays with the developer. The tool's job is to bring what is needed to make that decision.
+Deciding what the standard is stays with the developer. The tool does not decide for you. It brings what the decision needs, such as how often a color is used and whether a change would alter the screen, and asks.
 
-It has four parts.
+## What is in it
 
 | Part | What it is for |
 | --- | --- |
 | CLI | A tool for the AI agent. It collects the colors in use, checks code, and says what to do with each violation. |
 | Agent skills | Tell an AI agent how to set the project up, when to run the CLI, what to fix, and what to ask a person about. |
 | ESLint plugin | Blocks and warns. The same rules show up as errors and warnings in the editor and in the lint step. |
-| Agent hook | Blocks while the code is being written. The agent is told about errors after each edit and cannot finish while errors it can fix remain. |
+| Agent hook | Blocks while the code is being written. The agent is told about new errors after each edit and cannot finish while errors it can replace right away remain. |
 
 It supports **React/Next.js projects that use Tailwind CSS v4**. Tailwind v3 projects are checked too, with fewer candidates (see [Tailwind v3](#tailwind-v3)).
 
@@ -67,21 +77,11 @@ The agent follows the `designsnitch-setup` skill and does the rest.
 
 From then on:
 
-- The agent is told about errors right after it edits a file, and cannot finish while errors it can fix remain.
+- The agent is told about new errors right after it edits a file, and cannot finish while errors it can replace right away remain. Errors that were there before the session do not count.
 - Errors fail the lint step, and show up in the editor.
 - `npx designsnitch check` reports where the code stands at any time.
 
 To do any of this without an agent, see [Setting up by hand](#setting-up-by-hand).
-
-## Why
-
-When there is no standard, every screen makes its own choices. An AI agent makes them quickly and plausibly, and they add up.
-
-- The same blue is `#3B82F6` on one screen and `#3B82F5` on another.
-- A color is written by hand in a hundred places, so changing the brand color or adding dark mode means finding every one of them.
-- Each screen builds its own button from `<button>`, each a little different, some without a focus style.
-
-The result is a codebase that is hard to manage and a product that is hard to keep consistent. And with no standard, there is nothing to check new code against. designsnitch helps you set a standard from what the code already does, and then holds new code to it.
 
 ## What it catches
 
