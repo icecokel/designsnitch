@@ -265,11 +265,35 @@ describe("Tailwind v3", () => {
     const result = await check({ cwd, config: loadConfig(cwd), lang: "en" });
     expect(result.designSystem).toMatchObject({ colorTokens: 1, paletteColors: 2 });
     expect(result.violations.map((v) => [v.found, v.rule, v.candidates])).toEqual([
-      ["#64748b", "color-use-token", []], // v3 에는 CSS 변수가 없다
+      ["#64748b", "color-use-token", ['theme("colors.slate.500")']], // v3 에는 CSS 변수가 없어서 theme() 으로 가리킨다
       ["bg-[#ff5a1f]", "color-use-token", ["bg-brand-500"]],
       ["text-[#64748b]", "color-use-token", ["text-slate-500"]],
       ["border-[#123456]", "color-unknown", []],
     ]);
+  });
+
+  it("v3 의 CSS 선언에는 theme() 을 후보로 낸다. 인라인 스타일에는 후보가 없다", async () => {
+    const cwd = tempProject({
+      ...v3,
+      "designsnitch.config.json": `{ "tokens": "app/globals.css", "palette": "tailwind" }`,
+      "tailwind.config.js": `module.exports = { content: [], theme: { extend: { colors: {
+        brand: { DEFAULT: "#ff5a1f", 500: "#aa3300", "deep-sea": "#003344" }, "ink-soft": "#222222", "odd.key": "#010101" } } } };`,
+      "src/a.css": `.a { color: #ff5a1f; background: #aa3300; border-color: #003344; outline-color: #222222; fill: #64748b; stroke: #010101; box-shadow: 0 0 0 1px rgb(170 51 0 / 50%); }\n.b { @apply bg-[#aa3300]; }`,
+      "src/A.jsx": `export const A = () => <div style={{ color: "#ff5a1f" }} />;`,
+    });
+    const result = await check({ cwd, config: loadConfig(cwd), lang: "en" });
+    expect(result.violations.map((v) => [v.found, v.action, v.candidates])).toEqual([
+      ["#ff5a1f", "replace", ['theme("colors.brand.DEFAULT")']],
+      ["#aa3300", "replace", ['theme("colors.brand.500")']],
+      ["#003344", "replace", ['theme("colors.brand.deep-sea")']],
+      ["#222222", "replace", ['theme("colors.ink-soft")']],
+      ["#64748b", "replace", ['theme("colors.slate.500")']],
+      ["#010101", "replace", ['theme("colors[odd.key]")']],
+      ["rgb(170 51 0 / 50%)", "ask", ['theme("colors.brand.500 / 50%")']],
+      ["bg-[#aa3300]", "replace", ["bg-brand-500"]],
+      ["#ff5a1f", "ask", []],
+    ]);
+    expect(result.violations[0].message).toBe('#ff5a1f has the same color as --color-brand. Use instead: theme("colors.brand.DEFAULT")');
   });
 
   it("tokens 에 적은 설정을 불러오지 못하면 실행하지 못한다고 알린다", async () => {

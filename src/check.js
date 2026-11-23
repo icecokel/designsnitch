@@ -9,6 +9,7 @@ import {
   lookupColor,
   recommendColorCandidate,
   selectColorTokens,
+  themeValue,
   tokenClass,
   tokenValue,
   utilityColorPrefixes,
@@ -185,10 +186,14 @@ function checkCss(file, source, tokens, m, options) {
       const found = text ?? value;
       const prefixes = utility ? utilityColorPrefixes(utility) : cssColorPrefixes(prop);
       const { names: known, opacity } = lookupColor(tokens.colors, value);
-      const toCandidate = (name) =>
-        utility ? tokenClass(utility, name, opacity) : tokenValue(name, tokens.prefix, opacity);
+      // CSS 변수가 없는 토큰도 Tailwind v3 의 CSS 에서는 theme() 으로 같은 값을 쓸 수 있다.
+      const viaTheme = (name) => tokens.classOnly.has(name) && tokens.themePaths.has(name);
+      const toCandidate = (name) => {
+        if (utility) return tokenClass(utility, name, opacity);
+        return viaTheme(name) ? themeValue(tokens.themePaths.get(name), opacity) : tokenValue(name, tokens.prefix, opacity);
+      };
       // 클래스로만 쓸 수 있는 토큰은 선언의 값을 대신할 수 없다. 그래도 직접 쓴 색이라는 것은 알린다.
-      const usable = utility ? known : known.filter((name) => !tokens.classOnly.has(name));
+      const usable = utility ? known : known.filter((name) => !tokens.classOnly.has(name) || viaTheme(name));
       if (known.length > 0 && usable.length === 0) {
         return {
           file,

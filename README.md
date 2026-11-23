@@ -291,7 +291,15 @@ Tokens are also read from where Tailwind itself reads them.
 
 A v3 project keeps its colors in `tailwind.config.js`, and its CSS starts with `@tailwind base`. Point `tokens` at the CSS file as usual: when it uses `@tailwind`, the `tailwind.config.js` (or `.cjs`, `.mjs`, `.ts`) next to `designsnitch.config.json` is read. You can also point `tokens` straight at the config file. `"palette": "tailwind"` reads the v3 palette from `tailwindcss/colors`.
 
-v3 makes no CSS variables for its colors, so every token is class-only: arbitrary color classes get token classes as candidates, and colors written by hand in CSS declarations and inline styles are reported without a candidate. In a CSS file that Tailwind v3 processes, `theme("colors.brand.500")` gives the token's value, so that is one way to resolve those.
+v3 makes no CSS variables for its colors, so there is no `var()` to point at. What you get instead depends on where the color is written.
+
+| Where the color is | Candidate |
+| --- | --- |
+| An arbitrary color class, `bg-[#3B82F6]` | The token class, `bg-brand-500` |
+| A CSS declaration, `color: #3B82F6` | `theme("colors.brand.500")` |
+| An inline style | None. `theme()` does not work outside CSS, so a person decides. |
+
+Tailwind v3 turns `theme("colors.brand.500")` into the token's value when it processes the CSS file, so the compiled CSS does not change. This was checked on a Tailwind 3.4.17 app: the CSS built before and after the replacement was identical, byte for byte. It works only in CSS that Tailwind processes, which in a Next.js project is every CSS file that goes through PostCSS.
 
 ## Language
 

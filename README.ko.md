@@ -292,7 +292,15 @@ Tailwind 기본 팔레트
 
 v3 프로젝트는 색을 `tailwind.config.js`에 두고, CSS는 `@tailwind base`로 시작합니다. `tokens`는 평소처럼 CSS 파일을 가리키면 됩니다. 그 CSS가 `@tailwind`를 쓰면 `designsnitch.config.json` 옆의 `tailwind.config.js`(또는 `.cjs`, `.mjs`, `.ts`)를 읽습니다. `tokens`에 설정 파일을 직접 적어도 됩니다. `"palette": "tailwind"`는 v3 팔레트를 `tailwindcss/colors`에서 읽습니다.
 
-v3는 색에 CSS 변수를 만들지 않으므로 모든 토큰이 클래스 전용입니다. 임의 값 색 클래스에는 토큰 클래스를 후보로 내고, CSS 선언과 인라인 스타일에 직접 쓴 색은 후보 없이 알립니다. Tailwind v3가 처리하는 CSS 파일에서는 `theme("colors.brand.500")`이 토큰의 값을 주므로, 그것으로 해결할 수 있습니다.
+v3는 색에 CSS 변수를 만들지 않으므로 가리킬 `var()`가 없습니다. 대신 색이 어디에 쓰였는지에 따라 후보가 달라집니다.
+
+| 색이 쓰인 곳 | 후보 |
+| --- | --- |
+| 임의 값 색 클래스 `bg-[#3B82F6]` | 토큰 클래스 `bg-brand-500` |
+| CSS 선언 `color: #3B82F6` | `theme("colors.brand.500")` |
+| 인라인 스타일 | 없음. `theme()`은 CSS 밖에서 동작하지 않으므로 사람이 정합니다. |
+
+Tailwind v3는 CSS 파일을 처리할 때 `theme("colors.brand.500")`을 토큰의 값으로 바꾸므로, 빌드된 CSS는 달라지지 않습니다. Tailwind 3.4.17 앱에서 확인했습니다. 바꾸기 전과 후에 빌드한 CSS가 바이트 단위로 같았습니다. Tailwind가 처리하는 CSS에서만 동작하며, Next.js 프로젝트에서는 PostCSS를 거치는 모든 CSS 파일이 해당합니다.
 
 ## 언어
 

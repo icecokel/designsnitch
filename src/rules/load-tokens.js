@@ -17,6 +17,8 @@ import { flattenColors, loadConfigColors } from "./tailwind-config.js";
  * @property {string | null} prefix Tailwind 접두어. @import "tailwindcss" prefix(tw) 의 tw
  * @property {Set<string>} classOnly 클래스로만 쓸 수 있는 토큰 이름들. JavaScript 설정의 색에는 CSS 변수가 없다
  * @property {string[]} problems 토큰을 다 읽지 못하게 만든 문제. 예: 불러오지 못한 JavaScript 설정
+ * @property {Map<string, string[]>} themePaths Tailwind v3 에서 CSS 변수가 없는 토큰의 설정 키 경로.
+ *   v3 의 CSS 에서는 theme("colors.brand.500") 으로 그 값을 쓸 수 있다. v3 가 아니면 비어 있다
  */
 
 /**
@@ -33,11 +35,11 @@ export function definesTokens(tokens, filename) {
   }
 }
 
-/** @typedef {ReturnType<typeof parseColorTokenData> & Pick<Tokens, "files" | "prefix" | "classOnly" | "problems">} ProjectTokens */
+/** @typedef {ReturnType<typeof parseColorTokenData> & Pick<Tokens, "files" | "prefix" | "classOnly" | "problems" | "themePaths"> & { tailwindV3: boolean }} ProjectTokens */
 
 /** @type {Map<string, { deps: [string, number][], tokens: ProjectTokens }>} */
 const cache = new Map();
-/** @type {Map<string, { mtimeMs: number, result: { palette: Map<string, string>, classOnly: boolean } }>} */
+/** @type {Map<string, { mtimeMs: number, result: { palette: Map<string, string>, classOnly: boolean, paths: Map<string, string[]> } }>} */
 const paletteCache = new Map();
 
 /**
@@ -56,8 +58,8 @@ export function loadTokens(settings, cwd) {
   const root = path.resolve(cwd, settings?.designsnitch?.root ?? ".");
   const file = path.resolve(root, tokensPath);
   const project = readProjectTokens(file, root, exclude, m);
-  const { files, prefix, classOnly, problems } = project;
-  const shared = { prefer, files, prefix, classOnly, problems };
+  const { files, prefix, classOnly, problems, themePaths } = project;
+  const shared = { prefer, files, prefix, classOnly, problems, themePaths };
   if (settings?.designsnitch?.palette !== "tailwind") {
     return { colors: project.colors, themed: project.themed, paletteNames: new Set(), ...shared };
   }
@@ -132,13 +134,16 @@ function readProjectTokens(file, root, exclude, m) {
 
   // import 된 파일의 선언이 먼저 오도록 뒤집어 합친다. 순서는 결과에 영향을 주지 않지만 읽기 쉽다.
   const parsed = parseColorTokenData(sources.map(([, css]) => css).reverse().join("\n"), exclude);
-  const { classOnly, problems } = addConfigColors(parsed, configFiles, exclude, m);
+  const { classOnly, problems, paths } = addConfigColors(parsed, configFiles, exclude, m);
+  // theme() 은 Tailwind v3 의 CSS 에서 쓰는 방법이다. v4 에서는 권하지 않는 함수라 후보로 내지 않는다.
+  const tailwindV3 = usesV3Directives || isConfig;
+  const themePaths = tailwindV3 ? paths : new Map();
   // 기준으로 적은 설정을 못 읽으면 판정할 것이 없다. @config 로 딸려 온 설정이면 알리기만 하고 계속한다.
   if (isConfig && problems.length > 0) throw new Error(problems[0]);
   // 링크된 경로로 들어와도 같은 파일로 알아보도록 실제 경로로 적어 둔다.
   const deps = [...sources.map(([cssFile]) => cssFile), ...configFiles];
   const files = new Set(deps.filter((dep) => fs.existsSync(dep)).map((dep) => fs.realpathSync(dep)));
-  const tokens = { ...parsed, files, prefix, classOnly, problems };
+  const tokens = { ...parsed, files, prefix, classOnly, problems, themePaths, tailwindV3 };
   cache.set(key, { deps: deps.map((dep) => [dep, mtimeOf(dep)]), tokens });
   return tokens;
 }
@@ -153,6 +158,7 @@ const V3_CONFIG_NAMES = ["tailwind.config.js", "tailwind.config.cjs", "tailwind.
 function addConfigColors(parsed, configFiles, exclude, m) {
   const classOnly = new Set();
   const problems = [];
+  const paths = new Map();
   const excluded = (name) => exclude.some((p) => (p.endsWith("*") ? name.startsWith(p.slice(0, -1)) : name === p));
   for (const file of configFiles) {
     let config;
@@ -167,10 +173,11 @@ function addConfigColors(parsed, configFiles, exclude, m) {
       if (parsed.names.has(name) || excluded(name)) continue;
       parsed.names.add(name);
       classOnly.add(name);
+      paths.set(name, config.paths.get(name));
       parsed.colors.set(color, [...(parsed.colors.get(color) ?? []), name]);
     }
   }
-  return { classOnly, problems };
+  return { classOnly, problems, paths };
 }
 
 function mtimeOf(file) {
@@ -216,13 +223,14 @@ function readTailwindPalette(tokensFile, m) {
   const cached = paletteCache.get(file);
   if (cached?.mtimeMs === mtimeMs) return cached.result;
   let palette;
+  const paths = new Map();
   if (classOnly) {
     const module = require(file);
-    palette = flattenColors(module.default ?? module);
+    palette = flattenColors(module.default ?? module, new Map(), paths);
   } else {
     palette = parsePaletteColors(fs.readFileSync(file, "utf8"));
   }
-  const result = { palette, classOnly };
+  const result = { palette, classOnly, paths };
   paletteCache.set(file, { mtimeMs, result });
   return result;
 }
@@ -233,10 +241,11 @@ function readTailwindPalette(tokensFile, m) {
  * - 프로젝트가 --color-*: initial, --*: initial 같은 선언으로 비운 네임스페이스의 색
  * - exclude 에 걸린 색
  * @param {ProjectTokens} project
- * @param {{ palette: Map<string, string>, classOnly: boolean }} tailwind classOnly 면 팔레트 색에 CSS 변수가 없다 (v3)
+ * @param {{ palette: Map<string, string>, classOnly: boolean, paths: Map<string, string[]> }} tailwind
+ *   classOnly 면 팔레트 색에 CSS 변수가 없다 (v3). 그때 paths 에 theme() 으로 가리킬 키 경로가 있다
  * @param {string[]} exclude
  */
-function withPalette(project, { palette, classOnly: paletteIsClassOnly }, exclude) {
+function withPalette(project, { palette, classOnly: paletteIsClassOnly, paths }, exclude) {
   const matches = (name, pattern) => (pattern.endsWith("*") ? name.startsWith(pattern.slice(0, -1)) : name === pattern);
   const excluded = (name) => [...exclude, ...project.resets].some((pattern) => matches(name, pattern));
   const colors = new Map([...project.colors].map(([hex, names]) => [hex, [...names]]));
@@ -246,6 +255,9 @@ function withPalette(project, { palette, classOnly: paletteIsClassOnly }, exclud
     paletteNames.add(name);
     colors.set(hex, [...(colors.get(hex) ?? []), name]);
   }
-  const classOnly = paletteIsClassOnly ? new Set([...project.classOnly, ...paletteNames]) : project.classOnly;
-  return { colors, themed: project.themed, paletteNames, classOnly };
+  if (!paletteIsClassOnly) return { colors, themed: project.themed, paletteNames, classOnly: project.classOnly };
+  const classOnly = new Set([...project.classOnly, ...paletteNames]);
+  const themePaths = new Map(project.themePaths);
+  for (const name of paletteNames) themePaths.set(name, paths.get(name));
+  return { colors, themed: project.themed, paletteNames, classOnly, themePaths };
 }

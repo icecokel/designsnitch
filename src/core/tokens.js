@@ -135,6 +135,16 @@ export function tokenValue(name, prefix, opacity) {
   return opacity === null ? reference : `color-mix(in srgb, ${reference} ${opacity}%, transparent)`;
 }
 
+/**
+ * Tailwind v3 의 CSS 에서 설정의 색을 가리키는 표기. 예: theme("colors.brand.500"), theme("colors.brand.500 / 50%")
+ * @param {string[]} path 설정의 키 경로
+ * @param {number | null} opacity
+ */
+export function themeValue(path, opacity) {
+  const keys = path.map((key) => (/^[\w-]+$/.test(key) ? `.${key}` : `[${key}]`)).join("");
+  return `theme("colors${keys}${opacity === null ? "" : ` / ${opacity}%`}")`;
+}
+
 /** 토큰을 클래스로 쓰는 표기. 불투명도는 Tailwind 의 /50 꼴로 붙인다. 예: bg-brand/50 */
 export function tokenClass(utility, name, opacity) {
   const className = `${utility}-${name.replace(/^--color-/, "")}`;
