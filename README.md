@@ -456,6 +456,11 @@ A skill is advice that an agent may not follow. A hook is run by the agent's run
       {
         "hooks": [{ "type": "command", "command": "npx designsnitch hook" }]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [{ "type": "command", "command": "npx designsnitch hook" }]
+      }
     ]
   }
 }
@@ -465,11 +470,12 @@ A skill is advice that an agent may not follow. A hook is run by the agent's run
 
 - It compares each file with its version in git `HEAD`. An error counts as new when there are more of it (the same rule and the same code) than in `HEAD`. Errors that were already there do not block, even if lines moved. A file that is not in `HEAD` yet has only new errors.
 - After an edit, if the file has new errors, the agent receives them along with what to do next.
-- When the agent is about to finish, it is stopped if new errors it can fix itself remain. Errors that need a person's decision do not stop it, because it has to stop in order to ask.
+- When the agent is about to finish, it is stopped if new errors remain that it can fix with the same screen and behavior (`replace`, and files that could not be parsed). Errors that need a person's decision (`ask`) do not stop it, because it has to stop in order to ask. Tags to move to a component (`migrate`) do not stop it either: the tool cannot tell whether the component behaves the same, so it reports them after the edit and leaves the call to the agent and the user.
+- Errors that were in the working tree before the session started do not count as new, even when they are not committed. The hook notes them when the session starts (`SessionStart`). Without that event, it notes them at the first edit of the session, for every changed file except the one just edited. This needs the session id the agent sends.
 - Warnings never block, and files the agent did not touch are left alone.
 - Outside a git repository, or before the first commit, every error in the changed files counts.
 
-For Codex, `npx designsnitch install --agent codex` writes the same two hooks to `.codex/hooks.json`, with `apply_patch` as the matcher. Codex often edits files with shell commands, which that matcher does not see. Those edits are caught when Codex is about to finish, because the hook then checks every file git reports as changed.
+For Codex, `npx designsnitch install --agent codex` writes the same hooks to `.codex/hooks.json`, with `apply_patch` as the matcher. Codex often edits files with shell commands, which that matcher does not see. Those edits are caught when Codex is about to finish, because the hook then checks every file git reports as changed.
 
 For Gemini CLI, `npx designsnitch install --agent gemini` writes the hooks to `.gemini/settings.json` under Gemini CLI's own event names: `AfterTool` for `write_file` and `replace`, and `AfterAgent` for when it is about to answer, where exit code 2 makes it try again with the errors as feedback. This follows the official Gemini CLI documentation and has not been tested with Gemini CLI.
 

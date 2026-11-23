@@ -11,6 +11,8 @@ const HOOK_COMMAND = "npx designsnitch hook";
  * 에이전트마다 스킬을 읽는 곳, 훅을 등록하는 파일, 이벤트 이름이 다르다.
  * 훅이 하는 일(표준 입력의 JSON 을 읽고, 막을 때 종료 코드 2와 stderr)은 같다.
  * editEvent 는 파일을 고친 직후, stopEvent 는 작업을 끝내려 할 때다.
+ * startEvent 는 세션이 시작될 때다. 그때 이미 있던 위반을 적어 두어, 이번 작업이 만든 위반만 막는다.
+ * 문서에서 이 이벤트를 확인하지 못한 에이전트에는 등록하지 않는다. 없어도 첫 수정 때 대신 적는다.
  */
 const AGENTS = {
   claude: {
@@ -18,6 +20,7 @@ const AGENTS = {
     hooksFile: ".claude/settings.json",
     editEvent: "PostToolUse",
     stopEvent: "Stop",
+    startEvent: "SessionStart",
     editTools: "Edit|Write|MultiEdit",
     hook: { type: "command", command: HOOK_COMMAND },
     approval: null,
@@ -27,6 +30,7 @@ const AGENTS = {
     hooksFile: ".codex/hooks.json",
     editEvent: "PostToolUse",
     stopEvent: "Stop",
+    startEvent: "SessionStart",
     // Codex 는 셸 명령으로도 파일을 고친다. 그런 수정은 Stop 훅이 git 에서 바뀐 파일을 보고 잡는다.
     editTools: "apply_patch",
     hook: { type: "command", command: HOOK_COMMAND, timeout: 60 },
@@ -39,6 +43,7 @@ const AGENTS = {
     hooksFile: ".gemini/settings.json",
     editEvent: "AfterTool",
     stopEvent: "AfterAgent",
+    startEvent: "SessionStart",
     editTools: "write_file|replace",
     hook: { name: "designsnitch", type: "command", command: HOOK_COMMAND, timeout: 60000 },
     // 새 프로젝트 훅은 실행하기 전에 경고하고 허용을 받는다.
@@ -126,6 +131,7 @@ function addHooks(settings, target) {
   const entries = {
     [target.editEvent]: { matcher: target.editTools, hooks: [target.hook] },
     [target.stopEvent]: { hooks: [target.hook] },
+    ...(target.startEvent ? { [target.startEvent]: { hooks: [target.hook] } } : {}),
   };
   settings.hooks ??= {};
   let added = false;

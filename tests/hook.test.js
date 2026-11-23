@@ -235,12 +235,13 @@ describe("designsnitch hook: 작업을 끝내려 할 때 (Stop)", () => {
     expect(stderr).toContain("[replace]");
   });
 
-  it("컴포넌트로 옮길 오류(migrate)도 스스로 할 일이므로 끝내지 못하게 한다", async () => {
+  it("컴포넌트로 옮길 오류(migrate)는 고친 직후에 알리지만, 끝내는 것은 막지 않는다. 옮겨도 동작이 같은지 도구가 알 수 없다", async () => {
     const config = JSON.stringify({ tokens: "tokens.css", components: { path: "ui", replaces: { button: "SolidButton" } } });
     const cwd = repoWithChanges({ "designsnitch.config.json": config }, { "src/b.tsx": ASK });
-    const { exitCode, stderr } = await hook(cwd, { hook_event_name: "Stop" });
-    expect(exitCode).toBe(2);
-    expect(stderr).toContain("[migrate]");
+    const afterEdit = await hook(cwd, edited("src/b.tsx"));
+    expect(afterEdit.exitCode).toBe(2);
+    expect(afterEdit.stderr).toContain("[migrate]");
+    expect(await hook(cwd, { hook_event_name: "Stop" })).toEqual({ exitCode: 0, stdout: "", stderr: "" });
   });
 
   it("사람이 정해야 하는 오류만 남았으면 끝낼 수 있게 한다. 물어보려면 멈춰야 하기 때문이다", async () => {
@@ -319,3 +320,61 @@ describe("designsnitch hook: Grok Build (camelCase 입력)", () => {
   });
 });
 
+describe("세션이 시작될 때 이미 있던 위반", () => {
+  let n = 0;
+  const session = () => `test-${process.pid}-${Date.now()}-${(n += 1)}`;
+  const write = (cwd, file, content) => {
+    fs.mkdirSync(path.dirname(path.join(cwd, file)), { recursive: true });
+    fs.writeFileSync(path.join(cwd, file), content);
+  };
+  const pass = { exitCode: 0, stdout: "", stderr: "" };
+
+  it("SessionStart 때 이미 바뀌어 있던 파일의 위반은 Stop 에서 막지 않는다", async () => {
+    const cwd = repoWithChanges({}, { "src/user.tsx": REPLACE });
+    const session_id = session();
+    expect(await hook(cwd, { hook_event_name: "SessionStart", session_id })).toEqual(pass);
+    write(cwd, "src/agent.tsx", CLEAN);
+    expect(await hook(cwd, { hook_event_name: "Stop", session_id })).toEqual(pass);
+  });
+
+  it("세션 안에서 새로 만든 위반은 막고, 그 위반만 보여 준다", async () => {
+    const cwd = repoWithChanges({}, { "src/user.tsx": REPLACE });
+    const session_id = session();
+    await hook(cwd, { hook_event_name: "SessionStart", session_id });
+    write(cwd, "src/agent.tsx", REPLACE);
+    const { exitCode, stderr } = await hook(cwd, { hook_event_name: "Stop", session_id });
+    expect(exitCode).toBe(2);
+    expect(stderr).toContain("src/agent.tsx:");
+    expect(stderr).not.toContain("src/user.tsx:");
+  });
+
+  it("이미 위반이 있던 파일에 같은 위반을 더하면 막는다", async () => {
+    const cwd = repoWithChanges({}, { "src/user.tsx": REPLACE });
+    const session_id = session();
+    await hook(cwd, { hook_event_name: "SessionStart", session_id });
+    write(cwd, "src/user.tsx", `${REPLACE}\n${REPLACE.replace("const A", "const A2")}`);
+    const { exitCode } = await hook(cwd, { ...edited("src/user.tsx"), session_id });
+    expect(exitCode).toBe(2);
+  });
+
+  it("SessionStart 가 없었으면 세션의 첫 수정 때, 방금 고친 파일을 뺀 나머지를 기준으로 삼는다", async () => {
+    const cwd = repoWithChanges({}, { "src/user.tsx": REPLACE });
+    const session_id = session();
+    write(cwd, "src/agent.tsx", CLEAN);
+    expect(await hook(cwd, { ...edited("src/agent.tsx"), session_id })).toEqual(pass);
+    expect(await hook(cwd, { hook_event_name: "Stop", session_id })).toEqual(pass);
+  });
+
+  it("세션 정보가 없거나 세션에서 처음 받은 것이 Stop 이면 HEAD 만 기준으로 삼는다", async () => {
+    const cwd = repoWithChanges({}, { "src/user.tsx": REPLACE });
+    expect((await hook(cwd, { hook_event_name: "Stop" })).exitCode).toBe(2);
+    expect((await hook(cwd, { hook_event_name: "Stop", session_id: session() })).exitCode).toBe(2);
+  });
+
+  it("Grok Build 의 camelCase 입력(sessionId)도 읽는다", async () => {
+    const cwd = repoWithChanges({}, { "src/user.tsx": REPLACE });
+    const sessionId = session();
+    await hook(cwd, { hookEventName: "SessionStart", sessionId });
+    expect(await hook(cwd, { hookEventName: "Stop", sessionId })).toEqual(pass);
+  });
+});

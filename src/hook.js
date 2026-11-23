@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -9,13 +10,19 @@ import { messages, resolveLang } from "./messages.js";
 const CHECKABLE = /\.(?:[cm]?[jt]s|[jt]sx|css)$/;
 // Claude Code, Codex 는 Stop, Gemini CLI 는 AfterAgent 가 "작업을 끝내려 할 때"다.
 const STOP_EVENTS = new Set(["Stop", "SubagentStop", "AfterAgent"]);
+const SESSION_START = "SessionStart";
+// 에이전트가 스스로 할 수 있고, 해도 화면과 동작이 같다고 볼 수 있는 일. 이것만 끝내는 것을 막는다.
+const SAFE_TO_INSIST = new Set(["replace", "repair"]);
 
 /**
  * 코딩 에이전트의 훅에서 부르는 검사. 에이전트가 방금 고친 파일만 본다.
  *
- * - 파일을 고친 직후: HEAD 대비 새 오류가 있으면 종료 코드 2와 함께 stderr 로 알린다.
- * - 작업을 끝내려 할 때(Stop): 에이전트가 스스로 고칠 수 있는 새 오류가 남아 있으면 2로 막는다.
- *   사람이 정해야 하는 오류만 남았으면 막지 않는다. 물어보려면 멈춰야 하기 때문이다.
+ * - 파일을 고친 직후: 새 오류가 있으면 종료 코드 2와 함께 stderr 로 알린다.
+ * - 작업을 끝내려 할 때(Stop): 바꿔도 화면과 동작이 같은 새 오류(replace, repair)가 남아 있으면 2로 막는다.
+ *   사람이 정해야 하는 오류(ask)와 컴포넌트로 옮길 오류(migrate)만 남았으면 막지 않는다.
+ *   물어보려면 멈춰야 하고, 옮겨도 동작이 같은지는 도구가 알 수 없기 때문이다.
+ * - "새 오류"의 기준은 HEAD 와, 세션이 시작될 때 이미 바뀌어 있던 파일의 상태다.
+ *   세션 시작(SessionStart) 때, 없었으면 세션의 첫 수정 때 그 상태를 적어 둔다.
  * - 경고는 막지 않는다. 설정 파일이 없는 프로젝트에서는 아무것도 하지 않는다.
  *
  * @param {object} options
@@ -32,34 +39,54 @@ export async function runHook({ cwd, input = "", configPath = CONFIG_FILE, lang 
   const eventName = event.hook_event_name ?? event.hookEventName;
   const toolInput = event.tool_input ?? event.toolInput;
   const stopping = STOP_EVENTS.has(eventName);
+  const sessionId = event.session_id ?? event.sessionId;
 
   // 이미 한 번 막아서 에이전트가 고치는 중이면 다시 막지 않는다.
   if (stopping && (event.stop_hook_active ?? event.stopHookActive)) return pass;
   if (!fs.existsSync(path.resolve(cwd, configPath))) return pass;
 
+  const checkable = (list) =>
+    list
+      .map((file) => path.resolve(cwd, file))
+      .filter((file) => isInside(cwd, file) && CHECKABLE.test(file) && fs.existsSync(file))
+      .map((file) => path.relative(cwd, file));
   const edited = toolInput?.file_path ?? toolInput?.filePath;
-  const files = (typeof edited === "string" ? [edited] : changedFiles(cwd))
-    .map((file) => path.resolve(cwd, file))
-    .filter((file) => isInside(cwd, file) && CHECKABLE.test(file) && fs.existsSync(file))
-    .map((file) => path.relative(cwd, file));
-  if (files.length === 0) return pass;
+  const files = eventName === SESSION_START ? [] : checkable(typeof edited === "string" ? [edited] : changedFiles(cwd));
 
-  const canBlock = (v) => v.severity === "error" && (!stopping || v.action !== "ask");
+  const canBlock = (v) => v.severity === "error" && (!stopping || SAFE_TO_INSIST.has(v.action));
   let result;
   let errors;
   try {
     const config = loadConfig(cwd, configPath, resolveLang(lang));
     lang = resolveLang(lang, config.lang);
+
+    // 세션이 시작될 때 이미 있던 위반은 이번 작업이 만든 것이 아니다. 처음 한 번만 적어 둔다.
+    let session = sessionId ? readSession(cwd, sessionId) : new Map();
+    if (sessionId && !session && !stopping) {
+      // 세션 시작 때는 바뀐 파일 전부를, 첫 수정 때는 방금 고친 파일을 뺀 나머지를 적는다.
+      // 고친 파일을 모르면 무엇이 이번 작업인지 가릴 수 없으니 적지 않는다.
+      const own = path.relative(cwd, path.resolve(cwd, typeof edited === "string" ? edited : "."));
+      const canTell = eventName === SESSION_START || typeof edited === "string";
+      const before = canTell ? checkable(changedFiles(cwd)).filter((file) => file !== own) : [];
+      const found = before.length > 0 ? (await check({ cwd, config, paths: before, lang })).violations : [];
+      session = countViolations(found);
+      writeSession(cwd, sessionId, session);
+    }
+    if (files.length === 0) return pass;
+
     result = await check({ cwd, config, paths: files, lang });
     if (!result.violations.some(canBlock)) return pass;
 
-    const baseline = countViolations(await checkHead({ cwd, config, files, lang }));
+    const head = countViolations(await checkHead({ cwd, config, files, lang }));
     const current = countViolations(result.violations);
     errors = result.violations.filter((v) => {
       const key = violationKey(v);
-      return v.severity === "error" && current.get(key) > (baseline.get(key) ?? 0);
+      const baseline = Math.max(head.get(key) ?? 0, session?.get(key) ?? 0);
+      return v.severity === "error" && current.get(key) > baseline;
     });
   } catch (error) {
+    // 세션 시작은 알리기만 하는 자리가 아니다. 설정 문제는 첫 수정 때 알린다.
+    if (eventName === SESSION_START) return pass;
     return { stderr: `${error.message}\n`, exitCode: 2 };
   }
 
@@ -100,6 +127,30 @@ async function checkHead({ cwd, config, files, lang }) {
     return result.violations;
   } finally {
     if (temp) fs.rmSync(temp, { recursive: true, force: true });
+  }
+}
+
+function sessionFile(cwd, sessionId) {
+  const id = crypto.createHash("sha256").update(`${fs.realpathSync(cwd)}\0${sessionId}`).digest("hex").slice(0, 40);
+  return path.join(os.tmpdir(), "designsnitch-sessions", `${id}.json`);
+}
+
+/** @returns {Map<string, number> | null} 세션이 시작될 때의 위반 개수. 적어 둔 것이 없으면 null */
+function readSession(cwd, sessionId) {
+  try {
+    return new Map(JSON.parse(fs.readFileSync(sessionFile(cwd, String(sessionId)), "utf8")));
+  } catch {
+    return null;
+  }
+}
+
+function writeSession(cwd, sessionId, counts) {
+  try {
+    const file = sessionFile(cwd, String(sessionId));
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify([...counts]));
+  } catch {
+    // 적어 두지 못하면 HEAD 만 기준으로 삼는다.
   }
 }
 

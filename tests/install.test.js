@@ -42,6 +42,7 @@ describe("designsnitch install", () => {
       hooks: {
         PostToolUse: [{ matcher: "Edit|Write|MultiEdit", hooks: [HOOK] }],
         Stop: [{ hooks: [HOOK] }],
+        SessionStart: [{ hooks: [HOOK] }],
       },
     });
   });
@@ -89,7 +90,7 @@ describe("designsnitch install", () => {
       permissions: existing.permissions,
       hooks: {
         PostToolUse: [...existing.hooks.PostToolUse, { matcher: "Edit|Write|MultiEdit", hooks: [HOOK] }],
-        SessionStart: existing.hooks.SessionStart,
+        SessionStart: [...existing.hooks.SessionStart, { hooks: [HOOK] }],
         Stop: [{ hooks: [HOOK] }],
       },
     });
@@ -143,6 +144,7 @@ describe("designsnitch install --agent codex", () => {
       hooks: {
         PostToolUse: [{ matcher: "apply_patch", hooks: [CODEX_HOOK] }],
         Stop: [{ hooks: [CODEX_HOOK] }],
+        SessionStart: [{ hooks: [CODEX_HOOK] }],
       },
     });
     expect(fs.existsSync(path.join(cwd, ".claude"))).toBe(false);
@@ -181,7 +183,9 @@ describe("designsnitch install --agent codex", () => {
     expect(fs.readdirSync(path.join(cwd, ".agents/skills")).sort()).toEqual(SKILLS);
     expect(readSettings(cwd).hooks.Stop).toEqual([{ hooks: [HOOK] }]);
     expect(readHooks(cwd).hooks.Stop).toEqual([{ hooks: [CODEX_HOOK] }]);
-    expect(Object.keys(readGemini(cwd).hooks)).toEqual(["AfterTool", "AfterAgent"]);
+    expect(Object.keys(readGemini(cwd).hooks)).toEqual(["AfterTool", "AfterAgent", "SessionStart"]);
+    // Grok Build 는 세션 시작 이벤트를 문서에서 확인하지 못해 등록하지 않는다.
+    expect(Object.keys(JSON.parse(fs.readFileSync(path.join(cwd, ".grok/hooks/designsnitch.json"), "utf8")).hooks)).toEqual(["PostToolUse", "Stop"]);
     expect(fs.existsSync(path.join(cwd, ".grok/hooks/designsnitch.json"))).toBe(true);
     // Codex 와 Gemini CLI 는 같은 .agents/skills 를 읽으므로 한 번만 복사한다.
     expect(stdout.split("\n").slice(0, 7)).toEqual([
@@ -237,6 +241,7 @@ describe("designsnitch install --agent gemini", () => {
       hooks: {
         AfterTool: [{ matcher: "write_file|replace", hooks: [GEMINI_HOOK] }],
         AfterAgent: [{ hooks: [GEMINI_HOOK] }],
+        SessionStart: [{ hooks: [GEMINI_HOOK] }],
       },
     });
     expect(stdout).toBe(

@@ -11,15 +11,17 @@ A skill is advice: an agent may or may not follow it. A hook is run by the agent
 
 ## What the hook does
 
-`npx designsnitch hook` checks only the files the agent just changed, and blocks only errors the change added. It compares each file with its version in git `HEAD`: errors that were already there do not block.
+`npx designsnitch hook` checks only the files the agent just changed, and blocks only errors the change added. It compares each file with its version in git `HEAD`, and with what the working tree looked like when the session started: errors that were already there do not block, committed or not.
 
 | When it runs | What happens |
 | --- | --- |
 | Right after the agent edits a file | If that file has errors, the agent receives them with what to do next. |
-| When the agent is about to finish | If errors the agent can fix itself remain in the changed files, the agent is not allowed to finish. |
+| When the session starts | The errors already in the changed files are noted, so they are not blamed on this session. Nothing is reported. |
+| When the agent is about to finish | If `replace` errors, or files that cannot be parsed, remain in the changed files, the agent is not allowed to finish. |
 
 - Warnings never block.
 - Errors that need a person's decision (`ask`) are reported after an edit, but do not stop the agent from finishing. The agent has to stop in order to ask.
+- Tags to move to a component (`migrate`) are reported after an edit, but do not stop the agent from finishing either. The tool cannot tell whether the component behaves like the tag, so that call is left to the agent and the user.
 - Files the agent did not touch are left alone. Errors that were already in the files it touched are reported only if the change added more of them.
 
 ## 1. Register the hook in Claude Code
@@ -44,6 +46,11 @@ If you need to do it by hand, this is what it adds to `.claude/settings.json`.
       }
     ],
     "Stop": [
+      {
+        "hooks": [{ "type": "command", "command": "npx designsnitch hook" }]
+      }
+    ],
+    "SessionStart": [
       {
         "hooks": [{ "type": "command", "command": "npx designsnitch hook" }]
       }
@@ -72,6 +79,11 @@ It adds the hook to `.codex/hooks.json` and copies the skills into `.agents/skil
       }
     ],
     "Stop": [
+      {
+        "hooks": [{ "type": "command", "command": "npx designsnitch hook", "timeout": 60 }]
+      }
+    ],
+    "SessionStart": [
       {
         "hooks": [{ "type": "command", "command": "npx designsnitch hook", "timeout": 60 }]
       }
@@ -106,6 +118,11 @@ It adds the hook to `.gemini/settings.json` and copies the skills into `.agents/
       {
         "hooks": [{ "name": "designsnitch", "type": "command", "command": "npx designsnitch hook", "timeout": 60000 }]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [{ "name": "designsnitch", "type": "command", "command": "npx designsnitch hook", "timeout": 60000 }]
+      }
     ]
   }
 }
@@ -122,7 +139,7 @@ Tell the user that Gemini CLI warns before it runs a new project hook, and that 
 npx designsnitch install --agent grok
 ```
 
-It writes `.grok/hooks/designsnitch.json` with the same `PostToolUse` and `Stop` hooks as Claude Code (`timeout` in seconds), and copies the skills into `.grok/skills`. Grok Build sends the hook its input in camelCase (`hookEventName`, `toolInput`), which `designsnitch hook` understands.
+It writes `.grok/hooks/designsnitch.json` with the same `PostToolUse` and `Stop` hooks as Claude Code, without `SessionStart`, which the xAI documentation does not confirm (`timeout` in seconds), and copies the skills into `.grok/skills`. Grok Build sends the hook its input in camelCase (`hookEventName`, `toolInput`), which `designsnitch hook` understands.
 
 Tell the user two things.
 
@@ -136,6 +153,7 @@ Tell the user two things.
 - `tool_input.file_path`: the file that was just edited. Without it, the files that git reports as changed are checked.
 - `hook_event_name` (or `hookEventName`): `Stop`, `SubagentStop` or `AfterAgent` means the agent is about to finish.
 - `stop_hook_active`: when true, the hook does not block again.
+- `session_id` (or `sessionId`): lets the hook remember which errors were there before the session. `hook_event_name` `SessionStart` notes them and reports nothing.
 
 It exits with 2 and writes what to fix to stderr when it blocks, and exits with 0 otherwise. If the agent in use supports command hooks with these conventions, register the same command there. Check that agent's hook documentation for the file and the event names, and tell the user if you could not confirm that it works.
 
