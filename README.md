@@ -353,8 +353,8 @@ The first line shows how many tokens and components were read from the config. A
 | `violations[].found` | The offending piece of code |
 | `violations[].candidates` | The classes or components to use instead. Empty when there are none. |
 | `violations[].recommended` | The candidate that fits how the color is used: a `text-` class gets the token named for text, a border gets the one named for borders. Only set when exactly one candidate fits, and only a suggestion: an `ask` stays an `ask`. For `replace` and `migrate`, it is the candidate. |
-| `violations[].action` | How to handle the violation. `replace`: replacing `found` with the only candidate keeps the screen and the behavior the same. Only color errors get this. `migrate`: a raw tag with exactly one design system component to move to. The tool cannot tell whether the component passes on the same props or renders the same default styles, so read the component first, then move the tag's props and drop classes the component already applies. The agent can do this itself, so the hook treats it like `replace`. `ask`: a person has to decide: several candidates, a color with no token, a token whose value differs between themes, or a component whose props are dynamic or spread. `repair`: the file could not be parsed. |
-| `decisions` | The `ask` violations grouped into questions: one per color or tag with the same candidates. Each has how often it comes up (`uses`, `files`), up to five `locations`, the `candidates`, a `recommended` candidate when every location agrees, and the `reasons` a person has to decide: `multiple-candidates`, `no-token`, `themed-token`, `class-only-token` or `dynamic-props`. Most used first. |
+| `violations[].action` | How to handle the violation. `replace`: replacing `found` with the only candidate keeps the screen and the behavior the same. Only color errors get this. `migrate`: a raw tag with exactly one design system component to move to. The tool cannot tell whether the component passes on the same props or renders the same default styles, so read the component first, then move the tag's props and drop classes the component already applies. The hook reports it after an edit but does not stop the agent from finishing over it. `ask`: a person has to decide: several candidates, a color with no token, a token whose value differs between themes, or a component whose props are dynamic or spread. `repair`: the file could not be parsed. |
+| `decisions` | The `ask` violations grouped into questions: one per color or tag with the same candidates. Each has how often it comes up (`uses`, `files`), up to five `locations`, the `candidates`, a `recommended` candidate when every location agrees, and the `reasons` a person has to decide: `multiple-candidates`, `no-token`, `themed-token`, `translucent`, `not-a-style`, `class-only-token` or `dynamic-props`. Most used first. |
 | `next` | What an agent should do with this result, in order |
 | `unchecked` | Colors in other strings that were not checked (`colors`), and how many files they are in (`files`). The text output adds a line when there are any. |
 
@@ -509,7 +509,10 @@ Without `palette`, designsnitch does not flag default palette classes, and does 
 
 ## Scope
 
-- **Where it looks in JS and TS:** arbitrary color classes in string literals and template literals, which covers `className` and the arguments of `cn()`, `clsx()` and `cva()`, and colors written as strings in a JSX `style` object, including the branches of `a ? "#fff" : "#000"` and `x || "#fff"`. Comments are ignored. Colors in other strings, such as theme objects and chart options, are not checked: their purpose cannot be told from the code. The check counts them in `unchecked` so that you know they are there, and `designsnitch colors` lists them.
+- **Where it looks in JS and TS:** arbitrary color classes in string literals and template literals, which covers `className` and the arguments of `cn()`, `clsx()` and `cva()`, and colors written as strings where a color is expected, including the branches of `a ? "#fff" : "#000"` and `x || "#fff"`. Comments are ignored.
+  - **Styles:** a JSX `style` object, an object in a variable whose name ends in `style` or `styles`, and an object typed `CSSProperties`. `var(--token)` works there, so these are checked like any other color.
+  - **Other color properties:** a property or JSX attribute whose name is a CSS color property or ends in `Color`, such as `backgroundColor` in chart options or `stroke` on an SVG element. The color is reported, with `var(--token)` as a candidate, but marked `ask`: the tool cannot tell whether `var()` works where the value ends up, for example on a canvas.
+  - **Everything else:** colors under other keys (`{ primary: "#3B82F6" }`) and in arrays are not checked, because their purpose cannot be told from the code. The check counts them in `unchecked` so that you know they are there, and `designsnitch colors` lists them.
 - **Where it looks in CSS:** colors in declaration values and arbitrary color classes in `@apply`, in `.css` files including CSS Modules. In the token CSS, declarations that define a variable (`--name: ...`) are skipped, since that is where tokens are defined. In every other CSS file they are checked like any other declaration. Only colors are checked in CSS for now.
 - **Themes:** when a token has different values per theme, all of them count as that token's value. Replacing a color with such a token changes the color in the other themes, so those errors are marked `ask`.
 - **Fixes:** designsnitch reports candidates and never rewrites code by itself, even when there is only one candidate.
@@ -518,7 +521,7 @@ Without `palette`, designsnitch does not flag default palette classes, and does 
 
 These are detected, but not matched to a token:
 
-- Translucent colors (`#3B82F680`, `rgb(0 0 0 / 50%)`) are reported as colors with no token, even when the opaque color has one.
+- Translucent colors (`#3B82F680`, `rgb(0 0 0 / 50%)`) get the token of the opaque color with an opacity: `bg-brand/50` for a class, `color-mix(in srgb, var(--color-brand) 50%, transparent)` for a style or a CSS declaration. The opacity is rounded to a whole percent, so these are marked `ask`.
 - Colors a Tailwind plugin adds are not known as tokens, so writing one by hand is reported as a color with no token.
 - `hwb()`, `lab()`, `lch()`, `oklab()` and `color()` values, and `oklch()` colors outside sRGB, match only a token written with the same value: no hex color renders the same.
 - Color names are read in color properties (`color`, `background`, `border`, ...), in arbitrary classes (`bg-[white]`), and as a whole custom property value. Elsewhere a word such as `red` is not taken for a color.
@@ -527,7 +530,7 @@ These are not checked:
 
 - Values from Tailwind's default theme other than the color palette
 - The nearest token for a color that has none
-- Style objects outside a JSX `style` attribute, such as `const style = { color: "#fff" }`
+- Colors under keys that do not say color, such as `{ primary: "#3B82F6" }`, and colors in arrays. They are counted in `unchecked`.
 - SCSS and other preprocessors
 - Spacing, font size and radius. They were left out of this version on purpose.
 - Comparing a hand-made component's styles with the design system component
