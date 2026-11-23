@@ -124,7 +124,9 @@ export function tokenVar(name, prefix) {
 export function lookupColor(colors, value) {
   const color = parseColor(value);
   if (!color) return { names: [], opacity: null };
-  return { names: colors.get(color.key) ?? [], opacity: color.opaque ? null : Math.round(color.alpha * 100) };
+  // 0 은 아니지만 반올림하면 0% 가 되는 값은 1% 로 본다. 0% 는 완전히 투명하다는 다른 뜻이다.
+  const opacity = color.opaque ? null : Math.max(1, Math.round(color.alpha * 100));
+  return { names: colors.get(color.key) ?? [], opacity };
 }
 
 /** 토큰을 CSS 값으로 쓰는 표기. 불투명도가 있으면 투명과 섞는다. */

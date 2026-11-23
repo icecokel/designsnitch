@@ -211,24 +211,35 @@ describe("JSX style 속성 밖의 색", () => {
   };
   const brief = (result) => result.violations.map((v) => [v.found, v.rule, v.action, v.candidates]);
 
-  it("스타일 객체(이름이 style 로 끝나거나 CSSProperties 타입)는 인라인 스타일처럼 검사한다", async () => {
+  it("CSSProperties 타입의 객체는 인라인 스타일처럼 검사한다", async () => {
     const result = await run(
       "src/a.tsx",
       `import type { CSSProperties } from "react";
-const cardStyle = { color: "#3B82F6", padding: 4 };
-const styles = { title: { backgroundColor: "white" }, body: { border: "1px solid #123456" } };
-const typed: CSSProperties = { color: "#3B82F6" };
+const typed: CSSProperties = { color: "#3B82F6", backgroundColor: "white", border: "1px solid #123456" };
 const cast = { fill: "#3B82F6" } as React.CSSProperties;
-export const use = [cardStyle, styles, typed, cast];`,
+export const use = [typed, cast];`,
     );
     expect(brief(result)).toEqual([
       ["#3B82F6", "color-use-token", "replace", ["var(--color-brand)"]],
       ["white", "color-use-token", "replace", ["var(--color-white)"]],
       ["#123456", "color-unknown", "ask", []],
       ["#3B82F6", "color-use-token", "replace", ["var(--color-brand)"]],
-      ["#3B82F6", "color-use-token", "replace", ["var(--color-brand)"]],
     ]);
     expect(result.unchecked).toEqual({ colors: 0, files: 0 });
+  });
+
+  it("변수 이름이 style 로 끝난다는 것만으로는 스타일로 보지 않는다. 차트 설정 묶음일 수 있다", async () => {
+    const result = await run(
+      "src/b.tsx",
+      `const VARIANT_STYLES = { model: { containerClassName: "p-4", lineWidth: 3, guideLineColor: "#3B82F6" } };
+const cardStyle = { color: "#3B82F6" };
+export const Chart = () => <Line guide={VARIANT_STYLES.model.guideLineColor} style={cardStyle} />;`,
+    );
+    expect(brief(result)).toEqual([
+      ["#3B82F6", "color-use-token", "ask", ["var(--color-brand)"]],
+      ["#3B82F6", "color-use-token", "ask", ["var(--color-brand)"]],
+    ]);
+    expect(result.decisions[0].reasons).toEqual(["not-a-style"]);
   });
 
   it("색을 받는 이름의 속성과 JSX 속성(차트 옵션, SVG)은 잡되, var() 가 통하는지 알 수 없으니 사람이 정하게 한다", async () => {
@@ -256,5 +267,24 @@ export const Chart = () => <Line data={data} stroke="#3B82F6" fill={"#fff"} colo
     const result = await run("src/theme.js", `export const theme = { primary: "#3B82F6", series: ["#3B82F6", "#123456"] };`);
     expect(brief(result)).toEqual([]);
     expect(result.unchecked).toEqual({ colors: 3, files: 1 });
+  });
+});
+
+describe("완전히 투명한 값", () => {
+  it("알파가 0 인 색은 색을 쓴 것이 아니므로 찾지 않는다", async () => {
+    const cwd = tempProject({
+      "designsnitch.config.json": `{ "tokens": "tokens.css" }`,
+      "tokens.css": `@theme { --color-white: #fff; }`,
+      "src/a.css": `.a { background: linear-gradient(rgba(255, 255, 255, 0.0), rgba(255, 255, 255, 0.004)); color: #12345600; border-color: rgb(1 2 3 / 0%); }`,
+      "src/A.jsx": `export const A = () => <div className="bg-[#fff0] text-[rgba(9,9,9,0)]" style={{ color: "rgba(255, 255, 255, 0)" }} />;`,
+    });
+    const result = await check({ cwd, config: loadConfig(cwd), lang: "en" });
+    // 0.004 처럼 0 은 아니지만 반올림하면 0% 가 되는 값은 1% 로 알린다.
+    expect(result.violations.map((v) => [v.found, v.candidates])).toEqual([
+      ["rgba(255, 255, 255, 0.004)", ["color-mix(in srgb, var(--color-white) 1%, transparent)"]],
+    ]);
+    const colors = await collectColors({ cwd });
+    // tokens.css 의 #fff 선언도 센다. 설정 없이 모으기 때문이다.
+    expect(colors.colors.map((c) => c.color).sort()).toEqual(["#ffffff", "#ffffff01"]);
   });
 });

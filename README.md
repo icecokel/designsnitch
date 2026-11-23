@@ -516,7 +516,7 @@ Without `palette`, designsnitch does not flag default palette classes, and does 
 ## Scope
 
 - **Where it looks in JS and TS:** arbitrary color classes in string literals and template literals, which covers `className` and the arguments of `cn()`, `clsx()` and `cva()`, and colors written as strings where a color is expected, including the branches of `a ? "#fff" : "#000"` and `x || "#fff"`. Comments are ignored.
-  - **Styles:** a JSX `style` object, an object in a variable whose name ends in `style` or `styles`, and an object typed `CSSProperties`. `var(--token)` works there, so these are checked like any other color.
+  - **Styles:** a JSX `style` object and an object typed `CSSProperties`. `var(--token)` works there, so these are checked like any other color. A variable name such as `cardStyle` is not taken as proof: it may hold chart settings.
   - **Other color properties:** a property or JSX attribute whose name is a CSS color property or ends in `Color`, such as `backgroundColor` in chart options or `stroke` on an SVG element. The color is reported, with `var(--token)` as a candidate, but marked `ask`: the tool cannot tell whether `var()` works where the value ends up, for example on a canvas.
   - **Everything else:** colors under other keys (`{ primary: "#3B82F6" }`) and in arrays are not checked, because their purpose cannot be told from the code. The check counts them in `unchecked` so that you know they are there, and `designsnitch colors` lists them.
 - **Where it looks in CSS:** colors in declaration values and arbitrary color classes in `@apply`, in `.css` files including CSS Modules. In the token CSS, declarations that define a variable (`--name: ...`) are skipped, since that is where tokens are defined. In every other CSS file they are checked like any other declaration. Only colors are checked in CSS for now.
@@ -527,7 +527,7 @@ Without `palette`, designsnitch does not flag default palette classes, and does 
 
 These are detected, but not matched to a token:
 
-- Translucent colors (`#3B82F680`, `rgb(0 0 0 / 50%)`) get the token of the opaque color with an opacity: `bg-brand/50` for a class, `color-mix(in srgb, var(--color-brand) 50%, transparent)` for a style or a CSS declaration. The opacity is rounded to a whole percent, so these are marked `ask`.
+- Translucent colors (`#3B82F680`, `rgb(0 0 0 / 50%)`) get the token of the opaque color with an opacity: `bg-brand/50` for a class, `color-mix(in srgb, var(--color-brand) 50%, transparent)` for a style or a CSS declaration. The opacity is rounded to a whole percent, so these are marked `ask`. Fully transparent values such as `rgba(0, 0, 0, 0)` are not colors in use and are skipped.
 - Colors a Tailwind plugin adds are not known as tokens, so writing one by hand is reported as a color with no token.
 - `hwb()`, `lab()`, `lch()`, `oklab()` and `color()` values, and `oklch()` colors outside sRGB, match only a token written with the same value: no hex color renders the same.
 - Color names are read in color properties (`color`, `background`, `border`, ...), in arbitrary classes (`bg-[white]`), and as a whole custom property value. Elsewhere a word such as `red` is not taken for a color.

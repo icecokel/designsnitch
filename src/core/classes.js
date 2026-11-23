@@ -1,4 +1,4 @@
-import { parseColor } from "./color.js";
+import { isVisibleColor } from "./color.js";
 
 // 예: bg-[#3B82F6], ring-offset-[#fff], text-[rgb(59,130,246)], bg-[oklch(62.3%_0.214_259.815)], bg-[white]
 const ARBITRARY_COLOR =
@@ -11,7 +11,7 @@ const ARBITRARY_COLOR =
  */
 export function findArbitraryColors(text) {
   return [...text.matchAll(ARBITRARY_COLOR)]
-    .filter((match) => parseColor(match[2]) !== null)
+    .filter((match) => isVisibleColor(match[2]))
     .map((match) => ({
       index: match.index,
       text: match[0],

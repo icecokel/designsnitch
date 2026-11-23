@@ -2,13 +2,13 @@ import { findColorValues, isColorProperty } from "../core/color.js";
 
 // 색을 받는 이름. CSS 의 색 속성이거나 Color 로 끝난다. 예: backgroundColor, stroke, pointHoverBackgroundColor
 const isColorKey = (name) => isColorProperty(name) || /color$/i.test(name);
-const STYLE_NAME = /styles?$/i;
 const STYLE_TYPE = /CSSProperties/;
 
 /**
  * 노드가 색을 값으로 받는 자리에 있는지 본다.
- * - style: 스타일로 쓰이는 객체의 값. JSX 의 style 속성, 이름이 style 로 끝나는 변수, CSSProperties 타입의 객체.
- *   여기서는 var(--토큰) 이 통한다.
+ * - style: 스타일로 쓰이는 객체의 값. JSX 의 style 속성과 CSSProperties 타입의 객체.
+ *   여기서는 var(--토큰) 이 통한다. 변수 이름(cardStyle, VARIANT_STYLES)은 근거로 삼지 않는다.
+ *   이름만 그럴 뿐 차트 설정 묶음일 수 있고, 그러면 var() 로 바꾸는 것이 안전하지 않다.
  * - data: 그 밖에 색을 받는 이름의 속성이나 JSX 속성. 예: 차트 옵션의 backgroundColor, <Line stroke="...">.
  *   색인 것은 분명하지만 var() 가 통하는지는 알 수 없다.
  * @param {import("estree").Node & { parent?: any }} node 문자열이나 템플릿 리터럴
@@ -42,14 +42,14 @@ export function colorContext(node, sourceCode) {
   return { property: name, kind: style ? "style" : "data" };
 }
 
-/** 객체가 스타일로 쓰이는지. JSX 의 style 속성이면 "jsx", 이름이나 타입으로 알 수 있으면 "named", 아니면 null. */
+/** 객체가 스타일로 쓰이는지. JSX 의 style 속성이면 "jsx", CSSProperties 타입이면 "typed", 아니면 null. */
 function styleObjectKind(object, sourceCode) {
   const typed = (annotation) => Boolean(annotation && sourceCode && STYLE_TYPE.test(sourceCode.getText(annotation)));
   for (let node = object; node; node = node.parent) {
     const parent = node.parent;
     if (!parent) return null;
     if (parent.type === "TSAsExpression" || parent.type === "TSSatisfiesExpression") {
-      if (typed(parent.typeAnnotation)) return "named";
+      if (typed(parent.typeAnnotation)) return "typed";
     } else if (parent.type === "JSXExpressionContainer") {
       const attribute = parent.parent;
       return attribute?.type === "JSXAttribute" && attribute.name?.name === "style" ? "jsx" : null;
@@ -59,7 +59,7 @@ function styleObjectKind(object, sourceCode) {
     } else if (parent.type === "VariableDeclarator" && parent.init === node) {
       const { id } = parent;
       if (id.type !== "Identifier") return null;
-      return STYLE_NAME.test(id.name) || typed(id.typeAnnotation) ? "named" : null;
+      return typed(id.typeAnnotation) ? "typed" : null;
     } else {
       return null;
     }

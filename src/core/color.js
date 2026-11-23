@@ -57,6 +57,12 @@ export function parseColor(value) {
   return { key: `#${rgb.map(toByte).join("")}`, alpha, opaque: alpha >= 1 };
 }
 
+/** 색으로 읽히고 완전히 투명하지 않은 값인지. rgba(0, 0, 0, 0) 은 색을 쓴 것이 아니다. */
+export function isVisibleColor(value) {
+  const color = parseColor(value);
+  return color !== null && color.alpha > 0;
+}
+
 /**
  * 색을 세거나 묶을 때 쓰는 이름. 표기가 달라도 같은 색이면 같은 이름이 된다.
  * 불투명한 색은 normalizeColor 와 같고, 반투명한 색은 #rrggbbaa 다. 색이 아니면 소문자로만 맞춘다.
@@ -89,7 +95,7 @@ export function normalizeColor(value) {
 export function findColorValues(text, { named = false } = {}) {
   const matches = [...text.matchAll(COLOR_VALUE), ...(named ? text.matchAll(NAMED_VALUE) : [])];
   return matches
-    .filter((match) => parseColor(match[0]) !== null)
+    .filter((match) => isVisibleColor(match[0]))
     .sort((a, b) => a.index - b.index)
     .map((match) => ({ index: match.index, text: match[0], value: match[0] }));
 }
