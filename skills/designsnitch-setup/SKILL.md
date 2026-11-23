@@ -11,10 +11,11 @@ Create the file when it is missing. This does not need the user's approval: it o
 
 ## 0. Check that the project is supported, and install the package
 
-designsnitch supports React or Next.js projects that use Tailwind CSS v4. Look at `package.json` and the global CSS file.
+designsnitch supports React or Next.js projects that use Tailwind CSS. Look at `package.json` and the global CSS file.
 
-- Tailwind v4 has `tailwindcss` version 4 in `package.json` and `@import "tailwindcss"` in a CSS file.
-- If the project uses Tailwind v3 (a `tailwind.config.js` with a `theme` section and no `@theme` in CSS), or does not use Tailwind or React at all, stop and tell the user that designsnitch does not support it yet.
+- Tailwind v4 has `tailwindcss` version 4 in `package.json` and `@import "tailwindcss"` in a CSS file. This is the full case.
+- Tailwind v3 has `tailwindcss` version 3, `@tailwind base` in a CSS file and its colors in `tailwind.config.js`. It is checked too: point `tokens` at the CSS file, and the `tailwind.config.js` in the same directory as `designsnitch.config.json` is read. Tell the user what is different: v3 has no CSS variables for its colors, so colors written by hand in CSS declarations and inline styles are reported without a candidate, and the `designsnitch-palette` skill, which writes `@theme` tokens, does not apply. New colors go into `tailwind.config.js`, with the user's approval.
+- If the project does not use Tailwind or React at all, stop and tell the user that designsnitch does not support it yet.
 
 Then make sure the package is a dependency of the project. The commands below and the agent hook both run `npx designsnitch`, which should use the project's own copy.
 

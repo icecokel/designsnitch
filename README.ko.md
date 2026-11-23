@@ -21,7 +21,7 @@ designsnitch는 디자인 시스템이 없거나 이름뿐인 프로젝트에서
 | ESLint 플러그인 | 막고 경고합니다. 같은 규칙이 에디터와 lint 단계에서 오류와 경고로 나옵니다. |
 | 에이전트 훅 | 코드를 쓰는 동안 막습니다. 에이전트는 파일을 고칠 때마다 오류를 전달받고, 스스로 고칠 수 있는 오류가 남아 있으면 작업을 끝내지 못합니다. |
 
-**Tailwind CSS v4를 쓰는 React/Next.js 프로젝트**를 지원합니다.
+**Tailwind CSS v4를 쓰는 React/Next.js 프로젝트**를 지원합니다. Tailwind v3 프로젝트도 검사하지만 후보가 적습니다([Tailwind v3](#tailwind-v3) 참고).
 
 > **상태:** MVP(0.4.x). 지금은 색과 공용 컴포넌트를 검사합니다. 간격, 폰트 크기, radius는 아직 검사하지 않습니다([검사 범위](#검사-범위) 참고). 메시지는 기본이 영어이고 한국어로 바꿀 수 있습니다. 이 문서의 출력 예시는 한국어로 설정했을 때의 모습입니다. [언어](#언어)를 보세요.
 
@@ -98,7 +98,7 @@ Codex, Gemini CLI, Grok Build는 새 프로젝트 훅을 승인하거나 프로�
 | `color-unknown` | 경고 | 직접 쓴 색인데 맞는 토큰이 없음 |
 | `use-ds-component` | 오류 | 공용 컴포넌트가 대체하는 `<button>` 같은 raw 태그를 디자인 시스템 경로 밖에서 씀 |
 
-직접 쓴 색이란 hex, 그리고 숫자를 그대로 적은 `rgb()`, `hsl()`, `oklch()`입니다. 표기는 상관없습니다. `#3B82F6`, `rgb(59 130 246)`, `hsl(217 91% 60%)`는 검사에서 같은 색입니다.
+직접 쓴 색이란 hex, 숫자를 그대로 적은 색 함수(`rgb()`, `hsl()`, `oklch()`), `white` 같은 색 이름입니다. 표기는 상관없습니다. `#3B82F6`, `rgb(59 130 246)`, `hsl(217 91% 60%)`는 검사에서 같은 색입니다.
 
 오류에는 대신 쓸 것이 함께 나옵니다. JS와 TS 파일에서는 클래스나 컴포넌트이고, 인라인 스타일과 CSS 파일에서는 `var(--토큰)`입니다. Tailwind v4는 소스에서 `var()`로 쓴 테마 변수를 출력하므로, 인라인 스타일의 `var(--토큰)`도 같은 색으로 보입니다.
 
@@ -244,7 +244,13 @@ Tailwind 기본 팔레트
 
 - **import한 CSS.** 토큰 CSS가 다른 CSS 파일을 불러오면(`@import "../brand/theme.css"`나 패키지) 그 파일의 `@theme` 토큰도 읽습니다.
 - **접두어.** `@import "tailwindcss" prefix(tw)`를 쓰면 Tailwind가 CSS 변수 이름을 `--tw-color-*`로 만들므로, `var()` 후보도 그렇게 적습니다. 클래스 후보는 `tw:` 뒤의 부분만 바꿉니다.
-- **JavaScript 설정.** `@config "./tailwind.config.js"`가 있으면 `theme.extend.colors`(프리셋 포함)의 색이 토큰이 되고, `theme.colors`는 기본 팔레트를 대체합니다. Tailwind v4의 동작과 같습니다. 이 색들은 클래스로만 있습니다. Tailwind가 CSS 변수를 만들지 않으므로 인라인 스타일이나 CSS 선언의 후보로는 내지 않습니다. 설정을 읽으려면 그 파일을 실행하므로, 그 파일이 require하는 것이 설치돼 있어야 합니다. 불러오지 못하면 결과의 `problems`에 알립니다.
+- **JavaScript 설정.** `@config "./tailwind.config.js"`가 있으면 `theme.extend.colors`(프리셋 포함)의 색이 토큰이 되고, `theme.colors`는 기본 팔레트를 대체합니다. Tailwind v4의 동작과 같습니다. 이 색들은 클래스로만 있습니다. Tailwind가 CSS 변수를 만들지 않기 때문입니다. 인라인 스타일이나 CSS 선언에 직접 쓰면 오류로 알리되 후보는 없고, 어떻게 할지는 사람이 정합니다. 설정을 읽으려면 그 파일을 실행하므로, 그 파일이 require하는 것이 설치돼 있어야 합니다. 불러오지 못하면 결과의 `problems`에 알립니다.
+
+### Tailwind v3
+
+v3 프로젝트는 색을 `tailwind.config.js`에 두고, CSS는 `@tailwind base`로 시작합니다. `tokens`는 평소처럼 CSS 파일을 가리키면 됩니다. 그 CSS가 `@tailwind`를 쓰면 `designsnitch.config.json` 옆의 `tailwind.config.js`(또는 `.cjs`, `.mjs`, `.ts`)를 읽습니다. `tokens`에 설정 파일을 직접 적어도 됩니다. `"palette": "tailwind"`는 v3 팔레트를 `tailwindcss/colors`에서 읽습니다.
+
+v3는 색에 CSS 변수를 만들지 않으므로 모든 토큰이 클래스 전용입니다. 임의 값 색 클래스에는 토큰 클래스를 후보로 내고, CSS 선언과 인라인 스타일에 직접 쓴 색은 후보 없이 알립니다.
 
 ## 언어
 
@@ -349,7 +355,7 @@ src/PayButton.tsx
 | `violations[].candidates` | 대신 쓸 클래스나 컴포넌트. 없으면 빈 배열입니다. |
 | `violations[].recommended` | 색을 쓰는 용도에 맞는 후보입니다. `text-` 클래스면 텍스트용 이름의 토큰, 테두리면 테두리용 이름의 토큰입니다. 맞는 후보가 정확히 하나일 때만 채우고, 추천일 뿐이라 `ask`는 그대로 `ask`입니다. `replace`와 `migrate`면 그 후보입니다. |
 | `violations[].action` | 이 위반을 어떻게 다룰지입니다. `replace`: `found`를 하나뿐인 후보로 바꿔도 화면과 동작이 같습니다. 색 오류만 해당합니다. `migrate`: raw 태그를 옮길 디자인 시스템 컴포넌트가 하나뿐입니다. 컴포넌트가 같은 props를 넘기는지, 기본 스타일이 같은지는 도구가 알 수 없으므로 컴포넌트를 먼저 읽고 태그의 props를 옮기고 컴포넌트가 이미 주는 클래스는 지웁니다. 에이전트가 스스로 할 수 있는 일이라 훅은 `replace`처럼 다룹니다. `ask`: 사람이 정해야 합니다. 후보가 여러 개이거나, 토큰이 없는 색이거나, 테마마다 값이 다른 토큰이거나, 컴포넌트의 속성이 동적이거나 spread된 경우입니다. `repair`: 파일을 읽지 못했습니다. |
-| `decisions` | `ask`인 위반을 질문 단위로 묶은 것입니다. 색이나 태그와 후보가 같으면 하나로 묶습니다. 각 항목에 얼마나 나오는지(`uses`, `files`), 위치 최대 다섯 곳(`locations`), 후보(`candidates`), 모든 위치에서 추천이 같을 때의 추천(`recommended`), 사람이 정해야 하는 이유(`reasons`: `multiple-candidates`, `no-token`, `themed-token`, `dynamic-props`)가 있습니다. 많이 나오는 순서입니다. |
+| `decisions` | `ask`인 위반을 질문 단위로 묶은 것입니다. 색이나 태그와 후보가 같으면 하나로 묶습니다. 각 항목에 얼마나 나오는지(`uses`, `files`), 위치 최대 다섯 곳(`locations`), 후보(`candidates`), 모든 위치에서 추천이 같을 때의 추천(`recommended`), 사람이 정해야 하는 이유(`reasons`: `multiple-candidates`, `no-token`, `themed-token`, `class-only-token`, `dynamic-props`)가 있습니다. 많이 나오는 순서입니다. |
 | `next` | 이 결과를 받은 에이전트가 할 일을 순서대로 적은 것 |
 | `unchecked` | 검사하지 못한 다른 문자열 속 색의 개수(`colors`)와 파일 수(`files`). 하나라도 있으면 글 출력에 한 줄이 붙습니다. |
 
@@ -505,12 +511,16 @@ Tailwind 기본 팔레트(`bg-slate-100`, `text-indigo-600`)를 기준으로 쓰
 
 ### 아직 안 되는 것
 
-- 반투명한 색(`#3B82F680`, `rgb(0 0 0 / 50%)`). 불투명한 색에 토큰이 있어도 토큰 없는 색으로 보고합니다.
-- 이름으로 적은 색(`white`, `red`)과 그 밖의 표기(`hwb()`, `lab()`, `lch()`, `oklab()`, `color()`)
-- sRGB 밖의 `oklch()` 색은 같은 `oklch()` 값의 토큰과만 맞춥니다. 같은 색을 내는 hex가 없기 때문입니다.
-- Tailwind 플러그인이 더하는 색, 토큰 CSS에서 `@config`로 불러오지 않는 JavaScript 설정
+감지는 하지만 토큰과 맞추지는 못하는 것:
+
+- 반투명한 색(`#3B82F680`, `rgb(0 0 0 / 50%)`)은 불투명한 색에 토큰이 있어도 토큰 없는 색으로 알립니다.
+- Tailwind 플러그인이 더하는 색은 토큰으로 알지 못합니다. 그 색을 직접 쓰면 토큰 없는 색으로 알립니다.
+- `hwb()`, `lab()`, `lch()`, `oklab()`, `color()` 값과 sRGB 밖의 `oklch()` 색은 같은 값으로 적은 토큰과만 맞춥니다. 같은 색을 내는 hex가 없기 때문입니다.
+- 색 이름은 색 속성(`color`, `background`, `border` 등), 임의 값 클래스(`bg-[white]`), 값 전체가 색 이름인 변수 선언에서만 읽습니다. 다른 곳의 `red` 같은 단어는 색으로 보지 않습니다.
+
+검사하지 않는 것:
+
 - 색 팔레트를 뺀 Tailwind 기본 테마의 값
-- Tailwind v3
 - 토큰이 없는 색에 가장 가까운 토큰 제시
 - JSX `style` 속성 밖의 스타일 객체. 예: `const style = { color: "#fff" }`
 - SCSS 같은 전처리기

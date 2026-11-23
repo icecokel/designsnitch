@@ -21,7 +21,7 @@ It has four parts.
 | ESLint plugin | Blocks and warns. The same rules show up as errors and warnings in the editor and in the lint step. |
 | Agent hook | Blocks while the code is being written. The agent is told about errors after each edit and cannot finish while errors it can fix remain. |
 
-It supports **React/Next.js projects that use Tailwind CSS v4**.
+It supports **React/Next.js projects that use Tailwind CSS v4**. Tailwind v3 projects are checked too, with fewer candidates (see [Tailwind v3](#tailwind-v3)).
 
 > **Status:** MVP (0.4.x). It checks colors and shared components for now. Spacing, font size and radius are not checked yet (see [Scope](#scope)). Messages are in English by default and can be switched to Korean. See [Language](#language).
 
@@ -98,7 +98,7 @@ Severity follows one rule.
 | `color-unknown` | Warning | A color written by hand with no matching token |
 | `use-ds-component` | Error | A raw tag such as `<button>` used outside the design system directory, when a shared component replaces it |
 
-A color written by hand is a hex color, or `rgb()`, `hsl()` or `oklch()` with literal numbers. Notation does not matter: `#3B82F6`, `rgb(59 130 246)` and `hsl(217 91% 60%)` are the same color to the check.
+A color written by hand is a hex color, a color function with literal numbers (`rgb()`, `hsl()`, `oklch()`), or a color name such as `white`. Notation does not matter: `#3B82F6`, `rgb(59 130 246)` and `hsl(217 91% 60%)` are the same color to the check.
 
 Every error comes with what to use instead: a class or component in JS and TS files, and `var(--token)` in inline styles and CSS files. Tailwind v4 outputs a theme variable when the source uses it with `var()`, so `var(--token)` in an inline style renders the same color.
 
@@ -243,7 +243,13 @@ Tokens are also read from where Tailwind itself reads them.
 
 - **Imported CSS.** If the token CSS imports other CSS files (`@import "../brand/theme.css"`, or a package), their `@theme` tokens are read too.
 - **A prefix.** With `@import "tailwindcss" prefix(tw)`, Tailwind names its CSS variables `--tw-color-*`, so `var()` candidates are written that way. Class candidates replace only the part after `tw:`.
-- **A JavaScript config.** With `@config "./tailwind.config.js"`, colors in `theme.extend.colors` (and in presets) become tokens, and `theme.colors` replaces the default palette, as Tailwind v4 does. These colors exist only as classes: Tailwind makes no CSS variable for them, so they are not offered for inline styles or CSS declarations. Loading the config runs it, so what it requires must be installed. If it cannot be loaded, the result says so in `problems`.
+- **A JavaScript config.** With `@config "./tailwind.config.js"`, colors in `theme.extend.colors` (and in presets) become tokens, and `theme.colors` replaces the default palette, as Tailwind v4 does. These colors exist only as classes: Tailwind makes no CSS variable for them. Writing one by hand in an inline style or a CSS declaration is still reported as an error, with no candidate, and a person decides what to do. Loading the config runs it, so what it requires must be installed. If it cannot be loaded, the result says so in `problems`.
+
+### Tailwind v3
+
+A v3 project keeps its colors in `tailwind.config.js`, and its CSS starts with `@tailwind base`. Point `tokens` at the CSS file as usual: when it uses `@tailwind`, the `tailwind.config.js` (or `.cjs`, `.mjs`, `.ts`) next to `designsnitch.config.json` is read. You can also point `tokens` straight at the config file. `"palette": "tailwind"` reads the v3 palette from `tailwindcss/colors`.
+
+v3 makes no CSS variables for its colors, so every token is class-only: arbitrary color classes get token classes as candidates, and colors written by hand in CSS declarations and inline styles are reported without a candidate.
 
 ## Language
 
@@ -348,7 +354,7 @@ The first line shows how many tokens and components were read from the config. A
 | `violations[].candidates` | The classes or components to use instead. Empty when there are none. |
 | `violations[].recommended` | The candidate that fits how the color is used: a `text-` class gets the token named for text, a border gets the one named for borders. Only set when exactly one candidate fits, and only a suggestion: an `ask` stays an `ask`. For `replace` and `migrate`, it is the candidate. |
 | `violations[].action` | How to handle the violation. `replace`: replacing `found` with the only candidate keeps the screen and the behavior the same. Only color errors get this. `migrate`: a raw tag with exactly one design system component to move to. The tool cannot tell whether the component passes on the same props or renders the same default styles, so read the component first, then move the tag's props and drop classes the component already applies. The agent can do this itself, so the hook treats it like `replace`. `ask`: a person has to decide: several candidates, a color with no token, a token whose value differs between themes, or a component whose props are dynamic or spread. `repair`: the file could not be parsed. |
-| `decisions` | The `ask` violations grouped into questions: one per color or tag with the same candidates. Each has how often it comes up (`uses`, `files`), up to five `locations`, the `candidates`, a `recommended` candidate when every location agrees, and the `reasons` a person has to decide: `multiple-candidates`, `no-token`, `themed-token` or `dynamic-props`. Most used first. |
+| `decisions` | The `ask` violations grouped into questions: one per color or tag with the same candidates. Each has how often it comes up (`uses`, `files`), up to five `locations`, the `candidates`, a `recommended` candidate when every location agrees, and the `reasons` a person has to decide: `multiple-candidates`, `no-token`, `themed-token`, `class-only-token` or `dynamic-props`. Most used first. |
 | `next` | What an agent should do with this result, in order |
 | `unchecked` | Colors in other strings that were not checked (`colors`), and how many files they are in (`files`). The text output adds a line when there are any. |
 
@@ -504,12 +510,16 @@ Without `palette`, designsnitch does not flag default palette classes, and does 
 
 ### Not supported yet
 
-- Translucent colors (`#3B82F680`, `rgb(0 0 0 / 50%)`). They are reported as colors with no token, even when the opaque color has one.
-- Named colors (`white`, `red`) and other notations (`hwb()`, `lab()`, `lch()`, `oklab()`, `color()`)
-- `oklch()` colors outside sRGB match only a token with the same `oklch()` value, since no hex color renders the same.
-- Colors a Tailwind plugin adds, and a JavaScript config that is not loaded from the token CSS with `@config`
+These are detected, but not matched to a token:
+
+- Translucent colors (`#3B82F680`, `rgb(0 0 0 / 50%)`) are reported as colors with no token, even when the opaque color has one.
+- Colors a Tailwind plugin adds are not known as tokens, so writing one by hand is reported as a color with no token.
+- `hwb()`, `lab()`, `lch()`, `oklab()` and `color()` values, and `oklch()` colors outside sRGB, match only a token written with the same value: no hex color renders the same.
+- Color names are read in color properties (`color`, `background`, `border`, ...), in arbitrary classes (`bg-[white]`), and as a whole custom property value. Elsewhere a word such as `red` is not taken for a color.
+
+These are not checked:
+
 - Values from Tailwind's default theme other than the color palette
-- Tailwind v3
 - The nearest token for a color that has none
 - Style objects outside a JSX `style` attribute, such as `const style = { color: "#fff" }`
 - SCSS and other preprocessors

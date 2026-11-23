@@ -71,14 +71,14 @@ The exit code is 0 (no errors), 1 (errors found), or 2 (could not run). On 2, re
 - `action` says how to handle each violation. Section 3 covers each value.
 - `found` is the offending piece of code. `candidates` lists what to use instead: classes or components in JS and TS files, and `var(--token)` in inline styles and `.css` files.
 - `recommended` is the candidate whose token is named for how the color is used here, such as the text token for a `text-` class. It is a suggestion to put in front of the user, not permission to replace.
-- `decisions` groups every `ask` violation into questions: one per color or tag with the same candidates, most used first. Each has `uses`, `files`, up to five `locations`, the `candidates`, a `recommended` candidate when all locations agree, and `reasons` (`multiple-candidates`, `no-token`, `themed-token`, `dynamic-props`). Ask the user about decisions, not about single violations.
+- `decisions` groups every `ask` violation into questions: one per color or tag with the same candidates, most used first. Each has `uses`, `files`, up to five `locations`, the `candidates`, a `recommended` candidate when all locations agree, and `reasons` (`multiple-candidates`, `no-token`, `themed-token`, `class-only-token`, `dynamic-props`). Ask the user about decisions, not about single violations.
 - `unchecked` counts colors in other strings, such as theme objects and chart options, that the check could not judge. They are not violations. If the count is large and those strings feed the UI, mention it to the user: `npx designsnitch colors` lists them.
 - `designSystem` counts the tokens and components read from the config. `paletteColors` is the number of Tailwind default palette colors in the standard, when the config has `"palette": "tailwind"`. `colorTokens` 0 means the project has no color tokens that can be read: follow the `designsnitch-palette` skill to establish them before touching any color.
 - A non-empty `problems` means the config is broken and the results cannot be trusted. Tell the user before fixing anything.
 
 | `rule` | Severity | Meaning |
 | --- | --- | --- |
-| `color-use-token` | error | A color that has a token was written by hand (hex, `rgb()`, `hsl()` or `oklch()`): as an arbitrary value, in an inline style, in a CSS declaration or in `@apply`. |
+| `color-use-token` | error | A color that has a token was written by hand (hex, a color function such as `rgb()`, or a color name such as `white`): as an arbitrary value, in an inline style, in a CSS declaration or in `@apply`. |
 | `color-unknown` | warning | A color written by hand with no matching token. |
 | `use-ds-component` | error | A raw tag was used outside the design system directory although a shared component replaces it. |
 | `parse-error` | error | The file could not be parsed. |
@@ -89,7 +89,7 @@ The exit code is 0 (no errors), 1 (errors found), or 2 (could not run). On 2, re
 | --- | --- | --- |
 | `replace` | A color error whose only candidate keeps the screen and the behavior the same. | Replace `found` with the candidate. |
 | `migrate` | A raw tag with exactly one design system component to move to. Whether the component behaves like the tag is not known. | Move the tag to the component as described below. If the component cannot do what the tag did, such as a missing prop or a different element, do not force it: ask the user. |
-| `ask` | A person has to decide: several candidates, a color that has no token, a token whose value differs between themes, or a component whose props are dynamic or spread. `message` says which. | Do not change it. Ask the user as described in section 4. |
+| `ask` | A person has to decide: several candidates, a color that has no token, a token whose value differs between themes, a token that exists only as a class (no CSS variable to use in a style or a CSS declaration), or a component whose props are dynamic or spread. `message` says which. | Do not change it. Ask the user as described in section 4. |
 | `repair` | The file could not be parsed. | Fix the syntax error, then check again. |
 
 For `migrate`, replacing means more than renaming the tag. Read the design system component file to learn its props, add the import, pass on the tag's props the component accepts, and remove className values that duplicate styles the component already has. Check that event handlers such as `onClick` and attributes such as `type` still reach the rendered element.
