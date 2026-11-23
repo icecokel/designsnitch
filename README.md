@@ -117,7 +117,7 @@ The steps above set designsnitch up in the project, so everyone on the team gets
 
 What you give up: the ESLint plugin and CI need the package in the project, so nothing stops a teammate's code or a teammate's agent. Each command is fetched by `npx` the first time and runs from its cache after that (about half a second per hook call).
 
-How this was checked: `check` and `hook` were run in a project with no `node_modules`, the skills were installed with `-g` into a clean home directory, and a real Claude Code session with the hook registered outside the project rewrote `bg-[#3B82F6]` to the token class. The hook was passed with `--settings` for that run, not written to `~/.claude/settings.json`. Codex was not run this way.
+How this was checked: `check` and `hook` were run in a project with no `node_modules`, the skills were installed with `-g` into a clean home directory, and real Claude Code and Codex sessions with the hook registered outside the project wrote `bg-[#3B82F6]`, were stopped by the hook, and switched to the token class. Those runs did not touch the real user settings: Claude Code got the hook through `--settings`, and Codex ran with a temporary Codex home that had the same `hooks.json`. Codex runs a new hook only after you approve it.
 
 ## What it catches
 
