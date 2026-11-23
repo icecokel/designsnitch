@@ -32,7 +32,7 @@ npm install --save-dev designsnitch
 npx designsnitch install
 ```
 
-두 번째 명령은 에이전트 스킬을 설치하고 에이전트 훅을 등록합니다. Node.js 22 이상이 필요합니다.
+두 번째 명령은 에이전트 스킬을 설치하고 에이전트 훅을 등록합니다. Node.js 20.19 이상이 필요합니다.
 
 | 에이전트 | 명령 | 스킬 위치 | 훅 위치 |
 | --- | --- | --- | --- |

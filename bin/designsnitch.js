@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
-const MINIMUM_NODE_MAJOR = 22;
+// ESLint 10 의 최소 버전과 같다. 이보다 낮으면 ESM 으로 쓴 Tailwind 설정을 require 로 읽지 못한다.
+const MINIMUM_NODE = [20, 19];
 
 /** @param {string} version process.versions.node 와 같은 형식의 버전 */
 export function isSupportedNodeVersion(version) {
-  return Number(version.split(".", 1)[0]) >= MINIMUM_NODE_MAJOR;
+  const [major, minor] = version.split(".").map(Number);
+  return major > MINIMUM_NODE[0] || (major === MINIMUM_NODE[0] && minor >= MINIMUM_NODE[1]);
 }
 
 const version = process.versions.node;
@@ -30,7 +32,7 @@ async function main() {
     }
     const { messages, resolveLang } = await import("../src/messages.js");
     const message = messages(resolveLang(flagLang)).nodeVersionUnsupported;
-    process.stderr.write(`${message({ minimum: MINIMUM_NODE_MAJOR, version })}\n`);
+    process.stderr.write(`${message({ minimum: MINIMUM_NODE.join("."), version })}\n`);
     process.exitCode = 2;
     return;
   }

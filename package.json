@@ -26,7 +26,7 @@
     "designsnitch": "bin/designsnitch.js"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=20.19"
   },
   "repository": {
     "type": "git",

@@ -32,7 +32,7 @@ npm install --save-dev designsnitch
 npx designsnitch install
 ```
 
-The second command installs the agent skills and registers the agent hook. Node.js 22 or later is required.
+The second command installs the agent skills and registers the agent hook. Node.js 20.19 or later is required.
 
 | Agent | Command | Skills go to | Hook goes to |
 | --- | --- | --- | --- |

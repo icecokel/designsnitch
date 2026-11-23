@@ -5,16 +5,19 @@ import { expect, it } from "vitest";
 import { formatText } from "../src/format.js";
 import { tempProject } from "./temp-project.js";
 
-it("Node 주 버전이 22 이상이면 실행할 수 있다", async () => {
+it("Node 20.19 이상이면 실행할 수 있다. ESLint 10 의 최소 버전과 같다", async () => {
   const { isSupportedNodeVersion } = await import("../bin/designsnitch.js");
 
-  expect(isSupportedNodeVersion("20.19.0")).toBe(false);
-  expect(isSupportedNodeVersion("21.7.3")).toBe(false);
+  expect(isSupportedNodeVersion("18.20.4")).toBe(false);
+  expect(isSupportedNodeVersion("20.18.3")).toBe(false);
+  expect(isSupportedNodeVersion("20.19.0")).toBe(true);
+  expect(isSupportedNodeVersion("20.20.2")).toBe(true);
+  expect(isSupportedNodeVersion("21.7.3")).toBe(true);
   expect(isSupportedNodeVersion("22.0.0")).toBe(true);
   expect(isSupportedNodeVersion("24.0.0")).toBe(true);
 });
 
-it("Node 22 미만에서는 CLI를 불러오기 전에 선택한 언어로 알리고 2로 끝난다", () => {
+it("Node 20.19 미만에서는 CLI를 불러오기 전에 선택한 언어로 알리고 2로 끝난다", () => {
   const cwd = tempProject({
     "package.json": '{ "type": "module" }',
     "bin/designsnitch.js": fs.readFileSync(new URL("../bin/designsnitch.js", import.meta.url)),
@@ -23,7 +26,7 @@ it("Node 22 미만에서는 CLI를 불러오기 전에 선택한 언어로 알�
   const bin = path.join(cwd, "designsnitch");
   fs.symlinkSync("bin/designsnitch.js", bin);
   const overrideVersion = `data:text/javascript,${encodeURIComponent(
-    'Object.defineProperty(process.versions, "node", { value: "20.19.0" });',
+    'Object.defineProperty(process.versions, "node", { value: "20.18.3" });',
   )}`;
 
   // CLI 파일이 없어도 버전 안내까지는 실행되어야 한다.
@@ -34,9 +37,9 @@ it("Node 22 미만에서는 CLI를 불러오기 전에 선택한 언어로 알�
     });
 
   for (const [args, message] of [
-    [[], "Node.js 22 이상이 필요합니다(현재 버전: 20.19.0).\n"],
-    [["--lang", "en"], "Node.js 22 or later is required (current version: 20.19.0).\n"],
-    [["--lang=en"], "Node.js 22 or later is required (current version: 20.19.0).\n"],
+    [[], "Node.js 20.19 이상이 필요합니다(현재 버전: 20.18.3).\n"],
+    [["--lang", "en"], "Node.js 20.19 or later is required (current version: 20.18.3).\n"],
+    [["--lang=en"], "Node.js 20.19 or later is required (current version: 20.18.3).\n"],
   ]) {
     const result = run(...args);
     expect(result.status).toBe(2);
