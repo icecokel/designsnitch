@@ -26,7 +26,7 @@ A skill is advice: an agent may or may not follow it. A hook is run by the agent
 
 ## 1. Register the hook in Claude Code
 
-Run the installer. It adds the hook to `.claude/settings.json`, keeps any hooks and settings that are already there, and can be run again safely.
+Run the installer. It adds the hook to `.claude/settings.json`, allows the two read-only commands the skills run, keeps any hooks and settings that are already there, and can be run again safely.
 
 ```sh
 npx designsnitch install
@@ -55,9 +55,14 @@ If you need to do it by hand, this is what it adds to `.claude/settings.json`.
         "hooks": [{ "type": "command", "command": "npx designsnitch hook" }]
       }
     ]
+  },
+  "permissions": {
+    "allow": ["Bash(npx designsnitch check *)", "Bash(npx designsnitch colors *)"]
   }
 }
 ```
+
+The `permissions` part lets Claude Code run `npx designsnitch check` and `npx designsnitch colors` without asking each time. Both only read files. Claude Code uses these rules only in a project whose trust prompt the user has accepted. If the check command still waits for approval, the project was never opened in the terminal and trusted: tell the user that, do not work around it.
 
 `.claude/settings.json` is shared with the team through git, so the hook applies to everyone who uses Claude Code in this project. If the user wants the hook only for themselves, do not run the installer: add the entries above to `.claude/settings.local.json` by hand.
 

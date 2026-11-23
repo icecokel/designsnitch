@@ -142,7 +142,7 @@ Every error comes with what to use instead: a class or component in JS and TS fi
 
 | Command | What it does |
 | --- | --- |
-| `designsnitch install` | Copies the skills and registers the agent hook in the project. `--agent claude` (default), `codex`, `gemini`, `grok` or `all`. |
+| `designsnitch install` | Copies the skills and registers the agent hook in the project. For Claude Code it also allows the `check` and `colors` commands. `--agent claude` (default), `codex`, `gemini`, `grok` or `all`. |
 | `designsnitch colors` | Lists the colors the code uses. Works without a config file. |
 | `designsnitch check` | Checks code against the standard and says what to do with each violation. |
 | `designsnitch hook` | Called from the agent's hook. Checks the files the agent just changed. |
@@ -512,9 +512,16 @@ A skill is advice that an agent may not follow. A hook is run by the agent's run
         "hooks": [{ "type": "command", "command": "npx designsnitch hook" }]
       }
     ]
+  },
+  "permissions": {
+    "allow": ["Bash(npx designsnitch check *)", "Bash(npx designsnitch colors *)"]
   }
 }
 ```
+
+The `permissions` part lets Claude Code run the two commands the skills use, `check` and `colors`, without asking each time. Both only read files. Rules that are already there are kept, and nothing is added when a wider rule such as `Bash(npx designsnitch *)` covers them.
+
+Claude Code uses allow rules from a project's `.claude/settings.json` only after you have accepted its trust prompt for that project, which it shows the first time you open the project in the terminal. In a project that was never opened that way, for example in `claude -p` on a fresh checkout, it drops them and the agent is asked again. There, pass `--allowedTools "Bash(npx designsnitch check *)"`. Checked with Claude Code 2.1.329: with the rule, the command ran without a prompt in a trusted folder and was denied in an untrusted one.
 
 `designsnitch hook` checks only the files the agent just changed, and blocks only errors the change added.
 

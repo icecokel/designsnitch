@@ -152,6 +152,8 @@ const en = {
   skillsCopied: ({ n, dir }) => `Copied ${count(n, "skill")} to ${dir}.`,
   hookRegistered: ({ file }) => `Registered the hook in ${file}.`,
   hookAlready: ({ file }) => `The hook is already registered in ${file}.`,
+  commandsAllowed: ({ file }) =>
+    `Allowed the check commands (npx designsnitch check, colors) in ${file}, so the agent can run them without asking.`,
   codexTrust: () =>
     "Codex runs project hooks only in a trusted project, and only hooks you have approved. Open Codex in this project and approve the project and the hook when it asks.",
   geminiTrust: () =>
@@ -300,6 +302,7 @@ const ko = {
   skillsCopied: ({ n, dir }) => `스킬 ${n}개를 ${dir} 에 복사했습니다.`,
   hookRegistered: ({ file }) => `훅을 ${file} 에 등록했습니다.`,
   hookAlready: ({ file }) => `훅은 이미 ${file} 에 등록되어 있습니다.`,
+  commandsAllowed: ({ file }) => `검사 명령(npx designsnitch check, colors)을 ${file} 의 허용 목록에 넣었습니다.`,
   codexTrust: () =>
     "Codex는 신뢰한 프로젝트에서, 사용자가 승인한 훅만 실행합니다. 이 프로젝트에서 Codex를 열고 프로젝트 신뢰와 훅 승인을 요청받으면 승인하세요.",
   geminiTrust: () =>

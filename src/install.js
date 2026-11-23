@@ -24,6 +24,8 @@ const AGENTS = {
     editTools: "Edit|Write|MultiEdit",
     hook: { type: "command", command: HOOK_COMMAND },
     approval: null,
+    // 검사와 색 수집은 읽기만 한다. 허용해 두지 않으면 에이전트가 스킬대로 실행하려다 승인을 기다리며 멈춘다.
+    allow: ["Bash(npx designsnitch check *)", "Bash(npx designsnitch colors *)"],
   },
   codex: {
     skillsDir: ".agents/skills",
@@ -98,12 +100,14 @@ export function install({ cwd, lang, agent = "claude" }) {
 
     const file = path.join(cwd, target.hooksFile);
     const added = addHooks(settings.get(target), target);
-    if (added) {
+    const allowed = target.allow ? addPermissions(settings.get(target), target.allow) : false;
+    if (added || allowed) {
       fs.mkdirSync(path.dirname(file), { recursive: true });
       fs.writeFileSync(file, `${JSON.stringify(settings.get(target), null, 2)}\n`);
     }
 
     lines.push(added ? m.hookRegistered({ file: target.hooksFile }) : m.hookAlready({ file: target.hooksFile }));
+    if (allowed) lines.push(m.commandsAllowed({ file: target.hooksFile }));
     if (added && target.approval) steps.push(m[target.approval]());
   }
 
@@ -124,6 +128,22 @@ function readJson(file, m) {
     // 아래에서 같은 오류로 알린다.
   }
   throw new Error(m.settingsUnreadable({ file }));
+}
+
+/**
+ * 읽기만 하는 명령을 권한 허용 목록에 더한다. 이미 있거나 더 넓게 허용돼 있으면 그대로 둔다. 더했으면 true.
+ * @param {Record<string, any>} settings
+ * @param {string[]} rules
+ */
+function addPermissions(settings, rules) {
+  const existing = settings.permissions?.allow;
+  const current = Array.isArray(existing) ? existing : [];
+  // 예: Bash(npx designsnitch *), Bash(npx designsnitch:*), Bash(npx *)
+  const covered = current.some((rule) => /^Bash\(npx(?: designsnitch)?\s*[:\s]?\*\)$/.test(rule));
+  const missing = covered ? [] : rules.filter((rule) => !current.includes(rule));
+  if (missing.length === 0) return false;
+  settings.permissions = { ...settings.permissions, allow: [...current, ...missing] };
+  return true;
 }
 
 /** 훅이 없는 이벤트에만 더한다. 하나라도 더했으면 true. */

@@ -13,6 +13,8 @@ const SKILLS = [
   "designsnitch-setup",
 ];
 const HOOK = { type: "command", command: "npx designsnitch hook" };
+// 검사와 색 수집은 읽기만 하는 명령이라, 에이전트가 승인을 기다리지 않고 실행할 수 있게 허용해 둔다.
+const ALLOW = ["Bash(npx designsnitch check *)", "Bash(npx designsnitch colors *)"];
 
 async function install(cwd, ...args) {
   let stdout = "";
@@ -39,6 +41,7 @@ describe("designsnitch install", () => {
       expect(copied).toBe(fs.readFileSync(path.resolve("skills", skill, "SKILL.md"), "utf8"));
     }
     expect(readSettings(cwd)).toEqual({
+      permissions: { allow: ALLOW },
       hooks: {
         PostToolUse: [{ matcher: "Edit|Write|MultiEdit", hooks: [HOOK] }],
         Stop: [{ hooks: [HOOK] }],
@@ -54,6 +57,7 @@ describe("designsnitch install", () => {
       [
         "스킬 5개를 .claude/skills 에 복사했습니다.",
         "훅을 .claude/settings.json 에 등록했습니다.",
+        "검사 명령(npx designsnitch check, colors)을 .claude/settings.json 의 허용 목록에 넣었습니다.",
         "",
         "다음에 할 일",
         "- 코딩 에이전트에게 \"이 프로젝트에 designsnitch를 설정해 줘\"라고 요청하세요. 토큰 CSS와 공용 컴포넌트를 찾아 designsnitch.config.json 을 만들고 ESLint에 규칙을 넣습니다.",
@@ -87,7 +91,7 @@ describe("designsnitch install", () => {
     const cwd = tempProject({ ".claude/settings.json": JSON.stringify(existing) });
     await install(cwd);
     expect(readSettings(cwd)).toEqual({
-      permissions: existing.permissions,
+      permissions: { allow: ["Bash(npm test)", ...ALLOW] },
       hooks: {
         PostToolUse: [...existing.hooks.PostToolUse, { matcher: "Edit|Write|MultiEdit", hooks: [HOOK] }],
         SessionStart: [...existing.hooks.SessionStart, { hooks: [HOOK] }],
@@ -109,6 +113,29 @@ describe("designsnitch install", () => {
     expect(fs.readFileSync(path.join(cwd, ".claude/skills/designsnitch-check/SKILL.md"), "utf8")).toContain(
       "name: designsnitch-check",
     );
+  });
+
+  it("두 번 실행해도 허용 규칙이 중복되지 않고, 이미 더 넓게 허용돼 있으면 그대로 둔다", async () => {
+    const installed = `{ "devDependencies": { "designsnitch": "^0.6.0" } }`;
+    const cwd = tempProject({ "package.json": installed });
+    await install(cwd);
+    const second = await install(cwd);
+    expect(readSettings(cwd).permissions.allow).toEqual(ALLOW);
+    expect(second.stdout).not.toContain("허용 목록에 넣었습니다");
+
+    const wide = tempProject({
+      "package.json": installed,
+      ".claude/settings.json": JSON.stringify({ permissions: { allow: ["Bash(npx designsnitch *)"], deny: ["Bash(rm *)"] } }),
+    });
+    await install(wide);
+    expect(readSettings(wide).permissions).toEqual({ allow: ["Bash(npx designsnitch *)"], deny: ["Bash(rm *)"] });
+  });
+
+  it("Claude Code 가 아닌 에이전트에는 허용 규칙을 넣지 않는다", async () => {
+    const cwd = tempProject({ "package.json": `{ "devDependencies": { "designsnitch": "^0.6.0" } }` });
+    const { stdout } = await install(cwd, "--agent", "codex");
+    expect(fs.existsSync(path.join(cwd, ".claude"))).toBe(false);
+    expect(stdout).not.toContain("허용 목록");
   });
 
   it("사용자가 만든 다른 스킬은 건드리지 않는다", async () => {
@@ -188,9 +215,10 @@ describe("designsnitch install --agent codex", () => {
     expect(Object.keys(JSON.parse(fs.readFileSync(path.join(cwd, ".grok/hooks/designsnitch.json"), "utf8")).hooks)).toEqual(["PostToolUse", "Stop"]);
     expect(fs.existsSync(path.join(cwd, ".grok/hooks/designsnitch.json"))).toBe(true);
     // Codex 와 Gemini CLI 는 같은 .agents/skills 를 읽으므로 한 번만 복사한다.
-    expect(stdout.split("\n").slice(0, 7)).toEqual([
+    expect(stdout.split("\n").slice(0, 8)).toEqual([
       "스킬 5개를 .claude/skills 에 복사했습니다.",
       "훅을 .claude/settings.json 에 등록했습니다.",
+      "검사 명령(npx designsnitch check, colors)을 .claude/settings.json 의 허용 목록에 넣었습니다.",
       "스킬 5개를 .agents/skills 에 복사했습니다.",
       "훅을 .codex/hooks.json 에 등록했습니다.",
       "훅을 .gemini/settings.json 에 등록했습니다.",

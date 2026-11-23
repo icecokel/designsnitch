@@ -142,7 +142,7 @@ Codex, Gemini CLI, Grok Build는 새 프로젝트 훅을 승인하거나 프로�
 
 | 명령 | 하는 일 |
 | --- | --- |
-| `designsnitch install` | 스킬을 복사하고 에이전트 훅을 프로젝트에 등록합니다. `--agent claude`(기본), `codex`, `gemini`, `grok`, `all`을 받습니다. |
+| `designsnitch install` | 스킬을 복사하고 에이전트 훅을 프로젝트에 등록합니다. Claude Code에는 `check`와 `colors` 명령도 허용해 둡니다. `--agent claude`(기본), `codex`, `gemini`, `grok`, `all`을 받습니다. |
 | `designsnitch colors` | 코드가 쓰는 색을 모아 보여줍니다. 설정 파일이 없어도 됩니다. |
 | `designsnitch check` | 코드를 기준에 비춰 검사하고, 위반마다 무엇을 하면 되는지 알려줍니다. |
 | `designsnitch hook` | 에이전트의 훅에서 부릅니다. 에이전트가 방금 바꾼 파일을 검사합니다. |
@@ -513,9 +513,16 @@ CLI와 스킬은 AI 에이전트가 제대로 할 수 있는 상태를 만들어
         "hooks": [{ "type": "command", "command": "npx designsnitch hook" }]
       }
     ]
+  },
+  "permissions": {
+    "allow": ["Bash(npx designsnitch check *)", "Bash(npx designsnitch colors *)"]
   }
 }
 ```
+
+`permissions`는 스킬이 쓰는 두 명령 `check`와 `colors`를 Claude Code가 매번 묻지 않고 실행하게 합니다. 둘 다 파일을 읽기만 합니다. 이미 있는 규칙은 그대로 두고, `Bash(npx designsnitch *)`처럼 더 넓은 규칙이 있으면 아무것도 더하지 않습니다.
+
+Claude Code는 프로젝트의 `.claude/settings.json`에 있는 허용 규칙을, 그 프로젝트의 신뢰 확인을 수락한 뒤에만 씁니다. 신뢰 확인은 터미널에서 프로젝트를 처음 열 때 나옵니다. 그렇게 열어 본 적이 없는 프로젝트에서는, 예를 들어 새로 받은 저장소에서 `claude -p`로 실행하면, 이 규칙을 버리고 다시 승인을 요청합니다. 그럴 때는 `--allowedTools "Bash(npx designsnitch check *)"`를 넘기세요. Claude Code 2.1.329에서 확인했습니다. 규칙이 있을 때 신뢰한 폴더에서는 묻지 않고 실행했고, 신뢰하지 않은 폴더에서는 거부됐습니다.
 
 `designsnitch hook`은 에이전트가 방금 바꾼 파일만 검사하고, 그 변경으로 새로 생긴 오류만 막습니다.
 
