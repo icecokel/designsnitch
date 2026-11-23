@@ -4,7 +4,7 @@ English | [Korean](./README.ko.md)
 
 **Not every developer gets to work with a good design system.**
 
-Some projects have no design system at all, and some have one in name only: a team with no designer, a product whose screens were built against a deadline, a token file that nobody follows. Tools that assume a well-kept design system have nothing to work with there.
+Some projects have no design system at all, and some have one in name only: a team with no designer, a product whose screens were built against a deadline, a token file (a file that gives colors names, such as `--color-primary: #3B82F6`) that nobody follows. Tools that assume a well-kept design system have nothing to work with there.
 
 AI agents make this grow faster. An agent produces a plausible screen in minutes, and with no standard to follow, every screen makes its own choices.
 
@@ -22,12 +22,34 @@ The result is a codebase that is hard to manage and a product that is hard to ke
 
 Deciding what the standard is stays with the developer. The tool does not decide for you. It brings what the decision needs, such as how often a color is used and whether a change would alter the screen, and asks.
 
+## An example
+
+Say the project has a color token, `--color-primary: #3b82f6`. An agent building a button writes the color by hand.
+
+```tsx
+<a className="rounded bg-[#3B82F6] px-4 py-2 text-white">Start</a>
+```
+
+Right after the agent edits the file, the designsnitch hook (a check that runs automatically every time the agent edits a file) sends it this.
+
+```text
+designsnitch: 1 design system error in the files you just changed.
+
+src/app/Hero.tsx:2:32  bg-[#3B82F6] has the same color as --color-primary. Use instead: bg-primary  [replace]
+```
+
+The agent cannot finish while this error remains, so it switches to the token class. The color is the same, so the screen does not change.
+
+```tsx
+<a className="rounded bg-primary px-4 py-2 text-white">Start</a>
+```
+
 ## What is in it
 
 | Part | What it is for |
 | --- | --- |
 | CLI | A tool for the AI agent. It collects the colors in use, checks code, and says what to do with each violation. |
-| Agent skills | Tell an AI agent how to set the project up, when to run the CLI, what to fix, and what to ask a person about. |
+| Agent skills | Instructions the agent reads and follows (Markdown files). They tell it how to set the project up, when to run the CLI, what to fix, and what to ask a person about. |
 | ESLint plugin | Blocks and warns. The same rules show up as errors and warnings in the editor and in the lint step. |
 | Agent hook | Blocks while the code is being written. The agent is told about new errors after each edit and cannot finish while errors it can replace right away remain. |
 
