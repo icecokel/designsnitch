@@ -119,3 +119,48 @@ describe("oklch 토큰", () => {
     );
   });
 });
+
+describe("변수의 스코프와 fallback", () => {
+  const read = (css) => {
+    const { colors, themed } = parseColorTokenData(css);
+    return { colors: Object.fromEntries(colors), themed: [...themed] };
+  };
+
+  it("특정 선택자 안에서만 선언된 --color-* 는 토큰이 아니다", () => {
+    expect(read(`.promo { --color-promo: #ff0000; }\n@theme { --color-brand: #3B82F6; }`)).toEqual({
+      colors: { "#3b82f6": ["--color-brand"] },
+      themed: [],
+    });
+  });
+
+  it(":root, html, :host 와 @layer 안의 :root 는 전역이다", () => {
+    const css = `:root { --color-a: #111111; }\nhtml { --color-b: #222222; }\n:root, :host { --color-c: #333333; }\n@layer base { :root { --color-d: #444444; } }`;
+    expect(Object.values(read(css).colors).flat()).toEqual(["--color-a", "--color-b", "--color-c", "--color-d"]);
+  });
+
+  it("전역 토큰을 특정 선택자나 미디어 쿼리에서 다시 선언하면 테마마다 값이 다른 토큰이다", () => {
+    const css = `@theme { --color-a: #ffffff; --color-b: #ffffff; }\n.dark { --color-a: #000000; }\n@media (prefers-color-scheme: dark) { :root { --color-b: #111111; } }`;
+    expect(read(css)).toEqual({
+      colors: { "#ffffff": ["--color-a", "--color-b"], "#000000": ["--color-a"], "#111111": ["--color-b"] },
+      themed: ["--color-a", "--color-b"],
+    });
+  });
+
+  it("가리키는 변수가 전역에 없으면 fallback 도 그 토큰의 값이다", () => {
+    const css = `.dark { --raw: #111111; }\n@theme { --color-surface: var(--raw, #ffffff); }`;
+    expect(read(css)).toEqual({
+      colors: { "#111111": ["--color-surface"], "#ffffff": ["--color-surface"] },
+      themed: ["--color-surface"],
+    });
+  });
+
+  it("가리키는 변수가 전역에 있으면 fallback 은 쓰이지 않는다", () => {
+    const css = `:root { --raw: #111111; }\n@theme { --color-surface: var(--raw, #ffffff); }`;
+    expect(read(css)).toEqual({ colors: { "#111111": ["--color-surface"] }, themed: [] });
+  });
+
+  it("가리키는 변수가 일부 선택자에만 있고 fallback 도 없으면, 값이 있는 곳과 없는 곳이 갈린다", () => {
+    const css = `.dark { --raw: #111111; }\n@theme { --color-surface: var(--raw); }`;
+    expect(read(css)).toEqual({ colors: { "#111111": ["--color-surface"] }, themed: ["--color-surface"] });
+  });
+});
