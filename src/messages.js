@@ -38,7 +38,7 @@ const en = {
   useTokenData: ({ found, tokens, candidates }) =>
     `${found} has the same color as ${tokens}. It is not in a style, so check that var() works where this value is used. Candidate: ${candidates}`,
   useTokenClassOnly: ({ found, tokens }) =>
-    `${found} has the same color as ${tokens}, but that token can only be used as a class: Tailwind makes no CSS variable for it.`,
+    `${found} has the same color as ${tokens}, but Tailwind makes no CSS variable for that token, so there is no var() to use here.`,
   unknownColor: ({ found }) => `The color of ${found} is not in the tokens.`,
   unknownCssColor: ({ value }) => `The color ${value} is not in the tokens.`,
   useComponent: ({ tag, component, path }) =>
@@ -193,7 +193,7 @@ const ko = {
   useTokenData: ({ found, tokens, candidates }) =>
     `${found}의 색은 토큰 ${tokens}의 값입니다. 스타일이 아닌 자리라서, 이 값을 쓰는 곳에서 var()가 통하는지 확인해야 합니다. 후보: ${candidates}`,
   useTokenClassOnly: ({ found, tokens }) =>
-    `${found}의 색은 토큰 ${tokens}의 값이지만, 이 토큰은 클래스로만 쓸 수 있습니다. Tailwind가 CSS 변수를 만들지 않습니다.`,
+    `${found}의 색은 토큰 ${tokens}의 값이지만, Tailwind가 이 토큰의 CSS 변수를 만들지 않아서 여기에 쓸 var()가 없습니다.`,
   unknownColor: ({ found }) => `${found}의 색은 토큰에 없습니다.`,
   unknownCssColor: ({ value }) => `${value}의 색은 토큰에 없습니다.`,
   useComponent: ({ tag, component, path }) =>

@@ -255,7 +255,7 @@ Tokens are also read from where Tailwind itself reads them.
 
 A v3 project keeps its colors in `tailwind.config.js`, and its CSS starts with `@tailwind base`. Point `tokens` at the CSS file as usual: when it uses `@tailwind`, the `tailwind.config.js` (or `.cjs`, `.mjs`, `.ts`) next to `designsnitch.config.json` is read. You can also point `tokens` straight at the config file. `"palette": "tailwind"` reads the v3 palette from `tailwindcss/colors`.
 
-v3 makes no CSS variables for its colors, so every token is class-only: arbitrary color classes get token classes as candidates, and colors written by hand in CSS declarations and inline styles are reported without a candidate.
+v3 makes no CSS variables for its colors, so every token is class-only: arbitrary color classes get token classes as candidates, and colors written by hand in CSS declarations and inline styles are reported without a candidate. In a CSS file that Tailwind v3 processes, `theme("colors.brand.500")` gives the token's value, so that is one way to resolve those.
 
 ## Language
 

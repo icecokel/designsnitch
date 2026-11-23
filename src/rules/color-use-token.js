@@ -7,7 +7,7 @@ import {
   tokenValue,
   utilityColorPrefixes,
 } from "../core/tokens.js";
-import { loadTokens } from "./load-tokens.js";
+import { definesTokens, loadTokens } from "./load-tokens.js";
 import { ruleMessages, suggestClasses, TEXT } from "./suggest.js";
 import { visitStrings } from "./visit-strings.js";
 import { mergeVisitors, visitInlineStyleColors } from "./visit-style.js";
@@ -40,6 +40,7 @@ export default {
         },
       };
     }
+    if (definesTokens(tokens, context.filename)) return {};
     const m = ruleMessages(context);
     const { colors, themed, prefer, classOnly } = tokens;
 

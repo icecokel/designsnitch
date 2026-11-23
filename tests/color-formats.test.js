@@ -166,7 +166,7 @@ describe("클래스로만 쓸 수 있는 토큰", () => {
       ["src/A.jsx", "color-use-token", "error", [], "ask"],
     ]);
     expect(result.violations[0].message).toBe(
-      "#ff5a1f has the same color as --color-brand, but that token can only be used as a class: Tailwind makes no CSS variable for it.",
+      "#ff5a1f has the same color as --color-brand, but Tailwind makes no CSS variable for that token, so there is no var() to use here.",
     );
     expect(result.decisions).toMatchObject([{ subject: "#ff5a1f", uses: 2, reasons: ["class-only-token"] }]);
   });

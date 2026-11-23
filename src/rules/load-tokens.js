@@ -19,6 +19,20 @@ import { flattenColors, loadConfigColors } from "./tailwind-config.js";
  * @property {string[]} problems 토큰을 다 읽지 못하게 만든 문제. 예: 불러오지 못한 JavaScript 설정
  */
 
+/**
+ * 이 파일이 토큰을 정의하는 JavaScript 설정인지. 그 안의 색은 토큰의 값이지 직접 쓴 색이 아니다.
+ * @param {Tokens} tokens
+ * @param {string} filename 절대 경로
+ */
+export function definesTokens(tokens, filename) {
+  if (tokens.files.has(filename)) return true;
+  try {
+    return tokens.files.has(fs.realpathSync(filename));
+  } catch {
+    return false;
+  }
+}
+
 /** @typedef {ReturnType<typeof parseColorTokenData> & Pick<Tokens, "files" | "prefix" | "classOnly" | "problems">} ProjectTokens */
 
 /** @type {Map<string, { deps: [string, number][], tokens: ProjectTokens }>} */

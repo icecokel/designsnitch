@@ -256,7 +256,7 @@ Tailwind 기본 팔레트
 
 v3 프로젝트는 색을 `tailwind.config.js`에 두고, CSS는 `@tailwind base`로 시작합니다. `tokens`는 평소처럼 CSS 파일을 가리키면 됩니다. 그 CSS가 `@tailwind`를 쓰면 `designsnitch.config.json` 옆의 `tailwind.config.js`(또는 `.cjs`, `.mjs`, `.ts`)를 읽습니다. `tokens`에 설정 파일을 직접 적어도 됩니다. `"palette": "tailwind"`는 v3 팔레트를 `tailwindcss/colors`에서 읽습니다.
 
-v3는 색에 CSS 변수를 만들지 않으므로 모든 토큰이 클래스 전용입니다. 임의 값 색 클래스에는 토큰 클래스를 후보로 내고, CSS 선언과 인라인 스타일에 직접 쓴 색은 후보 없이 알립니다.
+v3는 색에 CSS 변수를 만들지 않으므로 모든 토큰이 클래스 전용입니다. 임의 값 색 클래스에는 토큰 클래스를 후보로 내고, CSS 선언과 인라인 스타일에 직접 쓴 색은 후보 없이 알립니다. Tailwind v3가 처리하는 CSS 파일에서는 `theme("colors.brand.500")`이 토큰의 값을 주므로, 그것으로 해결할 수 있습니다.
 
 ## 언어
 

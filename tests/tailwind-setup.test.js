@@ -234,6 +234,28 @@ describe("Tailwind v3", () => {
     expect(colors.colors.map((c) => c.color).sort()).toEqual(["#123456", "#64748b", "#abcdef", "#ff5a1f"]);
   });
 
+  it("토큰을 정의하는 tailwind.config 의 색은 위반으로 잡지 않는다. 키 이름이 background, border 여도 마찬가지다", async () => {
+    const cwd = tempProject({
+      ...config,
+      ...v3,
+      "tailwind.config.js": `module.exports = { content: [], theme: { extend: { colors: { background: "#f7f8f5", border: "#e5e9e4", brand: { 500: "#ff5a1f" } } } } };`,
+      "src/A.jsx": `export const A = () => <div className="bg-[#f7f8f5]" />;`,
+    });
+    const result = await check({ cwd, config: loadConfig(cwd), lang: "en" });
+    expect(result.violations.map((v) => [v.file, v.found, v.candidates])).toEqual([["src/A.jsx", "bg-[#f7f8f5]", ["bg-background"]]]);
+
+    // ESLint 플러그인으로 돌려도 같다.
+    const { ESLint } = await import("eslint");
+    const { default: plugin } = await import("../src/index.js");
+    const eslint = new ESLint({
+      cwd,
+      overrideConfigFile: true,
+      overrideConfig: [{ ...plugin.configs.recommended, files: ["**/*.{js,jsx}"], languageOptions: { parserOptions: { ecmaFeatures: { jsx: true } } }, settings: { designsnitch: { tokens: "app/globals.css" } } }],
+    });
+    const [configResult] = await eslint.lintFiles(["tailwind.config.js"]);
+    expect(configResult.messages).toEqual([]);
+  });
+
   it("tokens 에 tailwind.config 를 직접 적어도 되고, palette 는 tailwindcss/colors 에서 읽는다", async () => {
     const cwd = tempProject({
       ...v3,
