@@ -23,7 +23,7 @@ It has four parts.
 
 It supports **React/Next.js projects that use Tailwind CSS v4**. Tailwind v3 projects are checked too, with fewer candidates (see [Tailwind v3](#tailwind-v3)).
 
-> **Status:** MVP (0.5.x). It checks colors and shared components for now. Spacing, font size and radius are not checked yet (see [Scope](#scope)). Messages are in English by default and can be switched to Korean. See [Language](#language).
+> **Status:** MVP (0.6.x). It checks colors and shared components for now. Spacing, font size and radius are not checked yet (see [Scope](#scope)). Messages are in English by default and can be switched to Korean. See [Language](#language).
 
 ## Getting started
 
