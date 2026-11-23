@@ -240,6 +240,12 @@ Tailwind 기본 팔레트
 }
 ```
 
+변수를 어디에 선언했는지도 봅니다.
+
+- `--color-*` 변수는 `@theme` 안이나 어디서나 적용되는 규칙(`:root`, `html`, `:host`)에 선언돼 있어야 토큰입니다. `.promo { --color-promo: ... }`처럼 다른 선택자 안에만 선언된 변수는 토큰이 아닙니다. 그 선택자 밖에는 없는 변수이기 때문입니다.
+- 토큰을 선택자나 미디어 쿼리 안(`.dark`, `@media (prefers-color-scheme: dark)`)에서 다시 선언하면 테마마다 값이 다른 토큰이고, 색을 그 토큰으로 바꾸는 것은 `ask`로 표시합니다.
+- `var(--raw, #fff)`는 `--raw`가 없는 곳에서 fallback을 씁니다. `--raw`가 일부 선택자 안에만 있으면 fallback과 그 값을 모두 토큰의 값으로 보므로, 이것도 `ask`가 됩니다.
+
 토큰은 Tailwind가 읽는 곳에서도 읽습니다.
 
 - **import한 CSS.** 토큰 CSS가 다른 CSS 파일을 불러오면(`@import "../brand/theme.css"`나 패키지) 그 파일의 `@theme` 토큰도 읽습니다.

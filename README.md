@@ -239,6 +239,12 @@ Both of these shapes work.
 }
 ```
 
+Where a variable is declared matters.
+
+- A `--color-*` variable is a token when it is declared in `@theme`, or in a rule that applies everywhere (`:root`, `html`, `:host`). One declared only inside another selector, such as `.promo { --color-promo: ... }`, is not a token: it does not exist outside that selector.
+- When a token is declared again inside a selector or a media query (`.dark`, `@media (prefers-color-scheme: dark)`), it has a value per theme, and replacing a color with it is marked `ask`.
+- `var(--raw, #fff)` uses its fallback wherever `--raw` is not set. If `--raw` is set only inside some selector, both the fallback and that value count as the token's values, so it is also marked `ask`.
+
 Tokens are also read from where Tailwind itself reads them.
 
 - **Imported CSS.** If the token CSS imports other CSS files (`@import "../brand/theme.css"`, or a package), their `@theme` tokens are read too.
