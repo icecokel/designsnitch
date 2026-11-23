@@ -48,10 +48,10 @@ ruleTester.run("color-unknown (hex 가 아닌 표기)", colorUnknown, {
   invalid: [
     {
       name: "토큰에 없는 rgb() 와 반투명 색",
-      code: `<div className="bg-[rgb(1,2,3)] text-[rgba(59,130,246,0.5)]" />`,
+      code: `<div className="bg-[rgb(1,2,3)] text-[rgba(1,2,3,0.5)]" />`,
       errors: [
         { message: "bg-[rgb(1,2,3)]의 색은 토큰에 없습니다." },
-        { message: "text-[rgba(59,130,246,0.5)]의 색은 토큰에 없습니다." },
+        { message: "text-[rgba(1,2,3,0.5)]의 색은 토큰에 없습니다." },
       ],
     },
   ],
@@ -169,5 +169,33 @@ describe("클래스로만 쓸 수 있는 토큰", () => {
       "#ff5a1f has the same color as --color-brand, but that token can only be used as a class: Tailwind makes no CSS variable for it.",
     );
     expect(result.decisions).toMatchObject([{ subject: "#ff5a1f", uses: 2, reasons: ["class-only-token"] }]);
+  });
+});
+
+describe("반투명한 색", () => {
+  it("불투명한 색에 토큰이 있으면 그 토큰에 불투명도를 준 후보를 내고, 사람이 정하게 한다", async () => {
+    const cwd = tempProject({
+      "designsnitch.config.json": `{ "tokens": "tokens.css" }`,
+      "tokens.css": `@theme { --color-brand: #3B82F6; --color-black: #000; }`,
+      "src/a.css": `.a { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); color: #12345680; }`,
+      "src/A.jsx": `export const A = () => <div className="bg-[#3B82F680] text-[rgb(59_130_246/25%)]" style={{ borderColor: "rgb(59 130 246 / 0.5)" }} />;`,
+    });
+    const result = await check({ cwd, config: loadConfig(cwd), lang: "en" });
+
+    expect(result.violations.map((v) => [v.found, v.rule, v.severity, v.action, v.candidates])).toEqual([
+      ["rgba(0, 0, 0, 0.1)", "color-use-token", "error", "ask", ["color-mix(in srgb, var(--color-black) 10%, transparent)"]],
+      ["#12345680", "color-unknown", "warning", "ask", []],
+      ["bg-[#3B82F680]", "color-use-token", "error", "ask", ["bg-brand/50"]],
+      ["text-[rgb(59_130_246/25%)]", "color-use-token", "error", "ask", ["text-brand/25"]],
+      ["rgb(59 130 246 / 0.5)", "color-use-token", "error", "ask", ["color-mix(in srgb, var(--color-brand) 50%, transparent)"]],
+    ]);
+    expect(result.violations[2].message).toBe("bg-[#3B82F680] is --color-brand at 50% opacity. Use instead: bg-brand/50");
+    expect(result.decisions.map((d) => [d.subject, d.reasons])).toEqual([
+      ["#0000001a", ["translucent"]],
+      ["#12345680", ["no-token"]],
+      ["#3b82f680", ["translucent"]],
+      ["#3b82f640", ["translucent"]],
+      ["#3b82f680", ["translucent"]], // 인라인 스타일. 후보가 클래스가 아니라서 따로 묻는다
+    ]);
   });
 });

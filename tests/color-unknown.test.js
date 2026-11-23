@@ -4,6 +4,7 @@ import { ruleTester } from "./rule-tester.js";
 ruleTester.run("color-unknown", rule, {
   valid: [
     { name: "토큰 클래스", code: `<div className="bg-primary-500" />` },
+    { name: "토큰 색에 알파를 붙인 것은 color-use-token 이 맡는다", code: `<div className="bg-[#3B82F680]" />` },
     { name: "토큰이 있는 hex는 이 규칙의 대상이 아니다", code: `<div className="bg-[#3B82F6]" />` },
   ],
   invalid: [
@@ -15,9 +16,9 @@ ruleTester.run("color-unknown", rule, {
       ],
     },
     {
-      name: "알파가 붙은 hex",
-      code: `<div className="bg-[#3B82F680]" />`,
-      errors: [{ message: "bg-[#3B82F680]의 색은 토큰에 없습니다." }],
+      name: "알파가 붙은 hex. 불투명한 색에도 토큰이 없을 때",
+      code: `<div className="bg-[#12345680]" />`,
+      errors: [{ message: "bg-[#12345680]의 색은 토큰에 없습니다." }],
     },
   ],
 });

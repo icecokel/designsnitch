@@ -33,6 +33,8 @@ const en = {
   useTokenThemed: ({ found, tokens, candidates }) =>
     `${found} has the same color as ${tokens}. Candidates: ${candidates}. ` +
     "A candidate token has different values across themes. Using it can change the color in another theme.",
+  useTokenAlpha: ({ found, tokens, opacity, candidates }) =>
+    `${found} is ${tokens} at ${opacity}% opacity. Use instead: ${candidates}`,
   useTokenClassOnly: ({ found, tokens }) =>
     `${found} has the same color as ${tokens}, but that token can only be used as a class: Tailwind makes no CSS variable for it.`,
   unknownColor: ({ found }) => `The color of ${found} is not in the tokens.`,
@@ -184,6 +186,8 @@ const ko = {
   useTokenThemed: ({ found, tokens, candidates }) =>
     `${found}의 색은 토큰 ${tokens}의 값입니다. 후보: ${candidates}. ` +
     "후보 중 테마마다 값이 다른 토큰이 있어 그 토큰으로 바꾸면 다른 테마에서 색이 바뀔 수 있습니다.",
+  useTokenAlpha: ({ found, tokens, opacity, candidates }) =>
+    `${found}의 색은 토큰 ${tokens}에 불투명도 ${opacity}%를 준 값입니다. 대신 사용: ${candidates}`,
   useTokenClassOnly: ({ found, tokens }) =>
     `${found}의 색은 토큰 ${tokens}의 값이지만, 이 토큰은 클래스로만 쓸 수 있습니다. Tailwind가 CSS 변수를 만들지 않습니다.`,
   unknownColor: ({ found }) => `${found}의 색은 토큰에 없습니다.`,

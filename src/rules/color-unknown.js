@@ -1,5 +1,5 @@
 import { findArbitraryColors } from "../core/classes.js";
-import { normalizeColor } from "../core/color.js";
+import { lookupColor } from "../core/tokens.js";
 import { loadTokens } from "./load-tokens.js";
 import { ruleMessages, TEXT } from "./suggest.js";
 import { visitStrings } from "./visit-strings.js";
@@ -25,7 +25,8 @@ export default {
     const { colors } = tokens;
 
     function report(found, { loc }) {
-      if (colors.has(normalizeColor(found.value))) return;
+      // 반투명한 색도 불투명한 색에 토큰이 있으면 color-use-token 이 맡는다.
+      if (lookupColor(colors, found.value).names.length > 0) return;
       context.report({ loc, messageId: "unknown", data: { text: m.unknownColor({ found: found.text }) } });
     }
 

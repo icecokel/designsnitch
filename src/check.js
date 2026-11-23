@@ -2,9 +2,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { replacementNames, tokenSettings } from "./config.js";
 import { findArbitraryColors, tokenToClass } from "./core/classes.js";
-import { colorLabel, normalizeColor, parseColor } from "./core/color.js";
+import { colorLabel, parseColor } from "./core/color.js";
 import { findCssColors } from "./core/css.js";
-import { cssColorPrefixes, recommendColorCandidate, selectColorTokens, tokenVar, utilityColorPrefixes } from "./core/tokens.js";
+import {
+  cssColorPrefixes,
+  lookupColor,
+  recommendColorCandidate,
+  selectColorTokens,
+  tokenClass,
+  tokenValue,
+  utilityColorPrefixes,
+} from "./core/tokens.js";
 import { createEngine } from "./engine.js";
 import { splitPaths } from "./files.js";
 import plugin from "./index.js";
@@ -47,7 +55,7 @@ const MAX_DECISION_LOCATIONS = 5;
  * @property {Pick<Violation, "file" | "line" | "column">[]} locations 위반 위치 최대 다섯 곳
  * @property {string[]} candidates
  * @property {string | null} recommended 각 위치에서 추천이 같을 때 그 후보
- * @property {("multiple-candidates" | "no-token" | "themed-token" | "class-only-token" | "dynamic-props")[]} reasons
+ * @property {("multiple-candidates" | "no-token" | "themed-token" | "class-only-token" | "translucent" | "dynamic-props")[]} reasons
  */
 
 /**
@@ -176,8 +184,9 @@ function checkCss(file, source, tokens, m, options) {
       // @apply 의 클래스는 JS 의 클래스처럼 토큰 클래스로, 선언의 값은 var(--토큰) 으로 바꾼다.
       const found = text ?? value;
       const prefixes = utility ? utilityColorPrefixes(utility) : cssColorPrefixes(prop);
-      const toCandidate = (name) => (utility ? tokenToClass(utility, name) : tokenVar(name, tokens.prefix));
-      const known = tokens.colors.get(normalizeColor(value)) ?? [];
+      const { names: known, opacity } = lookupColor(tokens.colors, value);
+      const toCandidate = (name) =>
+        utility ? tokenClass(utility, name, opacity) : tokenValue(name, tokens.prefix, opacity);
       // 클래스로만 쓸 수 있는 토큰은 선언의 값을 대신할 수 없다. 그래도 직접 쓴 색이라는 것은 알린다.
       const usable = utility ? known : known.filter((name) => !tokens.classOnly.has(name));
       if (known.length > 0 && usable.length === 0) {
@@ -196,7 +205,8 @@ function checkCss(file, source, tokens, m, options) {
       const tokenNames = selectColorTokens(usable, tokens.prefer, prefixes);
       const candidates = tokenNames.map(toCandidate);
       const recommendedToken = recommendColorCandidate(tokenNames, prefixes);
-      const messageId = tokenNames.some((name) => tokens.themed.has(name)) ? "useTokenThemed" : "useToken";
+      const messageId =
+        opacity !== null ? "useTokenAlpha" : tokenNames.some((name) => tokens.themed.has(name)) ? "useTokenThemed" : "useToken";
       return {
         file,
         ...location,
@@ -209,6 +219,7 @@ function checkCss(file, source, tokens, m, options) {
                 found,
                 tokens: tokenNames.join(", "),
                 candidates: candidates.join(", "),
+                opacity,
               }),
             }
           : {
@@ -233,7 +244,8 @@ function realPath(file) {
 
 function actionFor({ rule, severity, candidates }, messageId) {
   if (rule === "parse-error") return "repair";
-  if (messageId === "useComponentAsk" || messageId === "useTokenThemed") return "ask";
+  // 반투명한 색은 불투명도를 반올림해 후보를 내므로, 바꿔도 같은 색이라고 보장할 수 없다.
+  if (["useComponentAsk", "useTokenThemed", "useTokenAlpha"].includes(messageId)) return "ask";
   if (severity !== "error" || candidates.length !== 1) return "ask";
   // 컴포넌트는 props 와 기본 스타일이 태그와 다를 수 있어서, 바꿔도 같다고 보장할 수 없다.
   return rule === "use-ds-component" ? "migrate" : "replace";
@@ -271,6 +283,7 @@ function groupDecisions(violations) {
     if (rule === "color-unknown") decision.reasons.add("no-token");
     if (messageId === "useTokenThemed") decision.reasons.add("themed-token");
     if (messageId === "useTokenClassOnly") decision.reasons.add("class-only-token");
+    if (messageId === "useTokenAlpha") decision.reasons.add("translucent");
     if (messageId === "useComponentAsk") decision.reasons.add("dynamic-props");
   }
 

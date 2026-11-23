@@ -1,5 +1,5 @@
 import postcss from "postcss";
-import { normalizeColor } from "./color.js";
+import { normalizeColor, parseColor } from "./color.js";
 
 const COLOR_TOKEN = /^--color-/;
 const ROLE_PREFIXES = {
@@ -113,6 +113,30 @@ export function parseColorTokenData(css, exclude = []) {
 /** 토큰을 CSS 에서 가리키는 표기. Tailwind 접두어가 있으면 변수 이름에 붙는다. 예: var(--tw-color-brand) */
 export function tokenVar(name, prefix) {
   return `var(${prefix ? name.replace(/^--/, `--${prefix}-`) : name})`;
+}
+
+/**
+ * 색 값에 맞는 토큰을 찾는다. 반투명한 색이면 불투명한 색의 토큰과 불투명도를 함께 준다.
+ * @param {Map<string, string[]>} colors 색 값 → 토큰 이름들
+ * @param {string} value
+ * @returns {{ names: string[], opacity: number | null }} opacity 는 반투명할 때의 불투명도(%). 불투명하면 null
+ */
+export function lookupColor(colors, value) {
+  const color = parseColor(value);
+  if (!color) return { names: [], opacity: null };
+  return { names: colors.get(color.key) ?? [], opacity: color.opaque ? null : Math.round(color.alpha * 100) };
+}
+
+/** 토큰을 CSS 값으로 쓰는 표기. 불투명도가 있으면 투명과 섞는다. */
+export function tokenValue(name, prefix, opacity) {
+  const reference = tokenVar(name, prefix);
+  return opacity === null ? reference : `color-mix(in srgb, ${reference} ${opacity}%, transparent)`;
+}
+
+/** 토큰을 클래스로 쓰는 표기. 불투명도는 Tailwind 의 /50 꼴로 붙인다. 예: bg-brand/50 */
+export function tokenClass(utility, name, opacity) {
+  const className = `${utility}-${name.replace(/^--color-/, "")}`;
+  return opacity === null ? className : `${className}/${opacity}`;
 }
 
 export function utilityColorPrefixes(utility) {
