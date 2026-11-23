@@ -55,7 +55,7 @@ const MAX_DECISION_LOCATIONS = 5;
  * @property {Pick<Violation, "file" | "line" | "column">[]} locations 위반 위치 최대 다섯 곳
  * @property {string[]} candidates
  * @property {string | null} recommended 각 위치에서 추천이 같을 때 그 후보
- * @property {("multiple-candidates" | "no-token" | "themed-token" | "class-only-token" | "translucent" | "dynamic-props")[]} reasons
+ * @property {("multiple-candidates" | "no-token" | "themed-token" | "class-only-token" | "translucent" | "not-a-style" | "dynamic-props")[]} reasons
  */
 
 /**
@@ -245,7 +245,8 @@ function realPath(file) {
 function actionFor({ rule, severity, candidates }, messageId) {
   if (rule === "parse-error") return "repair";
   // 반투명한 색은 불투명도를 반올림해 후보를 내므로, 바꿔도 같은 색이라고 보장할 수 없다.
-  if (["useComponentAsk", "useTokenThemed", "useTokenAlpha"].includes(messageId)) return "ask";
+  // 스타일이 아닌 자리의 색은 var() 가 통하는지 알 수 없다.
+  if (["useComponentAsk", "useTokenThemed", "useTokenAlpha", "useTokenData"].includes(messageId)) return "ask";
   if (severity !== "error" || candidates.length !== 1) return "ask";
   // 컴포넌트는 props 와 기본 스타일이 태그와 다를 수 있어서, 바꿔도 같다고 보장할 수 없다.
   return rule === "use-ds-component" ? "migrate" : "replace";
@@ -284,6 +285,7 @@ function groupDecisions(violations) {
     if (messageId === "useTokenThemed") decision.reasons.add("themed-token");
     if (messageId === "useTokenClassOnly") decision.reasons.add("class-only-token");
     if (messageId === "useTokenAlpha") decision.reasons.add("translucent");
+    if (messageId === "useTokenData") decision.reasons.add("not-a-style");
     if (messageId === "useComponentAsk") decision.reasons.add("dynamic-props");
   }
 

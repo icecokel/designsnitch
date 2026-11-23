@@ -23,6 +23,7 @@ export default {
       useToken: TEXT,
       useTokenThemed: TEXT,
       useTokenAlpha: TEXT,
+      useTokenData: TEXT,
       useTokenClassOnly: TEXT,
       replace: TEXT,
       tokensConfig: TEXT,
@@ -43,7 +44,14 @@ export default {
     const { colors, themed, prefer, classOnly } = tokens;
 
     function report(found, { loc, range }, tokenNames, candidates, opacity) {
-      const messageId = opacity !== null ? "useTokenAlpha" : tokenNames.some((name) => themed.has(name)) ? "useTokenThemed" : "useToken";
+      const messageId =
+        opacity !== null
+          ? "useTokenAlpha"
+          : found.kind === "data"
+            ? "useTokenData"
+            : tokenNames.some((name) => themed.has(name))
+              ? "useTokenThemed"
+              : "useToken";
       context.report({
         loc,
         messageId,
@@ -61,7 +69,7 @@ export default {
         const tokenNames = selectColorTokens(names, prefer, utilityColorPrefixes(found.utility));
         report(found, where, tokenNames, tokenNames.map((name) => tokenClass(found.utility, name, opacity)), opacity);
       }),
-      // 인라인 스타일은 클래스가 아니라 var(--토큰) 으로 바꾼다. Tailwind 는 소스에서 쓴 var() 의 변수를 내보낸다.
+      // 스타일과 색 속성의 값은 클래스가 아니라 var(--토큰) 으로 바꾼다. Tailwind 는 소스에서 쓴 var() 의 변수를 내보낸다.
       visitInlineStyleColors(context, (found, where) => {
         const { names: known, opacity } = lookupColor(colors, found.value);
         if (known.length === 0) return;

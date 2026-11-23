@@ -1,7 +1,7 @@
 import { findArbitraryColors } from "../core/classes.js";
 import { findColorValues } from "../core/color.js";
 import { visitStrings } from "./visit-strings.js";
-import { inlineStyleProperty } from "./visit-style.js";
+import { colorContext } from "./visit-style.js";
 
 /**
  * 검사 규칙이 보지 않는 문자열 속 색을 알린다. 위반이 아니라 check 가 개수를 세는 데 쓴다.
@@ -18,8 +18,10 @@ export default {
     const visitor = visitStrings(context, findUnchecked, (found, { loc }) =>
       context.report({ loc, messageId: "unchecked", data: { color: found.value } }),
     );
+    const { sourceCode } = context;
+    // 색을 받는 자리의 값은 다른 규칙이 검사한다.
     const skipStyle = (handler) => (node) => {
-      if (inlineStyleProperty(node) === null && inlineStyleProperty(node.parent ?? {}) === null) handler(node);
+      if (colorContext(node, sourceCode) === null && colorContext(node.parent ?? {}, sourceCode) === null) handler(node);
     };
     return { Literal: skipStyle(visitor.Literal), TemplateElement: skipStyle(visitor.TemplateElement) };
   },

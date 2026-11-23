@@ -199,3 +199,62 @@ describe("반투명한 색", () => {
     ]);
   });
 });
+
+describe("JSX style 속성 밖의 색", () => {
+  const base = {
+    "designsnitch.config.json": `{ "tokens": "tokens.css" }`,
+    "tokens.css": `@theme { --color-brand: #3B82F6; --color-white: #fff; }`,
+  };
+  const run = async (file, code) => {
+    const cwd = tempProject({ ...base, [file]: code });
+    return check({ cwd, config: loadConfig(cwd), lang: "en" });
+  };
+  const brief = (result) => result.violations.map((v) => [v.found, v.rule, v.action, v.candidates]);
+
+  it("스타일 객체(이름이 style 로 끝나거나 CSSProperties 타입)는 인라인 스타일처럼 검사한다", async () => {
+    const result = await run(
+      "src/a.tsx",
+      `import type { CSSProperties } from "react";
+const cardStyle = { color: "#3B82F6", padding: 4 };
+const styles = { title: { backgroundColor: "white" }, body: { border: "1px solid #123456" } };
+const typed: CSSProperties = { color: "#3B82F6" };
+const cast = { fill: "#3B82F6" } as React.CSSProperties;
+export const use = [cardStyle, styles, typed, cast];`,
+    );
+    expect(brief(result)).toEqual([
+      ["#3B82F6", "color-use-token", "replace", ["var(--color-brand)"]],
+      ["white", "color-use-token", "replace", ["var(--color-white)"]],
+      ["#123456", "color-unknown", "ask", []],
+      ["#3B82F6", "color-use-token", "replace", ["var(--color-brand)"]],
+      ["#3B82F6", "color-use-token", "replace", ["var(--color-brand)"]],
+    ]);
+    expect(result.unchecked).toEqual({ colors: 0, files: 0 });
+  });
+
+  it("색을 받는 이름의 속성과 JSX 속성(차트 옵션, SVG)은 잡되, var() 가 통하는지 알 수 없으니 사람이 정하게 한다", async () => {
+    const result = await run(
+      "src/chart.jsx",
+      `const data = { datasets: [{ backgroundColor: "#3B82F6", borderColor: "#123456", pointHoverBackgroundColor: "#3B82F6" }] };
+export const Chart = () => <Line data={data} stroke="#3B82F6" fill={"#fff"} color="red" title="#3B82F6" />;`,
+    );
+    expect(brief(result)).toEqual([
+      ["#3B82F6", "color-use-token", "ask", ["var(--color-brand)"]],
+      ["#123456", "color-unknown", "ask", []],
+      ["#3B82F6", "color-use-token", "ask", ["var(--color-brand)"]],
+      ["#3B82F6", "color-use-token", "ask", ["var(--color-brand)"]],
+      ["#fff", "color-use-token", "ask", ["var(--color-white)"]],
+    ]);
+    expect(result.violations[0].message).toBe(
+      "#3B82F6 has the same color as --color-brand. It is not in a style, so check that var() works where this value is used. Candidate: var(--color-brand)",
+    );
+    expect(result.decisions[0]).toMatchObject({ subject: "#3b82f6", uses: 3, reasons: ["not-a-style"] });
+    // title 의 값은 색을 받는 속성이 아니라서 세기만 한다. color="red" 는 색 이름인지 변형 이름인지 알 수 없어 건드리지 않는다.
+    expect(result.unchecked).toEqual({ colors: 1, files: 1 });
+  });
+
+  it("색을 받는 이름이 아닌 키와 배열의 색은 여전히 세기만 한다", async () => {
+    const result = await run("src/theme.js", `export const theme = { primary: "#3B82F6", series: ["#3B82F6", "#123456"] };`);
+    expect(brief(result)).toEqual([]);
+    expect(result.unchecked).toEqual({ colors: 3, files: 1 });
+  });
+});

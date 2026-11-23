@@ -5,11 +5,21 @@ import { ruleTester } from "./rule-tester.js";
 ruleTester.run("color-use-token (인라인 스타일)", colorUseToken, {
   valid: [
     { name: "var() 로 토큰을 쓴 인라인 스타일", code: `<div style={{ color: "var(--color-primary-500)" }} />` },
-    { name: "style 이 아닌 속성의 객체", code: `<Chart options={{ color: "#3B82F6" }} />` },
-    { name: "JSX 밖의 객체", code: `const theme = { color: "#3B82F6" };` },
+    { name: "색을 받는 이름이 아닌 키", code: `const theme = { primary: "#3B82F6" };` },
+    { name: "색을 받는 이름이 아닌 JSX 속성", code: `<Chart title="#3B82F6" />` },
     { name: "계산된 키", code: `<div style={{ [key]: "#3B82F6" }} />` },
   ],
   invalid: [
+    {
+      name: "스타일이 아닌 객체의 색 속성은 후보를 주되 확인하라고 알린다",
+      code: `<Chart options={{ color: "#3B82F6" }} />`,
+      errors: [
+        {
+          messageId: "useTokenData",
+          suggestions: [{ desc: "var(--color-primary-500)(으)로 바꾸기", output: `<Chart options={{ color: "var(--color-primary-500)" }} />` }],
+        },
+      ],
+    },
     {
       name: "문자열 전체가 토큰 색",
       code: `<div style={{ color: "#3B82F6" }} />`,
