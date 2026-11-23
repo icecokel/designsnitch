@@ -104,7 +104,7 @@ const en = {
   nextRepair: (n) => `action "repair" (${n}): fix the syntax error in that file first.`,
   nextReplace: (n) => `action "replace" (${n}): replace found with the value in candidates.`,
   nextMigrate: (n) =>
-    `action "migrate" (${n}): replace the tag with the component in candidates. Read that component first: add the import, pass on the props it accepts, and drop className values it already applies. If it cannot do what the tag did, ask the user instead.`,
+    `action "migrate" (${n}): replace the tag with the component in candidates. Read that component first: add the import, pass on the props it accepts, and drop className values it already applies. If it cannot do what the tag did or would change how it looks, do not change the component to make it fit: leave the tag and ask the user.`,
   nextAsk: (n) =>
     `Before making changes, ask the user about the ${count(n, "entry", "entries")} in decisions. Include how often each comes up, the candidates, and the reasons for asking.`,
   hookNextAsk: (n) =>
@@ -256,7 +256,7 @@ const ko = {
   nextRepair: (n) => `action이 repair인 ${n}건은 그 파일의 문법 오류부터 고치세요.`,
   nextReplace: (n) => `action이 replace인 ${n}건은 found를 candidates의 값으로 바꾸세요.`,
   nextMigrate: (n) =>
-    `action이 migrate인 ${n}건은 태그를 candidates의 컴포넌트로 바꾸세요. 먼저 그 컴포넌트를 읽고, import를 더하고, 컴포넌트가 받는 props를 넘기고, 컴포넌트가 이미 주는 className은 지우세요. 태그가 하던 일을 컴포넌트가 못 하면 바꾸지 말고 사용자에게 물으세요.`,
+    `action이 migrate인 ${n}건은 태그를 candidates의 컴포넌트로 바꾸세요. 먼저 그 컴포넌트를 읽고, import를 더하고, 컴포넌트가 받는 props를 넘기고, 컴포넌트가 이미 주는 className은 지우세요. 태그가 하던 일을 컴포넌트가 못 하거나 모양이 달라지면, 컴포넌트를 고쳐서 맞추지 말고 태그를 그대로 둔 채 사용자에게 물으세요.`,
   nextAsk: (n) =>
     `변경하기 전에 decisions의 ${n}건을 사용자에게 물으세요. 사용 횟수와 후보, 확인이 필요한 이유를 함께 알려 주세요.`,
   hookNextAsk: (n) =>

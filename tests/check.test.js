@@ -668,7 +668,7 @@ describe("컴포넌트로 옮기기", () => {
     ]);
     expect(result.next).toEqual([
       'action "replace" (1): replace found with the value in candidates.',
-      'action "migrate" (1): replace the tag with the component in candidates. Read that component first: add the import, pass on the props it accepts, and drop className values it already applies. If it cannot do what the tag did, ask the user instead.',
+      'action "migrate" (1): replace the tag with the component in candidates. Read that component first: add the import, pass on the props it accepts, and drop className values it already applies. If it cannot do what the tag did or would change how it looks, do not change the component to make it fit: leave the tag and ask the user.',
       "After fixing, run the same command again.",
     ]);
     expect(formatText(result, "en")).toContain(

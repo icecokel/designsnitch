@@ -128,3 +128,4 @@ If you were unsure about a choice, say so and give the alternative. For example,
 - Do not change an existing config file without asking.
 - Do not start fixing violations as part of setup.
 - Do not list a component as a replacement for a tag without reading it.
+- Do not change a design system component so that more tags fit it. Propose it to the user instead.

@@ -288,7 +288,7 @@ src/PayButton.tsx
   "problems": [],
   "next": [
     "action이 replace인 1건은 found를 candidates의 값으로 바꾸세요.",
-    "action이 migrate인 1건은 태그를 candidates의 컴포넌트로 바꾸세요. 먼저 그 컴포넌트를 읽고, import를 더하고, 컴포넌트가 받는 props를 넘기고, 컴포넌트가 이미 주는 className은 지우세요. 태그가 하던 일을 컴포넌트가 못 하면 바꾸지 말고 사용자에게 물으세요.",
+    "action이 migrate인 1건은 태그를 candidates의 컴포넌트로 바꾸세요. 먼저 그 컴포넌트를 읽고, import를 더하고, 컴포넌트가 받는 props를 넘기고, 컴포넌트가 이미 주는 className은 지우세요. 태그가 하던 일을 컴포넌트가 못 하거나 모양이 달라지면, 컴포넌트를 고쳐서 맞추지 말고 태그를 그대로 둔 채 사용자에게 물으세요.",
     "변경하기 전에 decisions의 2건을 사용자에게 물으세요. 사용 횟수와 후보, 확인이 필요한 이유를 함께 알려 주세요.",
     "고친 뒤 같은 명령을 다시 실행하세요."
   ],

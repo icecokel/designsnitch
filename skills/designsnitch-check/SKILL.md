@@ -88,11 +88,19 @@ The exit code is 0 (no errors), 1 (errors found), or 2 (could not run). On 2, re
 | `action` | What it means | What to do |
 | --- | --- | --- |
 | `replace` | A color error whose only candidate keeps the screen and the behavior the same. | Replace `found` with the candidate. |
-| `migrate` | A raw tag with exactly one design system component to move to. Whether the component behaves like the tag is not known. | Read the component, then move the tag to it as described below. If the component cannot do what the tag did, such as not passing on `type="submit"` or an event handler, leave the tag and tell the user. The hook does not force this one. |
+| `migrate` | A raw tag with exactly one design system component to move to. Whether the component behaves like the tag is not known. | Read the component, then move the tag to it as described below. If the component does not cover this use, leave the tag and ask the user as described below. The hook does not force this one. |
 | `ask` | A person has to decide: several candidates, a color that has no token, a token whose value differs between themes, a translucent color (the candidate rounds its opacity), a color in a property that is not a style (such as chart options, where `var()` may not work: read how the value is used before replacing), a token that exists only as a class (no CSS variable to use in a style or a CSS declaration), or a component whose props are dynamic or spread. `message` says which. | Do not change it. Ask the user as described in section 4. |
 | `repair` | The file could not be parsed. | Fix the syntax error, then check again. |
 
 For `migrate`, replacing means more than renaming the tag. Read the design system component file to learn its props, add the import, pass on the tag's props the component accepts, and remove className values that duplicate styles the component already has. Check that event handlers such as `onClick` and attributes such as `type` still reach the rendered element.
+
+Often the component does not cover the use: it cannot pass on something the tag needs, or moving to it would change how the element looks, such as a text-sized `Button` for a small square icon button. Then there are three ways out, and choosing between them is the user's call, because two of them change the standard.
+
+- Extend the component: a new variant, size or prop. This changes a shared component that other screens use.
+- Narrow the rule: a `when` condition in `designsnitch.config.json`, so that this kind of tag is no longer expected to use the component.
+- Keep this tag as an exception, with a disable comment that says why.
+
+Leave the tag as it is, and ask. Say what the component lacks, show the place, and recommend one of the three. Do not add a variant to a design system component on your own to make the check pass, even when the result would look the same.
 
 ## 4. Ask so the user can decide
 
@@ -127,7 +135,7 @@ Report what you fixed and what you left, separately. For what you left, use the 
 
 ## What not to do
 
-- Do not edit `designsnitch.config.json` or the token CSS to make the check pass. They are the standard the code is judged against. If one of them seems wrong, explain why and ask the user.
+- Do not edit `designsnitch.config.json`, the token CSS or the design system components to make the check pass. They are the standard the code is judged against. If one of them seems wrong or incomplete, explain why and ask the user.
 - Do not add `eslint-disable` or `designsnitch-disable-next-line` comments, lower a rule's severity, or turn a rule off to make the check pass. If an exception seems necessary, ask the user.
 - Do not pick one of several candidates on your own.
 - Do not change how the tokens are declared, such as turning `@theme` into `@theme static`, to make a `var(--token)` candidate work. Tailwind outputs a theme variable as soon as a class, a style or a CSS file uses it. A variable missing from the compiled CSS before the replacement is expected.
