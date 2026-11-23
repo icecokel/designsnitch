@@ -13,7 +13,7 @@ import { flattenColors, loadConfigColors } from "./tailwind-config.js";
  * @property {Set<string>} themed 테마마다 값이 다른 토큰 이름들
  * @property {string[]} prefer 먼저 적용할 토큰 접두어
  * @property {Set<string>} paletteNames 기본 팔레트에서 온 토큰 이름들. palette 설정이 없으면 비어 있다
- * @property {Set<string>} files 토큰을 읽은 CSS 파일들의 절대 경로. 토큰 CSS 와 그것이 @import 한 파일들
+ * @property {Set<string>} files 토큰을 읽은 파일들의 절대 경로. 토큰 CSS, 그것이 @import 한 CSS, Tailwind JavaScript 설정
  * @property {string | null} prefix Tailwind 접두어. @import "tailwindcss" prefix(tw) 의 tw
  * @property {Set<string>} classOnly 클래스로만 쓸 수 있는 토큰 이름들. JavaScript 설정의 색에는 CSS 변수가 없다
  * @property {string[]} problems 토큰을 다 읽지 못하게 만든 문제. 예: 불러오지 못한 JavaScript 설정
@@ -122,9 +122,9 @@ function readProjectTokens(file, root, exclude, m) {
   // 기준으로 적은 설정을 못 읽으면 판정할 것이 없다. @config 로 딸려 온 설정이면 알리기만 하고 계속한다.
   if (isConfig && problems.length > 0) throw new Error(problems[0]);
   // 링크된 경로로 들어와도 같은 파일로 알아보도록 실제 경로로 적어 둔다.
-  const files = new Set(sources.map(([cssFile]) => fs.realpathSync(cssFile)));
-  const tokens = { ...parsed, files, prefix, classOnly, problems };
   const deps = [...sources.map(([cssFile]) => cssFile), ...configFiles];
+  const files = new Set(deps.filter((dep) => fs.existsSync(dep)).map((dep) => fs.realpathSync(dep)));
+  const tokens = { ...parsed, files, prefix, classOnly, problems };
   cache.set(key, { deps: deps.map((dep) => [dep, mtimeOf(dep)]), tokens });
   return tokens;
 }

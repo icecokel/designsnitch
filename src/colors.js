@@ -62,7 +62,7 @@ const collectRule = {
  * @param {string} options.cwd 프로젝트 디렉터리
  * @param {string[]} [options.paths] 검사할 파일이나 디렉터리 (cwd 기준)
  * @param {Map<string, string[]>} [options.tokens] 색 값 → 토큰 이름들. 주면 색마다 tokens 를 붙인다
- * @param {Set<string>} [options.tokenFiles] 사용자 정의 속성 선언을 건너뛸 토큰 CSS 들의 절대 경로
+ * @param {Set<string>} [options.tokenFiles] 토큰을 정의하는 파일들의 절대 경로. CSS 는 변수 선언을, JS 설정은 통째로 건너뛴다
  * @returns {Promise<{
  *   summary: { files: number, colors: number, paletteColors: number, uses: number },
  *   colors: (ColorUse & { color: string, literals: number, properties: Record<string, number>, tokens?: string[] })[],
@@ -87,6 +87,8 @@ export async function collectColors({ cwd, paths = ["."], tokens, tokenFiles }) 
   /** @type {{ file: string, line: number, kind: "hex" | "palette", key: string, utility?: string | null, prop?: string }[]} */
   const uses = [];
   for (const result of results) {
+    // 토큰을 정의하는 파일(tailwind.config.js)의 색은 코드가 쓰는 색이 아니다.
+    if (tokenFiles?.has(fs.realpathSync(result.filePath))) continue;
     const file = path.relative(cwd, result.filePath).split(path.sep).join("/");
     for (const message of result.messages) {
       if (message.ruleId !== RULE_ID) continue;

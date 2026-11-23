@@ -225,6 +225,15 @@ describe("Tailwind v3", () => {
     ]);
   });
 
+  it("토큰을 정의하는 tailwind.config 안의 색은 검사하지 못한 색으로 세지 않는다", async () => {
+    const cwd = tempProject({ ...config, ...v3, "src/theme.js": `export const chart = { line: "#abcdef" };` });
+    const result = await check({ cwd, config: loadConfig(cwd), lang: "en" });
+    expect(result.unchecked).toEqual({ colors: 1, files: 1 });
+    const tokens = loadTokens(settings(cwd), cwd);
+    const colors = await collectColors({ cwd, tokens: tokens.colors, tokenFiles: tokens.files });
+    expect(colors.colors.map((c) => c.color).sort()).toEqual(["#123456", "#64748b", "#abcdef", "#ff5a1f"]);
+  });
+
   it("tokens 에 tailwind.config 를 직접 적어도 되고, palette 는 tailwindcss/colors 에서 읽는다", async () => {
     const cwd = tempProject({
       ...v3,

@@ -103,6 +103,8 @@ export async function check({ cwd, config, paths = ["."], lang, sourceCwd = cwd 
   const results = scriptPaths.length > 0 ? await eslint.lintFiles(scriptPaths) : [];
   // 검사하지 못한 색은 위반이 아니라 개수로만 알린다. 놓친 것이 있다는 사실을 숨기지 않기 위해서다.
   const uncheckedFiles = results
+    // 토큰을 정의하는 파일(tailwind.config.js)의 색은 놓친 색이 아니다.
+    .filter((result) => !tokens.files.has(realPath(result.filePath)))
     .map((result) => result.messages.filter((message) => message.ruleId === UNCHECKED_RULE).length)
     .filter((n) => n > 0);
   const unchecked = { colors: uncheckedFiles.reduce((a, b) => a + b, 0), files: uncheckedFiles.length };
