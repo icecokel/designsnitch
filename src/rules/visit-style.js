@@ -1,4 +1,4 @@
-import { findColorValues } from "../core/color.js";
+import { findColorValues, isColorProperty } from "../core/color.js";
 
 /**
  * 노드가 JSX style 속성 객체의 값이면 CSS 속성 이름을, 아니면 null 을 돌려준다.
@@ -34,7 +34,7 @@ export function visitInlineStyleColors(context, onFound) {
   const { sourceCode } = context;
 
   function scan(node, property) {
-    for (const found of findColorValues(sourceCode.getText(node))) {
+    for (const found of findColorValues(sourceCode.getText(node), { named: isColorProperty(property) })) {
       const start = node.range[0] + found.index;
       const end = start + found.text.length;
       onFound({ ...found, property }, {

@@ -1,14 +1,35 @@
+import { NAMED_COLORS } from "./named-colors.js";
 import { oklchKey } from "./oklch.js";
 
 const HEX = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 const FUNCTION = /^(rgba?|hsla?|oklch)\((.*)\)$/is;
+// hex 로 바꾸지 않는 표기. 같은 표기끼리만 맞춘다.
+const OTHER_FUNCTION = /^(hwb|lab|lch|oklab|color)\(([^()]*)\)$/is;
 // 문자열 속의 색 값. 예: "#fff", "rgb(1, 2, 3)". a#top, &#39; 같은 것은 색이 아니다.
 const COLOR_VALUE =
-  /(?<![\w&#])#(?:[0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3,4})(?![\w-])|(?<![\w-])(?:rgba?|hsla?|oklch)\([^()]*\)/gi;
+  /(?<![\w&#])#(?:[0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3,4})(?![\w-])|(?<![\w-])(?:rgba?|hsla?|oklch|hwb|lab|lch|oklab|color)\([^()]*\)/gi;
+// 색 이름. var(--red), .red, dark-red, red-500 같은 것은 색 이름이 아니다.
+const NAMED_VALUE = new RegExp(
+  `(?<![\\w#.$@-])(?:${Object.keys(NAMED_COLORS).sort((a, b) => b.length - a.length).join("|")})(?![\\w(-])`,
+  "gi",
+);
+// 색을 값으로 받는 CSS 속성. 색 이름은 여기서만 색으로 본다.
+const COLOR_PROPERTY =
+  /^(?:-(?:webkit|moz)-)?(?:color|background(?:-color|-image)?|border(?:-[a-z-]+)?|outline(?:-color)?|fill|stroke|box-shadow|text-shadow|caret-color|accent-color|text-decoration(?:-color)?|text-emphasis(?:-color)?|column-rule(?:-color)?|scrollbar-color|stop-color|flood-color|lighting-color|text-fill-color|text-stroke(?:-color)?|tap-highlight-color)$/;
+
+/** 색을 값으로 받는 CSS 속성인지. backgroundColor 같은 JS 표기도 받는다. */
+export function isColorProperty(property) {
+  return COLOR_PROPERTY.test(property.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`));
+}
+
+/** white, red 같은 CSS 색 이름인지. */
+export function isNamedColor(value) {
+  return Object.hasOwn(NAMED_COLORS, value.trim().toLowerCase());
+}
 
 /**
  * 색 값을 읽는다. 읽을 수 없으면 null.
- * @param {string} value 예: "#3B82F6", "rgb(59 130 246)", "hsl(217, 91%, 60%)", "oklch(55.4% 0.046 257.417)"
+ * @param {string} value 예: "#3B82F6", "rgb(59 130 246)", "hsl(217, 91%, 60%)", "oklch(55.4% 0.046 257.417)", "white"
  * @returns {{ key: string, alpha: number, opaque: boolean } | null} key 는 비교용 표기. sRGB 색은 소문자 6자리 hex,
  *   sRGB 밖의 oklch 는 표기를 맞춘 oklch(...). opaque 가 false 면 반투명이다
  */
@@ -16,7 +37,14 @@ export function parseColor(value) {
   const text = value.trim();
   if (text.startsWith("#")) return parseHex(text);
   // Tailwind 임의 값은 공백 대신 _ 를 쓴다.
-  const match = FUNCTION.exec(text.replaceAll("_", " "));
+  if (isNamedColor(text)) return { key: `#${NAMED_COLORS[text.toLowerCase()]}`, alpha: 1, opaque: true };
+  const spaced = text.replaceAll("_", " ");
+  const other = OTHER_FUNCTION.exec(spaced);
+  if (other) {
+    const args = other[2].trim().replace(/\s+/g, " ").toLowerCase();
+    return args ? { key: `${other[1].toLowerCase()}(${args})`, alpha: 1, opaque: !args.includes("/") } : null;
+  }
+  const match = FUNCTION.exec(spaced);
   if (!match) return null;
   const name = match[1].toLowerCase();
   if (name === "oklch") return oklchKey(`oklch(${match[2]})`);
@@ -52,13 +80,17 @@ export function normalizeColor(value) {
 }
 
 /**
- * 문자열에서 색 값(hex 와 rgb(), hsl(), oklch())을 찾는다. 반투명한 색도 찾는다.
+ * 문자열에서 색 값(hex 와 rgb(), hsl(), oklch() 같은 색 함수)을 찾는다. 반투명한 색도 찾는다.
  * @param {string} text
+ * @param {{ named?: boolean }} [options] named 가 true 면 white 같은 색 이름도 찾는다.
+ *   색을 값으로 받는 자리에서만 켠다. 일반 문자열에서는 그냥 단어일 수 있다
  * @returns {{ index: number, text: string, value: string }[]}
  */
-export function findColorValues(text) {
-  return [...text.matchAll(COLOR_VALUE)]
+export function findColorValues(text, { named = false } = {}) {
+  const matches = [...text.matchAll(COLOR_VALUE), ...(named ? text.matchAll(NAMED_VALUE) : [])];
+  return matches
     .filter((match) => parseColor(match[0]) !== null)
+    .sort((a, b) => a.index - b.index)
     .map((match) => ({ index: match.index, text: match[0], value: match[0] }));
 }
 

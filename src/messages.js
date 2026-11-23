@@ -33,6 +33,8 @@ const en = {
   useTokenThemed: ({ found, tokens, candidates }) =>
     `${found} has the same color as ${tokens}. Candidates: ${candidates}. ` +
     "A candidate token has different values across themes. Using it can change the color in another theme.",
+  useTokenClassOnly: ({ found, tokens }) =>
+    `${found} has the same color as ${tokens}, but that token can only be used as a class: Tailwind makes no CSS variable for it.`,
   unknownColor: ({ found }) => `The color of ${found} is not in the tokens.`,
   unknownCssColor: ({ value }) => `The color ${value} is not in the tokens.`,
   useComponent: ({ tag, component, path }) =>
@@ -84,8 +86,6 @@ const en = {
   configBadPalette: ({ file }) => `"palette" in the config file must be "tailwind": ${file}`,
   tailwindConfigFailed: ({ file, reason }) =>
     `Could not load the Tailwind config ${file}: ${reason}. Colors defined there are not known, so they are reported as "not in the tokens".`,
-  paletteNeedsV4: ({ version }) =>
-    `"palette": "tailwind" reads the palette of Tailwind CSS v4, but the project has tailwindcss ${version}. Remove "palette" from the config.`,
   paletteMissing: ({ root }) =>
     `The config sets "palette": "tailwind", but tailwindcss could not be found from ${root}. Install the project's dependencies, or remove "palette".`,
   settingsUnreadable: ({ file }) => `Could not read ${file}. Fix the JSON and run again.`,
@@ -184,6 +184,8 @@ const ko = {
   useTokenThemed: ({ found, tokens, candidates }) =>
     `${found}의 색은 토큰 ${tokens}의 값입니다. 후보: ${candidates}. ` +
     "후보 중 테마마다 값이 다른 토큰이 있어 그 토큰으로 바꾸면 다른 테마에서 색이 바뀔 수 있습니다.",
+  useTokenClassOnly: ({ found, tokens }) =>
+    `${found}의 색은 토큰 ${tokens}의 값이지만, 이 토큰은 클래스로만 쓸 수 있습니다. Tailwind가 CSS 변수를 만들지 않습니다.`,
   unknownColor: ({ found }) => `${found}의 색은 토큰에 없습니다.`,
   unknownCssColor: ({ value }) => `${value}의 색은 토큰에 없습니다.`,
   useComponent: ({ tag, component, path }) =>
@@ -233,8 +235,6 @@ const ko = {
   configBadPalette: ({ file }) => `설정 파일의 "palette"는 "tailwind"여야 합니다: ${file}`,
   tailwindConfigFailed: ({ file, reason }) =>
     `Tailwind 설정을 불러오지 못했습니다: ${file}: ${reason}. 거기에 정의된 색을 알 수 없어서 "토큰에 없음"으로 나옵니다.`,
-  paletteNeedsV4: ({ version }) =>
-    `"palette": "tailwind"는 Tailwind CSS v4의 팔레트를 읽는데, 이 프로젝트의 tailwindcss는 ${version}입니다. 설정에서 "palette"를 지우세요.`,
   paletteMissing: ({ root }) =>
     `설정에 "palette": "tailwind"가 있지만 ${root}에서 tailwindcss를 찾지 못했습니다. 프로젝트의 의존성을 설치하거나 "palette"를 지우세요.`,
   settingsUnreadable: ({ file }) => `${file} 을 읽을 수 없습니다. JSON 형식을 고친 뒤 다시 실행하세요.`,

@@ -31,6 +31,8 @@ describe("findCssColors", () => {
     ].join("\n");
     expect(findCssColors(css).map(({ line, value }) => ({ line, value }))).toEqual([
       { line: 2, value: "#123456" },
+      { line: 4, value: "red" }, // 색 이름도 색이다. 주석 안의 #000 은 아니다
+      { line: 5, value: "red" },
     ]);
   });
 

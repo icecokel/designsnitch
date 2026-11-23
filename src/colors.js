@@ -1,11 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { findArbitraryColors, findPaletteClasses } from "./core/classes.js";
-import { colorLabel, parseColor } from "./core/color.js";
+import { colorLabel, isColorProperty, isNamedColor, parseColor } from "./core/color.js";
 import { findCssColors } from "./core/css.js";
 import { createEngine } from "./engine.js";
 import { splitPaths } from "./files.js";
 import { visitStrings } from "./rules/visit-strings.js";
+import { inlineStyleProperty } from "./rules/visit-style.js";
 
 const RULE_ID = "designsnitch-internal/collect-colors";
 const MAX_EXAMPLES = 3;
@@ -34,7 +35,10 @@ const collectRule = {
       ...visitor,
       Literal(node) {
         // 문자열 전체가 색인 경우. 예: style={{ color: "#3B82F6" }}
-        if (typeof node.value === "string" && parseColor(node.value) !== null) {
+        // 색 이름은 인라인 스타일의 색 속성에서만 색으로 센다. 다른 곳에서는 그냥 단어일 수 있다.
+        const isColor = (value) =>
+          parseColor(value) !== null && (!isNamedColor(value) || isColorProperty(inlineStyleProperty(node) ?? ""));
+        if (typeof node.value === "string" && isColor(node.value)) {
           report(node.loc, { kind: "hex", key: colorLabel(node.value), utility: null });
           return;
         }

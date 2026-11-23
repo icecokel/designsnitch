@@ -784,17 +784,6 @@ describe("Tailwind 기본 팔레트를 기준으로 쓰기 (palette: tailwind)",
     ]);
   });
 
-  it("Tailwind v3 이면 v4 가 필요하다고 알린다", async () => {
-    const cwd = tempProject({
-      "node_modules/tailwindcss/package.json": JSON.stringify({ name: "tailwindcss", version: "3.4.19" }),
-      "node_modules/tailwindcss/colors.js": "module.exports = {};",
-      "designsnitch.config.json": `{ "tokens": "app/globals.css", "palette": "tailwind" }`,
-      "app/globals.css": `@tailwind base;`,
-      "src/Card.jsx": `export const Card = () => <div />;`,
-    });
-    await expect(check({ cwd, config: loadConfig(cwd), lang: "en" })).rejects.toThrow(/Tailwind CSS v4.*3\.4\.19/);
-  });
-
   it("palette 값은 tailwind 만 받는다", () => {
     const cwd = tempProject({ "designsnitch.config.json": `{ "tokens": "a.css", "palette": "material" }` });
     expect(() => loadConfig(cwd, undefined, "en")).toThrow(/"palette"/);

@@ -47,21 +47,31 @@ function collect(config, palette, result) {
   if (replaced && typeof replaced === "object") {
     result.replacesPalette = true;
     result.colors.clear();
-    flatten(replaced, "--color", result.colors);
+    flattenColors(replaced, result.colors);
   }
-  flatten(section(config.theme?.extend?.colors), "--color", result.colors);
+  flattenColors(section(config.theme?.extend?.colors), result.colors);
 }
 
-/** { brand: { DEFAULT: "#f00", 500: "#a00" } } → --color-brand, --color-brand-500 */
-function flatten(colors, prefix, out) {
-  if (!colors || typeof colors !== "object") return;
-  for (const [key, value] of Object.entries(colors)) {
+/**
+ * Tailwind 의 색 객체를 토큰 이름 → 비교용 색 표기로 편다.
+ * 예: { brand: { DEFAULT: "#f00", 500: "#a00" } } → --color-brand, --color-brand-500
+ * getter 는 읽지 않는다. tailwindcss/colors 의 옛 이름(lightBlue 등)은 읽기만 해도 경고를 찍는다.
+ * @param {unknown} colors
+ * @param {Map<string, string>} [out]
+ * @param {string} [prefix]
+ */
+export function flattenColors(colors, out = new Map(), prefix = "--color") {
+  if (!colors || typeof colors !== "object") return out;
+  for (const [key, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(colors))) {
+    if (!descriptor.enumerable || !("value" in descriptor)) continue;
+    const { value } = descriptor;
     const name = key === "DEFAULT" ? prefix : `${prefix}-${key}`;
     if (typeof value === "string") {
       const color = normalizeColor(value);
       if (color && name !== "--color") out.set(name, color);
     } else {
-      flatten(value, name, out);
+      flattenColors(value, out, name);
     }
   }
+  return out;
 }

@@ -13,7 +13,7 @@ export default {
     docs: { description: "Use the token instead of writing its color as a hex value" },
     hasSuggestions: true,
     schema: [],
-    messages: { useToken: TEXT, useTokenThemed: TEXT, replace: TEXT, tokensConfig: TEXT },
+    messages: { useToken: TEXT, useTokenThemed: TEXT, useTokenClassOnly: TEXT, replace: TEXT, tokensConfig: TEXT },
   },
   create(context) {
     let tokens;
@@ -50,9 +50,15 @@ export default {
       }),
       // 인라인 스타일은 클래스가 아니라 var(--토큰) 으로 바꾼다. Tailwind 는 소스에서 쓴 var() 의 변수를 내보낸다.
       visitInlineStyleColors(context, (found, where) => {
-        // 클래스로만 쓸 수 있는 토큰은 스타일 값을 대신할 수 없다.
-        const names = (colors.get(normalizeColor(found.value)) ?? []).filter((name) => !classOnly.has(name));
-        if (names.length === 0) return;
+        const known = colors.get(normalizeColor(found.value));
+        if (!known) return;
+        // 클래스로만 쓸 수 있는 토큰은 스타일 값을 대신할 수 없다. 그래도 직접 쓴 색이라는 것은 알린다.
+        const names = known.filter((name) => !classOnly.has(name));
+        if (names.length === 0) {
+          const text = m.useTokenClassOnly({ found: found.text, tokens: known.join(", ") });
+          context.report({ loc: where.loc, messageId: "useTokenClassOnly", data: { text } });
+          return;
+        }
         const tokenNames = selectColorTokens(names, prefer, cssColorPrefixes(found.property));
         report(found, where, tokenNames, tokenNames.map((name) => tokenVar(name, tokens.prefix)));
       }),

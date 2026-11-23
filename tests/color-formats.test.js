@@ -118,3 +118,56 @@ describe("@apply 안의 클래스", () => {
     ]);
   });
 });
+
+describe("이름으로 적은 색", () => {
+  it("색 속성의 CSS 선언, 인라인 스타일, 임의 값 클래스에서 찾는다", async () => {
+    const cwd = tempProject({
+      "designsnitch.config.json": `{ "tokens": "tokens.css" }`,
+      "tokens.css": `@theme { --color-surface: white; }`,
+      "src/a.css": `.a { color: white; border: 1px solid red; white-space: nowrap; transition: color 1s; font-family: Tan; content: "red"; --local: gold; --mixed: 1px red; }`,
+      "src/A.jsx": `export const A = () => <div className="bg-[white] text-[tomato]" title="red" style={{ color: "white", borderTop: "1px solid red", display: "block" }} />;`,
+    });
+    const result = await check({ cwd, config: loadConfig(cwd), lang: "en" });
+
+    expect(result.violations.map((v) => [v.file, v.found, v.rule, v.candidates])).toEqual([
+      ["src/a.css", "white", "color-use-token", ["var(--color-surface)"]],
+      ["src/a.css", "red", "color-unknown", []],
+      ["src/a.css", "gold", "color-unknown", []],
+      ["src/A.jsx", "bg-[white]", "color-use-token", ["bg-surface"]],
+      ["src/A.jsx", "text-[tomato]", "color-unknown", []],
+      ["src/A.jsx", "white", "color-use-token", ["var(--color-surface)"]],
+      ["src/A.jsx", "red", "color-unknown", []],
+    ]);
+    expect(result.unchecked).toEqual({ colors: 0, files: 0 });
+
+    const colors = await collectColors({ cwd });
+    expect(Object.fromEntries(colors.colors.map(({ color, uses }) => [color, uses]))).toEqual({
+      "#ffffff": 4, // tokens.css 의 선언도 센다. 설정 없이 모으기 때문이다
+      "#ff0000": 1, // 인라인 스타일의 긴 문자열 속 색은 colors 가 아직 세지 않는다
+      "#ffd700": 1,
+      "#ff6347": 1,
+    });
+  });
+});
+
+describe("클래스로만 쓸 수 있는 토큰", () => {
+  it("JS 설정의 색을 CSS 선언이나 인라인 스타일에 직접 쓰면 후보 없이 알린다", async () => {
+    const cwd = tempProject({
+      "designsnitch.config.json": `{ "tokens": "app.css" }`,
+      "app.css": `@config "./tailwind.config.js";`,
+      "tailwind.config.js": `module.exports = { theme: { extend: { colors: { brand: "#ff5a1f" } } } };`,
+      "src/a.css": `.a { color: #ff5a1f; }`,
+      "src/A.jsx": `export const A = () => <div style={{ color: "#ff5a1f" }} />;`,
+    });
+    const result = await check({ cwd, config: loadConfig(cwd), lang: "en" });
+
+    expect(result.violations.map((v) => [v.file, v.rule, v.severity, v.candidates, v.action])).toEqual([
+      ["src/a.css", "color-use-token", "error", [], "ask"],
+      ["src/A.jsx", "color-use-token", "error", [], "ask"],
+    ]);
+    expect(result.violations[0].message).toBe(
+      "#ff5a1f has the same color as --color-brand, but that token can only be used as a class: Tailwind makes no CSS variable for it.",
+    );
+    expect(result.decisions).toMatchObject([{ subject: "#ff5a1f", uses: 2, reasons: ["class-only-token"] }]);
+  });
+});

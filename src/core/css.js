@@ -1,6 +1,6 @@
 import postcss from "postcss";
 import { findArbitraryColors } from "./classes.js";
-import { findColorValues } from "./color.js";
+import { findColorValues, isColorProperty, isNamedColor } from "./color.js";
 
 // 색이 아닌 # 이 들어갈 수 있는 곳: url(#id), "문자열", /* 주석 */
 const NOT_A_VALUE = /url\([^)]*\)|"[^"]*"|'[^']*'|\/\*[\s\S]*?\*\//g;
@@ -63,7 +63,9 @@ export function findCssColors(css, { skipCustomProperties = false } = {}) {
     const valueStart = decl.source.start.offset + decl.prop.length + decl.raws.between.length;
     const masked = raw.replace(NOT_A_VALUE, (skipped) => " ".repeat(skipped.length));
 
-    for (const match of findColorValues(masked)) {
+    // 색 이름은 색 속성에서만, 변수 선언에서는 값 전체가 색 이름일 때만 색으로 본다.
+    const named = decl.prop.startsWith("--") ? isNamedColor(raw) : isColorProperty(decl.prop);
+    for (const match of findColorValues(masked, { named })) {
       const start = position(valueStart + match.index);
       const end = position(valueStart + match.index + match.text.length);
       found.push({

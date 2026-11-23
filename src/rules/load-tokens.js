@@ -5,7 +5,7 @@ import postcss from "postcss";
 import { invalidTokenField, tokenSettings } from "../config.js";
 import { parseColorTokenData, parsePaletteColors } from "../core/tokens.js";
 import { messages, resolveLang } from "../messages.js";
-import { loadConfigColors } from "./tailwind-config.js";
+import { flattenColors, loadConfigColors } from "./tailwind-config.js";
 
 /**
  * @typedef {object} Tokens
@@ -23,7 +23,7 @@ import { loadConfigColors } from "./tailwind-config.js";
 
 /** @type {Map<string, { deps: [string, number][], tokens: ProjectTokens }>} */
 const cache = new Map();
-/** @type {Map<string, { mtimeMs: number, palette: Map<string, string> }>} */
+/** @type {Map<string, { mtimeMs: number, result: { palette: Map<string, string>, classOnly: boolean } }>} */
 const paletteCache = new Map();
 
 /**
@@ -41,26 +41,30 @@ export function loadTokens(settings, cwd) {
   const { file: tokensPath, exclude = [], prefer = [] } = tokenSettings(tokens);
   const root = path.resolve(cwd, settings?.designsnitch?.root ?? ".");
   const file = path.resolve(root, tokensPath);
-  const project = readProjectTokens(file, exclude, m);
+  const project = readProjectTokens(file, root, exclude, m);
   const { files, prefix, classOnly, problems } = project;
   const shared = { prefer, files, prefix, classOnly, problems };
   if (settings?.designsnitch?.palette !== "tailwind") {
     return { colors: project.colors, themed: project.themed, paletteNames: new Set(), ...shared };
   }
-  return { ...withPalette(project, readTailwindPalette(file, m), exclude), ...shared };
+  return { ...shared, ...withPalette(project, readTailwindPalette(file, m), exclude) };
 }
 
 /** @returns {ProjectTokens} */
-function readProjectTokens(file, exclude, m) {
+function readProjectTokens(file, root, exclude, m) {
   const key = JSON.stringify([file, exclude]);
   const cached = cache.get(key);
   if (cached && cached.deps.every(([dep, mtimeMs]) => mtimeOf(dep) === mtimeMs)) return cached.tokens;
 
+  // tokens 에 tailwind.config.js 같은 JavaScript 설정을 직접 적은 경우. Tailwind v3 프로젝트가 그렇다.
+  const isConfig = JS_FILE.test(file);
+  const sources = [];
+  const configFiles = isConfig ? [file] : [];
+  let prefix = null;
+  let usesV3Directives = false;
   let current = file;
   try {
-    const sources = [];
-    const configFiles = [];
-    let prefix = null;
+    if (isConfig && !fs.existsSync(file)) throw Object.assign(new Error("missing"), { code: "ENOENT" });
     // 토큰 CSS 가 @import 한 CSS 도 토큰을 정의할 수 있다. 예: @import "../brand/theme.css"
     const visit = (cssFile) => {
       if (sources.some(([seen]) => seen === cssFile)) return;
@@ -68,12 +72,15 @@ function readProjectTokens(file, exclude, m) {
       const css = fs.readFileSync(cssFile, "utf8");
       const entry = [cssFile, css];
       sources.push(entry);
-      const root = postcss.parse(css, { from: cssFile });
-      root.walkAtRules("config", (rule) => {
+      const sheet = postcss.parse(css, { from: cssFile });
+      sheet.walkAtRules("tailwind", () => {
+        usesV3Directives = true;
+      });
+      sheet.walkAtRules("config", (rule) => {
         const spec = /^["']([^"']+)["']/.exec(rule.params)?.[1];
         if (spec) configFiles.push(path.resolve(path.dirname(cssFile), spec));
       });
-      root.walkAtRules("import", (rule) => {
+      sheet.walkAtRules("import", (rule) => {
         const spec = /^(?:url\(\s*)?["']([^"']+)["']/.exec(rule.params)?.[1];
         if (!spec) return;
         if (spec === "tailwindcss") {
@@ -87,17 +94,7 @@ function readProjectTokens(file, exclude, m) {
       });
       current = cssFile;
     };
-    visit(file);
-
-    // import 된 파일의 선언이 먼저 오도록 뒤집어 합친다. 순서는 결과에 영향을 주지 않지만 읽기 쉽다.
-    const parsed = parseColorTokenData(sources.map(([, css]) => css).reverse().join("\n"), exclude);
-    const { classOnly, problems } = addConfigColors(parsed, configFiles, exclude, m);
-    // 링크된 경로로 들어와도 같은 파일로 알아보도록 실제 경로로 적어 둔다.
-    const files = new Set(sources.map(([cssFile]) => fs.realpathSync(cssFile)));
-    const tokens = { ...parsed, files, prefix, classOnly, problems };
-    const deps = [...sources.map(([cssFile]) => cssFile), ...configFiles];
-    cache.set(key, { deps: deps.map((dep) => [dep, mtimeOf(dep)]), tokens });
-    return tokens;
+    if (!isConfig) visit(file);
   } catch (error) {
     if (error.code === "ENOENT" || error.code === "ENOTDIR") {
       throw new Error(m.tokensFileMissing({ file: current }));
@@ -112,7 +109,28 @@ function readProjectTokens(file, exclude, m) {
       }),
     );
   }
+
+  // Tailwind v3 는 @config 없이 프로젝트 루트의 tailwind.config 를 읽는다. @tailwind 지시어가 v3 의 표시다.
+  if (usesV3Directives && configFiles.length === 0) {
+    const found = V3_CONFIG_NAMES.map((name) => path.join(root, name)).find((candidate) => fs.existsSync(candidate));
+    if (found) configFiles.push(found);
+  }
+
+  // import 된 파일의 선언이 먼저 오도록 뒤집어 합친다. 순서는 결과에 영향을 주지 않지만 읽기 쉽다.
+  const parsed = parseColorTokenData(sources.map(([, css]) => css).reverse().join("\n"), exclude);
+  const { classOnly, problems } = addConfigColors(parsed, configFiles, exclude, m);
+  // 기준으로 적은 설정을 못 읽으면 판정할 것이 없다. @config 로 딸려 온 설정이면 알리기만 하고 계속한다.
+  if (isConfig && problems.length > 0) throw new Error(problems[0]);
+  // 링크된 경로로 들어와도 같은 파일로 알아보도록 실제 경로로 적어 둔다.
+  const files = new Set(sources.map(([cssFile]) => fs.realpathSync(cssFile)));
+  const tokens = { ...parsed, files, prefix, classOnly, problems };
+  const deps = [...sources.map(([cssFile]) => cssFile), ...configFiles];
+  cache.set(key, { deps: deps.map((dep) => [dep, mtimeOf(dep)]), tokens });
+  return tokens;
 }
+
+const JS_FILE = /\.[cm]?[jt]s$/;
+const V3_CONFIG_NAMES = ["tailwind.config.js", "tailwind.config.cjs", "tailwind.config.mjs", "tailwind.config.ts"];
 
 /**
  * @config 로 불러온 JavaScript 설정의 색을 CSS 에서 읽은 토큰에 더한다. 같은 이름이면 CSS 가 이긴다.
@@ -168,20 +186,31 @@ function resolveImport(fromFile, spec) {
 function readTailwindPalette(tokensFile, m) {
   const require = createRequire(tokensFile);
   let file;
+  let classOnly = false;
   try {
     file = require.resolve("tailwindcss/theme.css");
   } catch {
-    // v3 에는 theme.css 가 없다. 설치가 안 된 것과 구분해서 알린다.
-    const version = installedVersion(require);
-    if (version && !version.startsWith("4.")) throw new Error(m.paletteNeedsV4({ version }));
-    throw new Error(m.paletteMissing({ root: path.dirname(tokensFile) }));
+    // v3 에는 theme.css 가 없다. 팔레트는 tailwindcss/colors 에 있고, CSS 변수가 없어 클래스로만 쓴다.
+    try {
+      file = require.resolve("tailwindcss/colors");
+      classOnly = true;
+    } catch {
+      throw new Error(m.paletteMissing({ root: path.dirname(tokensFile) }));
+    }
   }
   const { mtimeMs } = fs.statSync(file);
   const cached = paletteCache.get(file);
-  if (cached?.mtimeMs === mtimeMs) return cached.palette;
-  const palette = parsePaletteColors(fs.readFileSync(file, "utf8"));
-  paletteCache.set(file, { mtimeMs, palette });
-  return palette;
+  if (cached?.mtimeMs === mtimeMs) return cached.result;
+  let palette;
+  if (classOnly) {
+    const module = require(file);
+    palette = flattenColors(module.default ?? module);
+  } else {
+    palette = parsePaletteColors(fs.readFileSync(file, "utf8"));
+  }
+  const result = { palette, classOnly };
+  paletteCache.set(file, { mtimeMs, result });
+  return result;
 }
 
 /**
@@ -189,11 +218,11 @@ function readTailwindPalette(tokensFile, m) {
  * - 프로젝트가 같은 이름을 다시 정의한 색 (값을 읽지 못했어도 기본값은 더 이상 쓰이지 않는다)
  * - 프로젝트가 --color-*: initial, --*: initial 같은 선언으로 비운 네임스페이스의 색
  * - exclude 에 걸린 색
- * @param {ReturnType<typeof parseColorTokenData>} project
- * @param {Map<string, string>} palette
+ * @param {ProjectTokens} project
+ * @param {{ palette: Map<string, string>, classOnly: boolean }} tailwind classOnly 면 팔레트 색에 CSS 변수가 없다 (v3)
  * @param {string[]} exclude
  */
-function withPalette(project, palette, exclude) {
+function withPalette(project, { palette, classOnly: paletteIsClassOnly }, exclude) {
   const matches = (name, pattern) => (pattern.endsWith("*") ? name.startsWith(pattern.slice(0, -1)) : name === pattern);
   const excluded = (name) => [...exclude, ...project.resets].some((pattern) => matches(name, pattern));
   const colors = new Map([...project.colors].map(([hex, names]) => [hex, [...names]]));
@@ -203,13 +232,6 @@ function withPalette(project, palette, exclude) {
     paletteNames.add(name);
     colors.set(hex, [...(colors.get(hex) ?? []), name]);
   }
-  return { colors, themed: project.themed, paletteNames };
-}
-
-function installedVersion(require) {
-  try {
-    return JSON.parse(fs.readFileSync(require.resolve("tailwindcss/package.json"), "utf8")).version;
-  } catch {
-    return null;
-  }
+  const classOnly = paletteIsClassOnly ? new Set([...project.classOnly, ...paletteNames]) : project.classOnly;
+  return { colors, themed: project.themed, paletteNames, classOnly };
 }

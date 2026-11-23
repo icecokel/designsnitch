@@ -47,7 +47,7 @@ const MAX_DECISION_LOCATIONS = 5;
  * @property {Pick<Violation, "file" | "line" | "column">[]} locations 위반 위치 최대 다섯 곳
  * @property {string[]} candidates
  * @property {string | null} recommended 각 위치에서 추천이 같을 때 그 후보
- * @property {("multiple-candidates" | "no-token" | "themed-token" | "dynamic-props")[]} reasons
+ * @property {("multiple-candidates" | "no-token" | "themed-token" | "class-only-token" | "dynamic-props")[]} reasons
  */
 
 /**
@@ -176,9 +176,21 @@ function checkCss(file, source, tokens, m, options) {
       const prefixes = utility ? utilityColorPrefixes(utility) : cssColorPrefixes(prop);
       const toCandidate = (name) => (utility ? tokenToClass(utility, name) : tokenVar(name, tokens.prefix));
       const known = tokens.colors.get(normalizeColor(value)) ?? [];
-      // 클래스로만 쓸 수 있는 토큰은 선언의 값을 대신할 수 없다.
+      // 클래스로만 쓸 수 있는 토큰은 선언의 값을 대신할 수 없다. 그래도 직접 쓴 색이라는 것은 알린다.
       const usable = utility ? known : known.filter((name) => !tokens.classOnly.has(name));
-      if (known.length > 0 && usable.length === 0) return null;
+      if (known.length > 0 && usable.length === 0) {
+        return {
+          file,
+          ...location,
+          rule: "color-use-token",
+          severity: "error",
+          messageId: "useTokenClassOnly",
+          message: m.useTokenClassOnly({ found, tokens: known.join(", ") }),
+          found,
+          candidates: [],
+          recommended: null,
+        };
+      }
       const tokenNames = selectColorTokens(usable, tokens.prefer, prefixes);
       const candidates = tokenNames.map(toCandidate);
       const recommendedToken = recommendColorCandidate(tokenNames, prefixes);
@@ -206,8 +218,7 @@ function checkCss(file, source, tokens, m, options) {
         candidates,
         recommended: recommendedToken ? toCandidate(recommendedToken) : null,
       };
-    })
-    .filter(Boolean);
+    });
 }
 
 function realPath(file) {
@@ -257,6 +268,7 @@ function groupDecisions(violations) {
     if (candidates.length > 1) decision.reasons.add("multiple-candidates");
     if (rule === "color-unknown") decision.reasons.add("no-token");
     if (messageId === "useTokenThemed") decision.reasons.add("themed-token");
+    if (messageId === "useTokenClassOnly") decision.reasons.add("class-only-token");
     if (messageId === "useComponentAsk") decision.reasons.add("dynamic-props");
   }
 

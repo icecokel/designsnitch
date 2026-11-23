@@ -101,7 +101,7 @@ describe("@config 로 불러오는 JavaScript 설정", () => {
     "node_modules/tailwindcss/theme.css": `@theme default { --color-slate-500: oklch(55.4% 0.046 257.417); --color-white: #fff; }`,
   };
 
-  it("extend.colors 의 색을 클래스 후보로 낸다. CSS 변수가 없으므로 var() 후보로는 쓰지 않는다", async () => {
+  it("extend.colors 의 색을 클래스 후보로 낸다. CSS 변수가 없으므로 var() 후보는 내지 않는다", async () => {
     const cwd = tempProject({
       ...config,
       ...tailwindColors,
@@ -125,6 +125,7 @@ describe("@config 로 불러오는 JavaScript 설정", () => {
     expect(result.problems).toEqual([]);
     expect(result.designSystem.colorTokens).toBe(8);
     expect(result.violations.map((v) => [v.found, v.rule, v.candidates])).toEqual([
+      ["#aa3300", "color-use-token", []], // JS 설정의 색은 CSS 변수가 없어 후보 없이 알린다
       ["#111111", "color-use-token", ["var(--color-own)"]],
       ["bg-[#ff5a1f]", "color-use-token", ["bg-brand"]],
       ["text-[#aa3300]", "color-use-token", ["text-brand-500"]],
@@ -134,6 +135,7 @@ describe("@config 로 불러오는 JavaScript 설정", () => {
       ["bg-[#010203]", "color-use-token", ["bg-preset"]],
       ["bg-[#888888]", "color-unknown", []], // CSS 의 --color-both 가 이긴다
       ["bg-[#777777]", "color-use-token", ["bg-both"]],
+      ["#ff5a1f", "color-use-token", []],
     ]);
   });
 
@@ -195,5 +197,55 @@ describe("심볼릭 링크 경로", () => {
     stdout = "";
     await run(["colors", "--config", path.join(link, "designsnitch.config.json"), "--format", "json"], io);
     expect(JSON.parse(stdout).colors).toEqual([]);
+  });
+});
+
+describe("Tailwind v3", () => {
+  const v3 = {
+    "node_modules/tailwindcss/package.json": JSON.stringify({ name: "tailwindcss", version: "3.4.19" }),
+    "node_modules/tailwindcss/colors.js": `module.exports = {
+      inherit: "inherit", transparent: "transparent", white: "#fff",
+      slate: { 500: "#64748b" },
+      get lightBlue() { throw new Error("deprecated alias must not be read"); },
+    };`,
+    "app/globals.css": `@tailwind base;\n@tailwind components;\n@tailwind utilities;\n:root { --radius: 4px; }`,
+    "tailwind.config.js": `module.exports = { content: [], theme: { extend: { colors: { brand: { 500: "#ff5a1f" } } } } };`,
+    "src/A.jsx": `export const A = () => <div className="bg-[#ff5a1f] text-[#64748b] border-[#123456]" />;`,
+  };
+
+  it("@tailwind 를 쓰는 CSS 면 프로젝트 루트의 tailwind.config 를 찾아 색을 읽는다", async () => {
+    const cwd = tempProject({ ...config, ...v3 });
+    const result = await check({ cwd, config: loadConfig(cwd), lang: "en" });
+    expect(result.problems).toEqual([]);
+    expect(result.designSystem).toMatchObject({ colorTokens: 1, paletteColors: 0 });
+    expect(result.violations.map((v) => [v.found, v.rule, v.candidates])).toEqual([
+      ["bg-[#ff5a1f]", "color-use-token", ["bg-brand-500"]],
+      ["text-[#64748b]", "color-unknown", []],
+      ["border-[#123456]", "color-unknown", []],
+    ]);
+  });
+
+  it("tokens 에 tailwind.config 를 직접 적어도 되고, palette 는 tailwindcss/colors 에서 읽는다", async () => {
+    const cwd = tempProject({
+      ...v3,
+      "designsnitch.config.json": `{ "tokens": "tailwind.config.js", "palette": "tailwind" }`,
+      "src/a.css": `.a { color: #64748b; }`,
+    });
+    const result = await check({ cwd, config: loadConfig(cwd), lang: "en" });
+    expect(result.designSystem).toMatchObject({ colorTokens: 1, paletteColors: 2 });
+    expect(result.violations.map((v) => [v.found, v.rule, v.candidates])).toEqual([
+      ["#64748b", "color-use-token", []], // v3 에는 CSS 변수가 없다
+      ["bg-[#ff5a1f]", "color-use-token", ["bg-brand-500"]],
+      ["text-[#64748b]", "color-use-token", ["text-slate-500"]],
+      ["border-[#123456]", "color-unknown", []],
+    ]);
+  });
+
+  it("tokens 에 적은 설정을 불러오지 못하면 실행하지 못한다고 알린다", async () => {
+    const cwd = tempProject({
+      "designsnitch.config.json": `{ "tokens": "tailwind.config.js" }`,
+      "tailwind.config.js": `module.exports = require("not-installed-plugin");`,
+    });
+    await expect(check({ cwd, config: loadConfig(cwd), lang: "en" })).rejects.toThrow(/Could not load the Tailwind config .*not-installed-plugin/);
   });
 });

@@ -37,7 +37,7 @@ describe("normalizeColor", () => {
     },
   );
 
-  it.each(["rgb(var(--x))", "red", "var(--color-a)", "rgb(1 2)", "#12345"])("색으로 읽을 수 없는 %s 은 null 이다", (value) => {
+  it.each(["rgb(var(--x))", "reddish", "var(--color-a)", "rgb(1 2)", "#12345"])("색으로 읽을 수 없는 %s 은 null 이다", (value) => {
     expect(normalizeColor(value)).toBeNull();
   });
 });
@@ -53,5 +53,32 @@ describe("findColorValues", () => {
 
   it("색이 아닌 것은 찾지 않는다", () => {
     expect(findColorValues("a#top &#39; rgb(var(--x)) my-rgb(1,2,3) #12345 url(x)")).toEqual([]);
+  });
+});
+
+describe("이름으로 적은 색과 그 밖의 표기", () => {
+  it.each([
+    ["white", "#ffffff"],
+    ["RebeccaPurple", "#663399"],
+    ["red", "#ff0000"],
+  ])("%s → %s", (value, key) => {
+    expect(normalizeColor(value)).toBe(key);
+  });
+
+  it.each(["transparent", "currentColor", "inherit", "solid", "none"])("%s 은 색 이름이 아니다", (value) => {
+    expect(normalizeColor(value)).toBeNull();
+  });
+
+  it("hex 로 바꾸지 않는 표기는 같은 표기끼리만 맞춘다", () => {
+    expect(normalizeColor("lab(52% 40 -60)")).toBe("lab(52% 40 -60)");
+    expect(normalizeColor("LAB(52%  40 -60)")).toBe("lab(52% 40 -60)");
+    expect(normalizeColor("color(display-p3 1 0 0)")).toBe("color(display-p3 1 0 0)");
+    expect(normalizeColor("hwb(120 0% 0%)")).toBe("hwb(120 0% 0%)");
+  });
+
+  it("색 이름은 요청했을 때만 찾는다. 일반 문자열의 단어일 수 있기 때문이다", () => {
+    const text = "1px solid red, var(--red) dark-red white-space lch(50% 30 20) Tan";
+    expect(findColorValues(text).map((c) => c.text)).toEqual(["lch(50% 30 20)"]);
+    expect(findColorValues(text, { named: true }).map((c) => c.text)).toEqual(["red", "lch(50% 30 20)", "Tan"]);
   });
 });
