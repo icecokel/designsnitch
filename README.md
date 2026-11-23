@@ -83,6 +83,42 @@ From then on:
 
 To do any of this without an agent, see [Setting up by hand](#setting-up-by-hand).
 
+## Using it on your own machine only
+
+The steps above set designsnitch up in the project, so everyone on the team gets it through git. You can also keep it on your own machine, the way a personal agent skill works: nothing is installed into the project, and only `designsnitch.config.json` is added to it. This is a good way to try it on your own work first.
+
+1. **Install the skills for your user.** The standard installer has a global option.
+
+   ```sh
+   npx skills add icecokel/designsnitch -g
+   ```
+
+2. **Register the hook in your user settings.** For Claude Code that is `~/.claude/settings.json`. Use `@latest` here, because there is no project copy to pin the version.
+
+   ```json
+   {
+     "hooks": {
+       "PostToolUse": [
+         { "matcher": "Edit|Write|MultiEdit", "hooks": [{ "type": "command", "command": "npx -y designsnitch@latest hook" }] }
+       ],
+       "Stop": [{ "hooks": [{ "type": "command", "command": "npx -y designsnitch@latest hook" }] }],
+       "SessionStart": [{ "hooks": [{ "type": "command", "command": "npx -y designsnitch@latest hook" }] }]
+     }
+   }
+   ```
+
+   Codex has the same file at `~/.codex/hooks.json`, with `apply_patch` as the matcher. The hook does nothing in a project that has no `designsnitch.config.json`, so it is safe to leave on everywhere.
+
+3. **In a project, ask the agent to set it up without installing anything.**
+
+   > Set up designsnitch in this project. Do not install anything into the project, and skip ESLint.
+
+   Without that sentence the setup skill adds the package to the project and wires ESLint, which is the team setup.
+
+What you give up: the ESLint plugin and CI need the package in the project, so nothing stops a teammate's code or a teammate's agent. Each command is fetched by `npx` the first time and runs from its cache after that (about half a second per hook call).
+
+How this was checked: `check` and `hook` were run in a project with no `node_modules`, the skills were installed with `-g` into a clean home directory, and a real Claude Code session with the hook registered outside the project rewrote `bg-[#3B82F6]` to the token class. The hook was passed with `--settings` for that run, not written to `~/.claude/settings.json`. Codex was not run this way.
+
 ## What it catches
 
 Severity follows one rule.

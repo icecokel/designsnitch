@@ -83,6 +83,42 @@ Codex, Gemini CLI, Grok Build는 새 프로젝트 훅을 승인하거나 프로�
 
 에이전트 없이 하려면 [직접 설정하기](#직접-설정하기)를 보세요.
 
+## 내 컴퓨터에만 깔아 쓰기
+
+위의 방법은 designsnitch를 프로젝트에 세팅합니다. git으로 공유되므로 팀원 모두에게 적용됩니다. 개인용 에이전트 스킬처럼 내 컴퓨터에만 둘 수도 있습니다. 프로젝트에는 아무것도 설치하지 않고 `designsnitch.config.json` 하나만 생깁니다. 팀에 도입하기 전에 내 작업에서 먼저 써 보기에 좋습니다.
+
+1. **스킬을 사용자 폴더에 설치합니다.** 표준 설치 도구에 전역 옵션이 있습니다.
+
+   ```sh
+   npx skills add icecokel/designsnitch -g
+   ```
+
+2. **훅을 사용자 설정에 등록합니다.** Claude Code는 `~/.claude/settings.json`입니다. 버전을 고정해 줄 프로젝트 사본이 없으므로 `@latest`로 적습니다.
+
+   ```json
+   {
+     "hooks": {
+       "PostToolUse": [
+         { "matcher": "Edit|Write|MultiEdit", "hooks": [{ "type": "command", "command": "npx -y designsnitch@latest hook" }] }
+       ],
+       "Stop": [{ "hooks": [{ "type": "command", "command": "npx -y designsnitch@latest hook" }] }],
+       "SessionStart": [{ "hooks": [{ "type": "command", "command": "npx -y designsnitch@latest hook" }] }]
+     }
+   }
+   ```
+
+   Codex는 같은 내용을 `~/.codex/hooks.json`에 두고, matcher는 `apply_patch`입니다. 훅은 `designsnitch.config.json`이 없는 프로젝트에서는 아무것도 하지 않으므로, 켜 둔 채로 두어도 됩니다.
+
+3. **프로젝트에서 에이전트에게, 아무것도 설치하지 말고 설정하라고 요청합니다.**
+
+   > 이 프로젝트에 designsnitch를 설정해 줘. 프로젝트에는 아무것도 설치하지 말고, ESLint 연결은 건너뛰어.
+
+   이 말이 없으면 setup 스킬이 패키지를 프로젝트에 추가하고 ESLint를 연결합니다. 그것은 팀용 세팅입니다.
+
+포기하는 것: ESLint 플러그인과 CI는 프로젝트에 패키지가 있어야 하므로, 다른 팀원의 코드나 다른 팀원의 에이전트는 막지 못합니다. 명령은 처음 한 번 `npx`가 받아 오고 그 뒤로는 캐시에서 실행합니다(훅 한 번에 약 0.5초).
+
+확인한 방법: `node_modules`가 없는 프로젝트에서 `check`와 `hook`을 실행했고, 빈 홈 폴더에 `-g`로 스킬을 설치해 봤고, 훅을 프로젝트 밖에 등록한 실제 Claude Code 세션이 `bg-[#3B82F6]`을 토큰 클래스로 고쳤습니다. 그 실행에서 훅은 `~/.claude/settings.json`에 쓰지 않고 `--settings`로 넘겼습니다. Codex는 이 방식으로 돌려 보지 않았습니다.
+
 ## 무엇을 잡는가
 
 등급은 한 가지 기준을 따릅니다.
