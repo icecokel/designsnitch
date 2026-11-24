@@ -1,7 +1,7 @@
 {
   "name": "designsnitch",
   "version": "0.6.4",
-  "description": "Keep AI-written UI code manageable and consistent, even without a design system. CLI, agent skills, ESLint plugin and agent hook for React/Next.js with Tailwind CSS v4.",
+  "description": "Keep AI-written UI code manageable and consistent, even without a design system. CLI, agent skills, ESLint plugin and agent hook for React/Next.js with Tailwind CSS v4 or v3.",
   "type": "module",
   "main": "./src/index.js",
   "exports": "./src/index.js",

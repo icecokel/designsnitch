@@ -53,7 +53,7 @@ The agent cannot finish while this error remains, so it switches to the token cl
 | ESLint plugin | Blocks and warns. The same rules show up as errors and warnings in the editor and in the lint step. |
 | Agent hook | Blocks while the code is being written. The agent is told about new errors after each edit and cannot finish while errors it can replace right away remain. |
 
-It supports **React/Next.js projects that use Tailwind CSS v4**. Tailwind v3 projects are checked too, with fewer candidates (see [Tailwind v3](#tailwind-v3)).
+It supports **React/Next.js projects that use Tailwind CSS v4 or v3**. In v3, a color written by hand in an inline style gets no candidate, because v3 makes no CSS variables for its colors (see [Tailwind v3](#tailwind-v3)).
 
 > **Status:** MVP (0.6.x). It checks colors and shared components for now. Spacing, font size and radius are not checked yet (see [Scope](#scope)). Messages are in English by default and can be switched to Korean. See [Language](#language).
 
@@ -158,7 +158,7 @@ Severity follows one rule.
 
 A color written by hand is a hex color, a color function with literal numbers (`rgb()`, `hsl()`, `oklch()`), or a color name such as `white`. Notation does not matter: `#3B82F6`, `rgb(59 130 246)` and `hsl(217 91% 60%)` are the same color to the check.
 
-Every error comes with what to use instead: a class or component in JS and TS files, and `var(--token)` in inline styles and CSS files. Tailwind v4 outputs a theme variable when the source uses it with `var()`, so `var(--token)` in an inline style renders the same color.
+Every error comes with what to use instead: a class or component in JS and TS files, and `var(--token)` in inline styles and CSS files. Tailwind v4 outputs a theme variable when the source uses it with `var()`, so `var(--token)` in an inline style renders the same color. In a Tailwind v3 project, the candidate in a CSS file is `theme("colors.token")` instead.
 
 ## Commands
 
