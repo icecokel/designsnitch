@@ -23,6 +23,17 @@ describe("findArbitraryColors", () => {
     expect(findArbitraryColors("ring-offset-[#fff]")[0].utility).toBe("ring-offset");
   });
 
+  it("타입 힌트 color: 를 붙인 임의 값도 잡는다", () => {
+    expect(findArbitraryColors("p-2 bg-[color:#3B82F6]")).toEqual([
+      { index: 4, text: "bg-[color:#3B82F6]", utility: "bg", value: "#3B82F6" },
+    ]);
+    expect(findArbitraryColors("text-[color:rgb(59,130,246)]")[0].value).toBe("rgb(59,130,246)");
+  });
+
+  it("색이 아닌 타입 힌트는 잡지 않는다", () => {
+    expect(findArbitraryColors("text-[length:14px] bg-[url:red]")).toEqual([]);
+  });
+
   it("색이 아닌 임의 값과 토큰 클래스는 잡지 않는다", () => {
     expect(findArbitraryColors("p-[15px] w-[calc(100%-1rem)] bg-primary-500")).toEqual([]);
   });

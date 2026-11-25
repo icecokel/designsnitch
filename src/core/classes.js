@@ -1,8 +1,8 @@
 import { isVisibleColor } from "./color.js";
 
-// 예: bg-[#3B82F6], ring-offset-[#fff], text-[rgb(59,130,246)], bg-[oklch(62.3%_0.214_259.815)], bg-[white]
+// 예: bg-[#3B82F6], ring-offset-[#fff], text-[rgb(59,130,246)], bg-[oklch(62.3%_0.214_259.815)], bg-[white], bg-[color:#3B82F6]
 const ARBITRARY_COLOR =
-  /(?<![\w-])([a-z][a-z0-9]*(?:-[a-z0-9]+)*)-\[(#[0-9a-f]{3,8}|(?:rgba?|hsla?|oklch|hwb|lab|lch|oklab|color)\([^()[\]\s]*\)|[a-z]+)\]/gi;
+  /(?<![\w-])([a-z][a-z0-9]*(?:-[a-z0-9]+)*)-\[(?:color:)?(#[0-9a-f]{3,8}|(?:rgba?|hsla?|oklch|hwb|lab|lch|oklab|color)\([^()[\]\s]*\)|[a-z]+)\]/gi;
 
 /**
  * 문자열에서 색을 임의 값으로 쓴 Tailwind 클래스를 찾는다.
