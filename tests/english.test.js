@@ -60,7 +60,7 @@ describe("영어 출력 (--lang en)", () => {
       { subject: "<button>", uses: 1 },
     ]);
     expect(next).toEqual([
-      'action "replace" (2): replace found with the value in candidates.',
+      'action "replace" (2): run npx designsnitch check --fix, which replaces found with the candidate. Add paths to fix only those files.',
       "Before making changes, ask the user about the 2 entries in decisions. Include how often each comes up, the candidates, and the reasons for asking.",
       "After fixing, run the same command again.",
     ]);
@@ -152,7 +152,7 @@ describe("영어 출력 (--lang en)", () => {
         "tokens.css:2:16  #3B82F6 has the same color as --color-primary. Use instead: var(--color-primary)  [replace]",
         "",
         "What to do next",
-        '- action "replace" (1): replace found with the value in candidates.',
+        '- action "replace" (1): run npx designsnitch check --fix, which replaces found with the candidate. Add paths to fix only those files.',
         "- After fixing, run the same command again.",
         "",
       ].join("\n"),
@@ -184,7 +184,7 @@ describe("영어 출력 (--lang en)", () => {
     expect(broken.stderr).toMatch(/^designsnitch: could not read the token CSS: .*t\.css:1:1 Unclosed block\n$/);
 
     const usage = await cli(["--help", "--lang", "en"], tempProject({}));
-    expect(usage.stdout).toContain("Usage: designsnitch <command> [paths...] [--format text|json] [--config file] [--lang en|ko]");
+    expect(usage.stdout).toContain("Usage: designsnitch <command> [paths...] [--format text|json] [--fix] [--config file] [--lang en|ko]");
     expect(usage.stdout).toContain("check     Checks that UI code follows the design system.");
   });
 });

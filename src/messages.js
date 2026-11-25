@@ -102,7 +102,12 @@ const en = {
   nextNoTokens: () =>
     "There are no color tokens, so there is nothing to judge colors against. Before fixing any color, collect the colors in use with `designsnitch colors` and decide the tokens.",
   nextRepair: (n) => `action "repair" (${n}): fix the syntax error in that file first.`,
-  nextReplace: (n) => `action "replace" (${n}): replace found with the value in candidates.`,
+  nextReplace: (n) =>
+    `action "replace" (${n}): run npx designsnitch check --fix, which replaces found with the candidate. Add paths to fix only those files.`,
+  fixed: (n) =>
+    n === 0
+      ? "Nothing to fix: no violation can be replaced with the screen staying the same."
+      : `Fixed ${count(n, "place")} where the token gives the same screen.`,
   nextMigrate: (n) =>
     `action "migrate" (${n}): replace the tag with the component in candidates. Read that component first: add the import, pass on the props it accepts, and drop className values it already applies. If it cannot do what the tag did or would change how it looks, do not change the component to make it fit: leave the tag and ask the user.`,
   nextAsk: (n) =>
@@ -165,7 +170,7 @@ const en = {
   askAgent: ({ configFile }) =>
     `Ask your coding agent: "Set up designsnitch in this project." It finds the token CSS and the shared components, writes ${configFile}, and puts the rules into ESLint.`,
 
-  cliUsage: `Usage: designsnitch <command> [paths...] [--format text|json] [--config file] [--lang en|ko]
+  cliUsage: `Usage: designsnitch <command> [paths...] [--format text|json] [--fix] [--config file] [--lang en|ko]
 
 Commands
   check     Checks that UI code follows the design system.
@@ -176,6 +181,7 @@ Commands
 Options
   paths       Files or directories to look at (default: the current directory)
   --format    Output format: text (default) or json
+  --fix       For check, replace what can be replaced with the screen staying the same (action "replace")
   --config    Path of the config file (default: designsnitch.config.json)
   --lang      Language of the messages: en (default) or ko
   --agent     For install, the agent to install for: --agent claude|codex|gemini|grok|all (default: claude)
@@ -256,7 +262,9 @@ const ko = {
   nextNoTokens: () =>
     "색 토큰이 없어서 색을 판정할 기준이 없습니다. 색을 고치기 전에 `designsnitch colors`로 쓰이는 색을 모아 토큰부터 정하세요.",
   nextRepair: (n) => `action이 repair인 ${n}건은 그 파일의 문법 오류부터 고치세요.`,
-  nextReplace: (n) => `action이 replace인 ${n}건은 found를 candidates의 값으로 바꾸세요.`,
+  nextReplace: (n) =>
+    `action이 replace인 ${n}건은 npx designsnitch check --fix 로 고치세요. found를 후보로 바꿉니다. 경로를 주면 그 파일만 고칩니다.`,
+  fixed: (n) => (n === 0 ? "고칠 것이 없습니다. 바꿔도 화면이 같은 위반이 없습니다." : `바꿔도 화면이 같은 ${n}곳을 토큰으로 고쳤습니다.`),
   nextMigrate: (n) =>
     `action이 migrate인 ${n}건은 태그를 candidates의 컴포넌트로 바꾸세요. 먼저 그 컴포넌트를 읽고, import를 더하고, 컴포넌트가 받는 props를 넘기고, 컴포넌트가 이미 주는 className은 지우세요. 태그가 하던 일을 컴포넌트가 못 하거나 모양이 달라지면, 컴포넌트를 고쳐서 맞추지 말고 태그를 그대로 둔 채 사용자에게 물으세요.`,
   nextAsk: (n) =>
@@ -314,7 +322,7 @@ const ko = {
   askAgent: ({ configFile }) =>
     `코딩 에이전트에게 "이 프로젝트에 designsnitch를 설정해 줘"라고 요청하세요. 토큰 CSS와 공용 컴포넌트를 찾아 ${configFile} 을 만들고 ESLint에 규칙을 넣습니다.`,
 
-  cliUsage: `사용법: designsnitch <명령> [경로...] [--format text|json] [--config 파일] [--lang en|ko]
+  cliUsage: `사용법: designsnitch <명령> [경로...] [--format text|json] [--fix] [--config 파일] [--lang en|ko]
 
 명령
   check     UI 코드가 디자인 시스템을 따르는지 검사합니다.
@@ -325,6 +333,7 @@ const ko = {
 옵션
   경로        볼 파일이나 디렉터리 (기본: 현재 디렉터리)
   --format    출력 형식. text(기본) 또는 json
+  --fix       check 에서, 바꿔도 화면이 같은 것(action 이 replace)을 고칩니다
   --config    설정 파일 경로 (기본: designsnitch.config.json)
   --lang      메시지의 언어. en(기본) 또는 ko
   --agent     install 에서 설치할 에이전트. --agent claude|codex|gemini|grok|all (기본: claude)

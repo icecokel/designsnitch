@@ -11,6 +11,7 @@ ruleTester.run("color-use-token", rule, {
     {
       name: "className 안의 토큰 색",
       code: `<div className="px-4 bg-[#3B82F6]" />`,
+      output: `<div className="px-4 bg-primary-500" />`,
       errors: [
         {
           message:
@@ -30,6 +31,7 @@ ruleTester.run("color-use-token", rule, {
     {
       name: "함수 인자 안의 문자열 (대소문자 무시)",
       code: `cn("text-[#3b82f6]", active && "hover:border-[#3B82F6]")`,
+      output: `cn("text-primary-500", active && "hover:border-primary-500")`,
       errors: [
         {
           message:
@@ -56,6 +58,7 @@ ruleTester.run("color-use-token", rule, {
     {
       name: "템플릿 리터럴",
       code: "const c = `bg-[#3B82F6] ${extra}`;",
+      output: "const c = `bg-primary-500 ${extra}`;",
       errors: [
         {
           messageId: "useToken",

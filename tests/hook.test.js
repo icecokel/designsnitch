@@ -62,7 +62,7 @@ describe("designsnitch hook: 파일을 고친 직후", () => {
         "src/a.tsx:1:40  bg-[#3B82F6]의 색은 토큰 --color-primary의 값입니다. 대신 사용: bg-primary  [replace]",
         "",
         "다음에 할 일",
-        "- action이 replace인 1건은 found를 candidates의 값으로 바꾸세요.",
+        "- action이 replace인 1건은 npx designsnitch check --fix 로 고치세요. found를 후보로 바꿉니다. 경로를 주면 그 파일만 고칩니다.",
         "- 고친 뒤 같은 명령을 다시 실행하세요.",
         "",
       ].join("\n"),

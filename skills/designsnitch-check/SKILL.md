@@ -27,7 +27,7 @@ The exit code is 0 (no errors), 1 (errors found), or 2 (could not run). On 2, re
   "designSystem": { "colorTokens": 175, "components": 4, "replacedTags": 2 },
   "problems": [],
   "next": [
-    "action \"replace\" (1): replace found with the value in candidates.",
+    "action \"replace\" (1): run npx designsnitch check --fix, which replaces found with the candidate. Add paths to fix only those files.",
     "Before making changes, ask the user about the 1 entry in decisions. Include how often each comes up, the candidates, and the reasons for asking.",
     "After fixing, run the same command again."
   ],
@@ -87,7 +87,7 @@ The exit code is 0 (no errors), 1 (errors found), or 2 (could not run). On 2, re
 
 | `action` | What it means | What to do |
 | --- | --- | --- |
-| `replace` | A color error whose only candidate keeps the screen and the behavior the same. | Replace `found` with the candidate. |
+| `replace` | A color error whose only candidate keeps the screen and the behavior the same. | Run `npx designsnitch check --fix` (add paths to limit it to the files you are working on). It replaces every `replace` violation and reports what is left. Do not replace them one by one by hand. |
 | `migrate` | A raw tag with exactly one design system component to move to. Whether the component behaves like the tag is not known. | Read the component, then move the tag to it as described below. If the component does not cover this use, leave the tag and ask the user as described below. The hook does not force this one. |
 | `ask` | A person has to decide: several candidates, a color that has no token, a token whose value differs between themes, a translucent color (the candidate rounds its opacity), a color in a property that is not a style (such as chart options, where `var()` may not work: read how the value is used before replacing), a token that exists only as a class (no CSS variable to use in a style or a CSS declaration), or a component whose props are dynamic or spread. `message` says which. | Do not change it. Ask the user as described in section 4. |
 | `repair` | The file could not be parsed. | Fix the syntax error, then check again. |

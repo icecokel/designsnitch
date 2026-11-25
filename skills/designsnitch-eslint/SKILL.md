@@ -125,7 +125,7 @@ oxlint runs the same plugin as a JS plugin. Install the package (`npm install --
 }
 ```
 
-Do not add `settings`: without `settings.designsnitch`, the plugin reads `designsnitch.config.json` from the working directory. Tell the user that oxlint calls JS plugins alpha, and that `oxlint --fix-suggestions` must not be used with these rules, because it applies the first candidate even where a person has to choose.
+Do not add `settings`: without `settings.designsnitch`, the plugin reads `designsnitch.config.json` from the working directory. Tell the user that oxlint calls JS plugins alpha, that `oxlint --fix` fixes only what keeps the screen the same, and that `oxlint --fix-suggestions` must not be used with these rules, because it applies the first candidate even where a person has to choose.
 
 ## 4. Keep the severities
 

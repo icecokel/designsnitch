@@ -1,3 +1,4 @@
+import { isSafeColorReplace } from "../core/action.js";
 import { findArbitraryColors } from "../core/classes.js";
 import {
   cssColorPrefixes,
@@ -18,6 +19,7 @@ export default {
   meta: {
     type: "problem",
     docs: { description: "Use the token instead of writing its color as a hex value" },
+    fixable: "code",
     hasSuggestions: true,
     schema: [],
     messages: {
@@ -60,6 +62,10 @@ export default {
         data: {
           text: m[messageId]({ found: found.text, tokens: tokenNames.join(", "), candidates: candidates.join(", "), opacity }),
         },
+        // 바꿔도 화면이 같은 것만 자동 수정으로 낸다. 나머지는 사람이 고르도록 제안으로만 둔다.
+        ...(isSafeColorReplace(messageId, candidates.length)
+          ? { fix: (fixer) => fixer.replaceTextRange(range, candidates[0]) }
+          : {}),
         suggest: suggestClasses(range, candidates, m),
       });
     }

@@ -23,6 +23,7 @@ ruleTester.run("color-use-token (인라인 스타일)", colorUseToken, {
     {
       name: "문자열 전체가 토큰 색",
       code: `<div style={{ color: "#3B82F6" }} />`,
+      output: `<div style={{ color: "var(--color-primary-500)" }} />`,
       errors: [
         {
           message: "#3B82F6의 색은 토큰 --color-primary-500의 값입니다. 대신 사용: var(--color-primary-500)",
@@ -41,6 +42,7 @@ ruleTester.run("color-use-token (인라인 스타일)", colorUseToken, {
     {
       name: "값 가운데의 토큰 색만 바꾼다",
       code: `<div style={{ ...base, border: "1px solid #3b82f6" }} />`,
+      output: `<div style={{ ...base, border: "1px solid var(--color-primary-500)" }} />`,
       errors: [
         {
           message: "#3b82f6의 색은 토큰 --color-primary-500의 값입니다. 대신 사용: var(--color-primary-500)",
@@ -70,6 +72,7 @@ ruleTester.run("color-use-token (인라인 스타일)", colorUseToken, {
     {
       name: "식이 없는 템플릿 리터럴과 문자열 키",
       code: "<div style={{ \"outline-color\": `#3B82F6` }} />",
+      output: "<div style={{ \"outline-color\": `var(--color-primary-500)` }} />",
       errors: [{ message: "#3B82F6의 색은 토큰 --color-primary-500의 값입니다. 대신 사용: var(--color-primary-500)", suggestions: [{ desc: "var(--color-primary-500)(으)로 바꾸기", output: "<div style={{ \"outline-color\": `var(--color-primary-500)` }} />" }] }],
     },
   ],
@@ -92,6 +95,7 @@ ruleTester.run("color-use-token (계산되는 인라인 스타일)", colorUseTok
     {
       name: "삼항 연산의 두 값",
       code: `<div style={{ color: on ? "#3B82F6" : "#123456" }} />`,
+      output: `<div style={{ color: on ? "var(--color-primary-500)" : "#123456" }} />`,
       errors: [
         {
           message: "#3B82F6의 색은 토큰 --color-primary-500의 값입니다. 대신 사용: var(--color-primary-500)",
@@ -104,6 +108,7 @@ ruleTester.run("color-use-token (계산되는 인라인 스타일)", colorUseTok
     {
       name: "&&, ||, ?? 와 겹친 조건식",
       code: `<div style={{ color: a ? (b && "#3B82F6") : c ?? "#3b82f6", background: x || "#3B82F6" }} />`,
+      output: `<div style={{ color: a ? (b && "var(--color-primary-500)") : c ?? "var(--color-primary-500)", background: x || "var(--color-primary-500)" }} />`,
       errors: [{ messageId: "useToken", suggestions: 1 }, { messageId: "useToken", suggestions: 1 }, { messageId: "useToken", suggestions: 1 }],
     },
   ],

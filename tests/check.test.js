@@ -510,7 +510,7 @@ describe("다음에 할 일 (next)", () => {
     ]);
     expect(result.next).toEqual([
       "action이 repair인 1건은 그 파일의 문법 오류부터 고치세요.",
-      "action이 replace인 1건은 found를 candidates의 값으로 바꾸세요.",
+      "action이 replace인 1건은 npx designsnitch check --fix 로 고치세요. found를 후보로 바꿉니다. 경로를 주면 그 파일만 고칩니다.",
       "변경하기 전에 decisions의 2건을 사용자에게 물으세요. 사용 횟수와 후보, 확인이 필요한 이유를 함께 알려 주세요.",
       "고친 뒤 같은 명령을 다시 실행하세요.",
     ]);
@@ -667,7 +667,7 @@ describe("컴포넌트로 옮기기", () => {
       ["color-use-token", "replace", "bg-primary"],
     ]);
     expect(result.next).toEqual([
-      'action "replace" (1): replace found with the value in candidates.',
+      'action "replace" (1): run npx designsnitch check --fix, which replaces found with the candidate. Add paths to fix only those files.',
       'action "migrate" (1): replace the tag with the component in candidates. Read that component first: add the import, pass on the props it accepts, and drop className values it already applies. If it cannot do what the tag did or would change how it looks, do not change the component to make it fit: leave the tag and ask the user.',
       "After fixing, run the same command again.",
     ]);

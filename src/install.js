@@ -24,7 +24,7 @@ const AGENTS = {
     editTools: "Edit|Write|MultiEdit",
     hook: { type: "command", command: HOOK_COMMAND },
     approval: null,
-    // 검사와 색 수집은 읽기만 한다. 허용해 두지 않으면 에이전트가 스킬대로 실행하려다 승인을 기다리며 멈춘다.
+    // 색 수집은 읽기만 하고, 검사는 --fix 를 줄 때만 화면이 같은 교체를 한다. 허용해 두지 않으면 에이전트가 스킬대로 실행하려다 승인을 기다리며 멈춘다.
     allow: ["Bash(npx designsnitch check *)", "Bash(npx designsnitch colors *)"],
   },
   codex: {
@@ -131,7 +131,7 @@ function readJson(file, m) {
 }
 
 /**
- * 읽기만 하는 명령을 권한 허용 목록에 더한다. 이미 있거나 더 넓게 허용돼 있으면 그대로 둔다. 더했으면 true.
+ * 검사 명령을 권한 허용 목록에 더한다. 이미 있거나 더 넓게 허용돼 있으면 그대로 둔다. 더했으면 true.
  * @param {Record<string, any>} settings
  * @param {string[]} rules
  */

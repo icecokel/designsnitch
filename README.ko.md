@@ -167,6 +167,7 @@ Codex, Gemini CLI, Grok Build는 새 프로젝트 훅을 승인하거나 프로�
 | `designsnitch install` | 스킬을 복사하고 에이전트 훅을 프로젝트에 등록합니다. Claude Code에는 `check`와 `colors` 명령도 허용해 둡니다. `--agent claude`(기본), `codex`, `gemini`, `grok`, `all`을 받습니다. |
 | `designsnitch colors` | 코드가 쓰는 색을 모아 보여줍니다. 설정 파일이 없어도 됩니다. |
 | `designsnitch check` | 코드를 기준에 비춰 검사하고, 위반마다 무엇을 하면 되는지 알려줍니다. |
+| `designsnitch check --fix` | 바꿔도 화면이 같은 것(`replace`)을 JS, TS, CSS 파일에서 고친 뒤, 남은 것을 알려줍니다. 경로를 주면 그 파일만 고칩니다. |
 | `designsnitch hook` | 에이전트의 훅에서 부릅니다. 에이전트가 방금 바꾼 파일을 검사합니다. |
 
 `check`와 `colors`는 경로, `--format json`, `--config <파일>`을 받습니다. 모든 명령은 `--lang en|ko`를 받습니다.
@@ -353,7 +354,7 @@ src/PayButton.tsx
   "designSystem": { "colorTokens": 4, "components": 1, "replacedTags": 1 },
   "problems": [],
   "next": [
-    "action이 replace인 1건은 found를 candidates의 값으로 바꾸세요.",
+    "action이 replace인 1건은 npx designsnitch check --fix 로 고치세요. found를 후보로 바꿉니다. 경로를 주면 그 파일만 고칩니다.",
     "action이 migrate인 1건은 태그를 candidates의 컴포넌트로 바꾸세요. 먼저 그 컴포넌트를 읽고, import를 더하고, 컴포넌트가 받는 props를 넘기고, 컴포넌트가 이미 주는 className은 지우세요. 태그가 하던 일을 컴포넌트가 못 하거나 모양이 달라지면, 컴포넌트를 고쳐서 맞추지 말고 태그를 그대로 둔 채 사용자에게 물으세요.",
     "변경하기 전에 decisions의 2건을 사용자에게 물으세요. 사용 횟수와 후보, 확인이 필요한 이유를 함께 알려 주세요.",
     "고친 뒤 같은 명령을 다시 실행하세요."
@@ -425,6 +426,7 @@ src/PayButton.tsx
 | `problems` | 결과를 믿기 어렵게 만드는 설정 문제. 정상이면 빈 배열입니다. |
 | `violations[].found` | 위반한 코드 조각 |
 | `violations[].candidates` | 대신 쓸 클래스나 컴포넌트. 없으면 빈 배열입니다. |
+| `fixed` | `--fix`를 줬을 때만 있습니다. 고친 곳의 수입니다. 결과의 나머지는 고친 뒤의 코드를 설명합니다. |
 | `violations[].recommended` | 색을 쓰는 용도에 맞는 후보입니다. `text-` 클래스면 텍스트용 이름의 토큰, 테두리면 테두리용 이름의 토큰입니다. 맞는 후보가 정확히 하나일 때만 채우고, 추천일 뿐이라 `ask`는 그대로 `ask`입니다. `replace`와 `migrate`면 그 후보입니다. |
 | `violations[].action` | 이 위반을 어떻게 다룰지입니다. `replace`: `found`를 하나뿐인 후보로 바꿔도 화면과 동작이 같습니다. 색 오류만 해당합니다. `migrate`: raw 태그를 옮길 디자인 시스템 컴포넌트가 하나뿐입니다. 컴포넌트가 같은 props를 넘기는지, 기본 스타일이 같은지는 도구가 알 수 없으므로 컴포넌트를 먼저 읽고 태그의 props를 옮기고 컴포넌트가 이미 주는 클래스는 지웁니다. 훅은 고친 직후에 알리기만 하고, 이것 때문에 에이전트가 끝내는 것을 막지는 않습니다. `ask`: 사람이 정해야 합니다. 후보가 여러 개이거나, 토큰이 없는 색이거나, 테마마다 값이 다른 토큰이거나, 컴포넌트의 속성이 동적이거나 spread된 경우입니다. `repair`: 파일을 읽지 못했습니다. |
 | `decisions` | `ask`인 위반을 질문 단위로 묶은 것입니다. 색이나 태그와 후보가 같으면 하나로 묶습니다. 각 항목에 얼마나 나오는지(`uses`, `files`), 위치 최대 다섯 곳(`locations`), 후보(`candidates`), 모든 위치에서 추천이 같을 때의 추천(`recommended`), 사람이 정해야 하는 이유(`reasons`: `multiple-candidates`, `no-token`, `themed-token`, `translucent`, `not-a-style`, `class-only-token`, `dynamic-props`)가 있습니다. 많이 나오는 순서입니다. |
@@ -501,7 +503,7 @@ export default [
 
 설정 안의 경로는 ESLint의 작업 디렉터리를 기준으로 풉니다. 모노레포처럼 `designsnitch.config.json`이 `eslint.config.js` 옆에 있지 않으면 경로의 기준 디렉터리를 더합니다: `settings: { designsnitch: { ...designSystem, root: "apps/web" } }`.
 
-같은 규칙 묶음을 `designsnitch.configs.recommended`로도 쓸 수 있습니다. 이미 위반이 많은 프로젝트에 넣으면 오류 등급 규칙 때문에 기존 lint 단계가 실패하므로, 먼저 `designsnitch check`로 개수를 확인하세요. 대체 후보는 ESLint의 제안으로 보고되어 에디터에서 빠른 수정으로 나타납니다. CSS 파일은 ESLint가 아니라 CLI에서만 검사합니다.
+같은 규칙 묶음을 `designsnitch.configs.recommended`로도 쓸 수 있습니다. 이미 위반이 많은 프로젝트에 넣으면 오류 등급 규칙 때문에 기존 lint 단계가 실패하므로, 먼저 `designsnitch check`로 개수를 확인하세요. `eslint --fix`는 바꿔도 화면이 같은 것만 고칩니다. 맞는 토큰이 하나뿐인 색을 클래스나 스타일에 직접 쓴 경우입니다. `designsnitch check`가 `replace`로 표시하는 위반과 같고, 둘은 같은 판정을 씁니다. 나머지(후보가 여러 개, 반투명한 색, 테마마다 값이 다른 토큰, 스타일이 아닌 자리의 색)는 사람이 골라야 하므로 ESLint 제안으로 남고, 에디터에서 빠른 수정으로 나타납니다. CSS 파일은 ESLint가 아니라 CLI에서만 검사합니다.
 
 ### oxlint
 
@@ -522,7 +524,7 @@ export default [
 
 oxlint 1.95.0에서 확인했습니다. 같은 프로젝트에서 oxlint와 `designsnitch check`가 같은 곳을 같은 규칙으로 잡았고, 패키지의 테스트가 둘을 대조합니다. oxlint는 JS 플러그인을 알파 단계라고 하므로, oxlint 버전에 따라 달라질 수 있습니다.
 
-이 규칙에는 `oxlint --fix-suggestions`를 쓰지 마세요. 후보가 여러 개라 사람이 골라야 하는 곳까지 첫 번째 제안으로 바꿉니다.
+`oxlint --fix`는 `eslint --fix`와 똑같이 안전합니다. 이 규칙에는 `oxlint --fix-suggestions`를 쓰지 마세요. 후보가 여러 개라 사람이 골라야 하는 곳까지 첫 번째 제안으로 바꿉니다.
 
 ## 위반을 막는 방법
 
@@ -563,7 +565,7 @@ CLI와 스킬은 AI 에이전트가 제대로 할 수 있는 상태를 만들어
 }
 ```
 
-`permissions`는 스킬이 쓰는 두 명령 `check`와 `colors`를 Claude Code가 매번 묻지 않고 실행하게 합니다. 둘 다 파일을 읽기만 합니다. 이미 있는 규칙은 그대로 두고, `Bash(npx designsnitch *)`처럼 더 넓은 규칙이 있으면 아무것도 더하지 않습니다.
+`permissions`는 스킬이 쓰는 두 명령 `check`와 `colors`를 Claude Code가 매번 묻지 않고 실행하게 합니다. `colors`는 파일을 읽기만 합니다. `check`는 `--fix`를 줄 때만 파일을 바꾸고, 그때도 바꿔도 화면이 같은 곳만 바꿉니다. 이미 있는 규칙은 그대로 두고, `Bash(npx designsnitch *)`처럼 더 넓은 규칙이 있으면 아무것도 더하지 않습니다.
 
 Claude Code는 프로젝트의 `.claude/settings.json`에 있는 허용 규칙을, 그 프로젝트의 신뢰 확인을 수락한 뒤에만 씁니다. 신뢰 확인은 터미널에서 프로젝트를 처음 열 때 나옵니다. 그렇게 열어 본 적이 없는 프로젝트에서는, 예를 들어 새로 받은 저장소에서 `claude -p`로 실행하면, 이 규칙을 버리고 다시 승인을 요청합니다. 그럴 때는 `--allowedTools "Bash(npx designsnitch check *)"`를 넘기세요. Claude Code 2.1.329에서 확인했습니다. 규칙이 있을 때 신뢰한 폴더에서는 묻지 않고 실행했고, 신뢰하지 않은 폴더에서는 거부됐습니다.
 
@@ -631,7 +633,7 @@ Tailwind 기본 팔레트(`bg-slate-100`, `text-indigo-600`)를 기준으로 쓰
 
 - 색 팔레트를 뺀 Tailwind 기본 테마의 값
 - 토큰이 없는 색에 가장 가까운 토큰 제시
-- 자동 수정. `--fix`가 없습니다. 바꿔도 화면이 같은 것까지 ESLint 제안으로만 내고, 에이전트나 사람이 직접 바꿉니다.
+- `replace`가 아닌 것의 자동 수정. 태그를 컴포넌트로 옮기는 것(`migrate`)과 사람이 정해야 하는 것(`ask`)은 `--fix`가 건드리지 않습니다.
 - Biome. ESLint 플러그인을 돌릴 수 없고, 자체 플러그인 API는 다른 문법 트리를 쓰므로 규칙을 새로 써야 합니다.
 - 색을 뜻하지 않는 이름의 키에 적은 색(`{ primary: "#3B82F6" }`)과 배열 안의 색. `unchecked`에 개수로만 셉니다.
 - SCSS 같은 전처리기

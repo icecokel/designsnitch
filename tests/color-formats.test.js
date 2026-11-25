@@ -13,6 +13,7 @@ ruleTester.run("color-use-token (hex 가 아닌 표기)", colorUseToken, {
     {
       name: "rgb() 임의 값",
       code: `<div className="bg-[rgb(59,130,246)]" />`,
+      output: `<div className="bg-primary-500" />`,
       errors: [
         {
           message: "bg-[rgb(59,130,246)]의 색은 토큰 --color-primary-500의 값입니다. 대신 사용: bg-primary-500",
@@ -23,6 +24,7 @@ ruleTester.run("color-use-token (hex 가 아닌 표기)", colorUseToken, {
     {
       name: "hsl() 임의 값과 인라인 스타일의 rgb()",
       code: `<div className="text-[hsl(0_0%_100%)]" style={{ color: "rgb(59 130 246)" }} />`,
+      output: `<div className="text-[hsl(0_0%_100%)]" style={{ color: "var(--color-primary-500)" }} />`,
       errors: [
         {
           message:

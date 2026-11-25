@@ -4,6 +4,7 @@ import { parseArgs } from "node:util";
 import { check } from "./check.js";
 import { collectColors } from "./colors.js";
 import { CONFIG_FILE, loadConfig } from "./config.js";
+import { applyReplacements } from "./fix.js";
 import { formatColorsText, formatText } from "./format.js";
 import { runHook } from "./hook.js";
 import { AGENT_CHOICES, install } from "./install.js";
@@ -14,12 +15,20 @@ const json = (result) => `${JSON.stringify(result, null, 2)}\n`;
 
 // 명령은 내보낼 글과 종료 코드를 돌려준다. flagLang 은 --lang 으로 준 언어다(없으면 undefined).
 const COMMANDS = {
-  async check({ cwd, paths, configPath, format, flagLang }) {
+  async check({ cwd, paths, configPath, format, flagLang, fix }) {
     const config = loadConfig(cwd, configPath, resolveLang(flagLang));
     const lang = resolveLang(flagLang, config.lang);
-    const result = await check({ cwd, config, paths, lang });
+    let result = await check({ cwd, config, paths, lang });
+    let fixedLine = "";
+    if (fix) {
+      // 바꿔도 화면이 같은 것(replace)만 고치고, 고친 뒤의 상태를 다시 검사해 알린다.
+      const fixed = applyReplacements(cwd, result.violations);
+      if (fixed > 0) result = await check({ cwd, config, paths, lang });
+      result = { fixed, ...result };
+      fixedLine = `${messages(lang).fixed(fixed)}\n\n`;
+    }
     return {
-      stdout: format === "json" ? json(result) : formatText(result, lang),
+      stdout: format === "json" ? json(result) : fixedLine + formatText(result, lang),
       exitCode: result.summary.errors > 0 ? 1 : 0,
     };
   },
@@ -60,6 +69,7 @@ export async function run(argv, { cwd, stdin, stdout, stderr }) {
         config: { type: "string" },
         lang: { type: "string" },
         agent: { type: "string", default: "claude" },
+        fix: { type: "boolean", default: false },
         help: { type: "boolean", short: "h" },
       },
     });
@@ -96,6 +106,7 @@ export async function run(argv, { cwd, stdin, stdout, stderr }) {
       stdin,
       flagLang,
       agent,
+      fix: args.values.fix,
     });
   } catch (error) {
     stderr.write(`${error.message}\n`);

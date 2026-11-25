@@ -167,6 +167,7 @@ Every error comes with what to use instead: a class or component in JS and TS fi
 | `designsnitch install` | Copies the skills and registers the agent hook in the project. For Claude Code it also allows the `check` and `colors` commands. `--agent claude` (default), `codex`, `gemini`, `grok` or `all`. |
 | `designsnitch colors` | Lists the colors the code uses. Works without a config file. |
 | `designsnitch check` | Checks code against the standard and says what to do with each violation. |
+| `designsnitch check --fix` | Also fixes what can be replaced with the screen staying the same (`replace`), in JS, TS and CSS files, then reports what is left. Give paths to fix only those files. |
 | `designsnitch hook` | Called from the agent's hook. Checks the files the agent just changed. |
 
 `check` and `colors` take paths, `--format json`, and `--config <file>`. Every command takes `--lang en|ko`.
@@ -352,7 +353,7 @@ The first line shows how many tokens and components were read from the config. A
   "designSystem": { "colorTokens": 4, "components": 1, "replacedTags": 1 },
   "problems": [],
   "next": [
-    "action \"replace\" (1): replace found with the value in candidates.",
+    "action \"replace\" (1): run npx designsnitch check --fix, which replaces found with the candidate. Add paths to fix only those files.",
     "action \"migrate\" (1): replace the tag with the component in candidates. Read that component first: add the import, pass on the props it accepts, and drop className values it already applies. If it cannot do what the tag did or would change how it looks, do not change the component to make it fit: leave the tag and ask the user.",
     "Before making changes, ask the user about the 2 entries in decisions. Include how often each comes up, the candidates, and the reasons for asking.",
     "After fixing, run the same command again."
@@ -424,6 +425,7 @@ The first line shows how many tokens and components were read from the config. A
 | `problems` | Config problems that make the result unreliable. Empty when everything is fine. |
 | `violations[].found` | The offending piece of code |
 | `violations[].candidates` | The classes or components to use instead. Empty when there are none. |
+| `fixed` | Only with `--fix`: how many places were replaced. The rest of the result describes the code after the fix. |
 | `violations[].recommended` | The candidate that fits how the color is used: a `text-` class gets the token named for text, a border gets the one named for borders. Only set when exactly one candidate fits, and only a suggestion: an `ask` stays an `ask`. For `replace` and `migrate`, it is the candidate. |
 | `violations[].action` | How to handle the violation. `replace`: replacing `found` with the only candidate keeps the screen and the behavior the same. Only color errors get this. `migrate`: a raw tag with exactly one design system component to move to. The tool cannot tell whether the component passes on the same props or renders the same default styles, so read the component first, then move the tag's props and drop classes the component already applies. The hook reports it after an edit but does not stop the agent from finishing over it. `ask`: a person has to decide: several candidates, a color with no token, a token whose value differs between themes, or a component whose props are dynamic or spread. `repair`: the file could not be parsed. |
 | `decisions` | The `ask` violations grouped into questions: one per color or tag with the same candidates. Each has how often it comes up (`uses`, `files`), up to five `locations`, the `candidates`, a `recommended` candidate when every location agrees, and the `reasons` a person has to decide: `multiple-candidates`, `no-token`, `themed-token`, `translucent`, `not-a-style`, `class-only-token` or `dynamic-props`. Most used first. |
@@ -500,7 +502,7 @@ export default [
 
 Paths in the settings are resolved from ESLint's working directory. If `designsnitch.config.json` is not next to `eslint.config.js`, as in a monorepo, add the directory the paths are relative to: `settings: { designsnitch: { ...designSystem, root: "apps/web" } }`.
 
-The same set of rules is available as `designsnitch.configs.recommended`. In a project that already has many violations, the error-level rules will make the existing lint step fail, so run `designsnitch check` first to see how many there are. Replacement candidates appear as ESLint suggestions, which editors show as quick fixes. CSS files are checked by the CLI only, not through ESLint.
+The same set of rules is available as `designsnitch.configs.recommended`. In a project that already has many violations, the error-level rules will make the existing lint step fail, so run `designsnitch check` first to see how many there are. `eslint --fix` replaces only what keeps the screen the same: a color with exactly one token, written as a class or in a style. These are the violations `designsnitch check` marks `replace`, and both use the same test. Everything else (several candidates, a translucent color, a token that differs between themes, a color outside a style) stays an ESLint suggestion, which editors show as a quick fix, because a person has to choose. CSS files are checked by the CLI only, not through ESLint.
 
 ### oxlint
 
@@ -521,7 +523,7 @@ There is no `settings` here on purpose. `.oxlintrc.json` cannot load another fil
 
 Checked with oxlint 1.95.0: on the same project, oxlint and `designsnitch check` reported the same places under the same rules, and the package's tests compare the two. oxlint calls its JS plugins alpha, so this can change with an oxlint release.
 
-Do not run `oxlint --fix-suggestions` with these rules. It applies the first suggestion everywhere, including where there are several candidates and a person has to choose.
+`oxlint --fix` is safe in the same way as `eslint --fix`. Do not run `oxlint --fix-suggestions` with these rules. It applies the first suggestion everywhere, including where there are several candidates and a person has to choose.
 
 ## Blocking violations
 
@@ -562,7 +564,7 @@ A skill is advice that an agent may not follow. A hook is run by the agent's run
 }
 ```
 
-The `permissions` part lets Claude Code run the two commands the skills use, `check` and `colors`, without asking each time. Both only read files. Rules that are already there are kept, and nothing is added when a wider rule such as `Bash(npx designsnitch *)` covers them.
+The `permissions` part lets Claude Code run the two commands the skills use, `check` and `colors`, without asking each time. `colors` only reads files. `check` changes files only with `--fix`, and then only where the replacement keeps the screen the same. Rules that are already there are kept, and nothing is added when a wider rule such as `Bash(npx designsnitch *)` covers them.
 
 Claude Code uses allow rules from a project's `.claude/settings.json` only after you have accepted its trust prompt for that project, which it shows the first time you open the project in the terminal. In a project that was never opened that way, for example in `claude -p` on a fresh checkout, it drops them and the agent is asked again. There, pass `--allowedTools "Bash(npx designsnitch check *)"`. Checked with Claude Code 2.1.329: with the rule, the command ran without a prompt in a trusted folder and was denied in an untrusted one.
 
@@ -630,7 +632,7 @@ These are not checked:
 
 - Values from Tailwind's default theme other than the color palette
 - The nearest token for a color that has none
-- Automatic fixing. There is no `--fix`. Even a replacement that keeps the screen the same is reported as an ESLint suggestion, and the agent or a person applies it.
+- Automatic fixing of anything but `replace`. Moving a tag to a component (`migrate`) and violations a person has to decide (`ask`) are never changed by `--fix`.
 - Biome. It cannot run ESLint plugins, and its own plugin API works on a different syntax tree, so the rules would have to be written again.
 - Colors under keys that do not say color, such as `{ primary: "#3B82F6" }`, and colors in arrays. They are counted in `unchecked`.
 - SCSS and other preprocessors

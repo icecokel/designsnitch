@@ -62,7 +62,7 @@ If you need to do it by hand, this is what it adds to `.claude/settings.json`.
 }
 ```
 
-The `permissions` part lets Claude Code run `npx designsnitch check` and `npx designsnitch colors` without asking each time. Both only read files. Claude Code uses these rules only in a project whose trust prompt the user has accepted. If the check command still waits for approval, the project was never opened in the terminal and trusted: tell the user that, do not work around it.
+The `permissions` part lets Claude Code run `npx designsnitch check` and `npx designsnitch colors` without asking each time. `colors` only reads files, and `check` changes files only with `--fix`, where the replacement keeps the screen the same. Claude Code uses these rules only in a project whose trust prompt the user has accepted. If the check command still waits for approval, the project was never opened in the terminal and trusted: tell the user that, do not work around it.
 
 `.claude/settings.json` is shared with the team through git, so the hook applies to everyone who uses Claude Code in this project. If the user wants the hook only for themselves, do not run the installer: add the entries above to `.claude/settings.local.json` by hand.
 
