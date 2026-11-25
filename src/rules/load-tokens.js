@@ -4,6 +4,7 @@ import path from "node:path";
 import postcss from "postcss";
 import { invalidTokenField, tokenSettings } from "../config.js";
 import { parseColorTokenData, parsePaletteColors } from "../core/tokens.js";
+import { parseSizeTokens } from "../core/size.js";
 import { messages, resolveLang } from "../messages.js";
 import { flattenColors, loadConfigColors } from "./tailwind-config.js";
 
@@ -58,8 +59,8 @@ export function loadTokens(settings, cwd) {
   const root = path.resolve(cwd, settings?.designsnitch?.root ?? ".");
   const file = path.resolve(root, tokensPath);
   const project = readProjectTokens(file, root, exclude, m);
-  const { files, prefix, classOnly, problems, themePaths } = project;
-  const shared = { prefer, files, prefix, classOnly, problems, themePaths };
+  const { files, prefix, classOnly, problems, themePaths, sizes } = project;
+  const shared = { prefer, files, prefix, classOnly, problems, themePaths, sizes };
   if (settings?.designsnitch?.palette !== "tailwind") {
     return { colors: project.colors, themed: project.themed, paletteNames: new Set(), ...shared };
   }
@@ -133,7 +134,8 @@ function readProjectTokens(file, root, exclude, m) {
   }
 
   // import 된 파일의 선언이 먼저 오도록 뒤집어 합친다. 순서는 결과에 영향을 주지 않지만 읽기 쉽다.
-  const parsed = parseColorTokenData(sources.map(([, css]) => css).reverse().join("\n"), exclude);
+  const allCss = sources.map(([, css]) => css).reverse().join("\n");
+  const parsed = parseColorTokenData(allCss, exclude);
   const { classOnly, problems, paths } = addConfigColors(parsed, configFiles, exclude, m);
   // theme() 은 Tailwind v3 의 CSS 에서 쓰는 방법이다. v4 에서는 권하지 않는 함수라 후보로 내지 않는다.
   const tailwindV3 = usesV3Directives || isConfig;
@@ -143,7 +145,9 @@ function readProjectTokens(file, root, exclude, m) {
   // 링크된 경로로 들어와도 같은 파일로 알아보도록 실제 경로로 적어 둔다.
   const deps = [...sources.map(([cssFile]) => cssFile), ...configFiles];
   const files = new Set(deps.filter((dep) => fs.existsSync(dep)).map((dep) => fs.realpathSync(dep)));
-  const tokens = { ...parsed, files, prefix, classOnly, problems, themePaths, tailwindV3 };
+  // 크기 토큰은 Tailwind v4 의 @theme 에서만 읽는다.
+  const sizes = parseSizeTokens(tailwindV3 ? "" : allCss);
+  const tokens = { ...parsed, files, prefix, classOnly, problems, themePaths, tailwindV3, sizes };
   cache.set(key, { deps: deps.map((dep) => [dep, mtimeOf(dep)]), tokens });
   return tokens;
 }

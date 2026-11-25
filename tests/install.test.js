@@ -14,7 +14,7 @@ const SKILLS = [
 ];
 const HOOK = { type: "command", command: "npx designsnitch hook" };
 // 검사와 색 수집은 읽기만 하는 명령이라, 에이전트가 승인을 기다리지 않고 실행할 수 있게 허용해 둔다.
-const ALLOW = ["Bash(npx designsnitch check *)", "Bash(npx designsnitch colors *)"];
+const ALLOW = ["Bash(npx designsnitch check *)", "Bash(npx designsnitch colors *)", "Bash(npx designsnitch sizes *)"];
 
 async function install(cwd, ...args) {
   let stdout = "";
@@ -57,7 +57,7 @@ describe("designsnitch install", () => {
       [
         "스킬 5개를 .claude/skills 에 복사했습니다.",
         "훅을 .claude/settings.json 에 등록했습니다.",
-        "검사 명령(npx designsnitch check, colors)을 .claude/settings.json 의 허용 목록에 넣었습니다.",
+        "검사 명령(npx designsnitch check, colors, sizes)을 .claude/settings.json 의 허용 목록에 넣었습니다.",
         "",
         "다음에 할 일",
         "- 코딩 에이전트에게 \"이 프로젝트에 designsnitch를 설정해 줘\"라고 요청하세요. 토큰 CSS와 공용 컴포넌트를 찾아 designsnitch.config.json 을 만들고 ESLint에 규칙을 넣습니다.",
@@ -218,7 +218,7 @@ describe("designsnitch install --agent codex", () => {
     expect(stdout.split("\n").slice(0, 8)).toEqual([
       "스킬 5개를 .claude/skills 에 복사했습니다.",
       "훅을 .claude/settings.json 에 등록했습니다.",
-      "검사 명령(npx designsnitch check, colors)을 .claude/settings.json 의 허용 목록에 넣었습니다.",
+      "검사 명령(npx designsnitch check, colors, sizes)을 .claude/settings.json 의 허용 목록에 넣었습니다.",
       "스킬 5개를 .agents/skills 에 복사했습니다.",
       "훅을 .codex/hooks.json 에 등록했습니다.",
       "훅을 .gemini/settings.json 에 등록했습니다.",

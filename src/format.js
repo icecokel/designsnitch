@@ -44,6 +44,31 @@ export function formatText({ designSystem, problems, summary, violations, decisi
 }
 
 /**
+ * 크기 수집 결과를 사람이 읽는 글로 만든다.
+ * @param {Awaited<ReturnType<typeof import("./sizes.js").collectSizes>>} result
+ * @param {"en" | "ko"} [lang]
+ */
+export function formatSizesText({ summary, fontSizes, radii, spacing }, lang) {
+  const m = messages(lang);
+  if (summary.uses === 0) return `${m.sizesNone(summary)}\n`;
+
+  const row = ({ value, uses, files, where, tokens }) => {
+    const places = [];
+    if (where.class) places.push(m.sizeInClass(where.class));
+    if (where.style) places.push(m.sizeInStyle(where.style));
+    if (where.css) places.push(m.css(where.css));
+    // 설정 파일이 있을 때만 tokens 가 붙는다.
+    const note = tokens === undefined ? "" : `  ${m.tokenNote(tokens)}`;
+    return `  ${value}  ${m.usage({ uses, files })}  ${places.join(", ")}${note}`;
+  };
+  const lines = [m.sizesSummary(summary), ""];
+  for (const [title, items] of [[m.fontSizesTitle, fontSizes], [m.radiiTitle, radii], [m.spacingTitle, spacing]]) {
+    if (items.length > 0) lines.push(title, ...items.map(row), "");
+  }
+  return lines.join("\n");
+}
+
+/**
  * 색 수집 결과를 사람이 읽는 글로 만든다.
  * @param {Awaited<ReturnType<typeof import("./colors.js").collectColors>>} result
  * @param {"en" | "ko"} [lang]

@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import colorUnknown from "./rules/color-unknown.js";
 import colorUseToken from "./rules/color-use-token.js";
+import { createSizeRule } from "./rules/size-rules.js";
 import useDsComponent from "./rules/use-ds-component.js";
 
 const { version } = createRequire(import.meta.url)("../package.json");
@@ -11,6 +12,10 @@ const plugin = {
     "color-use-token": colorUseToken,
     "color-unknown": colorUnknown,
     "use-ds-component": useDsComponent,
+    "radius-use-token": createSizeRule("radius", "use-token"),
+    "radius-unknown": createSizeRule("radius", "unknown"),
+    "font-size-use-token": createSizeRule("fontSize", "use-token"),
+    "font-size-unknown": createSizeRule("fontSize", "unknown"),
   },
   configs: {},
 };
@@ -23,6 +28,10 @@ plugin.configs.recommended = {
     "designsnitch/color-use-token": "error",
     "designsnitch/color-unknown": "warn",
     "designsnitch/use-ds-component": "error",
+    "designsnitch/radius-use-token": "error",
+    "designsnitch/radius-unknown": "warn",
+    "designsnitch/font-size-use-token": "error",
+    "designsnitch/font-size-unknown": "warn",
   },
 };
 

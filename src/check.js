@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { replacementNames, tokenSettings } from "./config.js";
 import { isSafeColorReplace } from "./core/action.js";
+import { findCssSizes, matchSize, sizeTokenClass } from "./core/size.js";
 import { findArbitraryColors, tokenToClass } from "./core/classes.js";
 import { colorLabel, parseColor } from "./core/color.js";
 import { findCssColors } from "./core/css.js";
@@ -13,6 +14,7 @@ import {
   themeValue,
   tokenClass,
   tokenValue,
+  tokenVar,
   utilityColorPrefixes,
 } from "./core/tokens.js";
 import { createEngine } from "./engine.js";
@@ -127,7 +129,10 @@ export async function check({ cwd, config, paths = ["."], lang, sourceCwd = cwd 
   const cssViolations = cssFiles.flatMap((file) => {
     const source = fs.readFileSync(path.resolve(cwd, file), "utf8");
     const skipCustomProperties = tokens.files.has(realPath(path.resolve(sourceCwd, file)));
-    return checkCss(file, source, tokens, m, { skipCustomProperties });
+    const colorFindings = checkCss(file, source, tokens, m, { skipCustomProperties });
+    // CSS 를 읽지 못했으면 parse-error 하나만 알린다.
+    if (colorFindings.some((finding) => finding.rule === "parse-error")) return colorFindings;
+    return [...colorFindings, ...checkCssSizes(file, source, tokens, m)];
   });
 
   const findings = [...scriptViolations, ...cssViolations]
@@ -240,6 +245,44 @@ function checkCss(file, source, tokens, m, options) {
     });
 }
 
+const SIZE_RULE = { radius: "radius", fontSize: "font-size" };
+
+/** CSS 파일 하나의 radius 와 글자 크기를 토큰과 비교한다. 그 종류의 토큰이 없으면 아무것도 내지 않는다. */
+function checkCssSizes(file, source, tokens, m) {
+  const findings = [];
+  for (const { value, kind, utility, text, disabled, prop, ...location } of findCssSizes(source)) {
+    if (disabled || kind === "spacing") continue;
+    const match = matchSize(kind, tokens.sizes[kind], value, Boolean(utility));
+    if (!match) continue;
+    const found = text ?? value;
+    const base = { file, ...location, found };
+    if (match.messageId === "unknown") {
+      findings.push({
+        ...base,
+        rule: `${SIZE_RULE[kind]}-unknown`,
+        severity: "warning",
+        message: m[`${kind}Unknown`]({ found }),
+        candidates: [],
+        recommended: null,
+      });
+      continue;
+    }
+    const candidates = match.names.map((name) =>
+      utility ? sizeTokenClass(kind, utility, name) : tokenVar(name, tokens.prefix),
+    );
+    findings.push({
+      ...base,
+      rule: `${SIZE_RULE[kind]}-use-token`,
+      severity: "error",
+      messageId: match.messageId,
+      message: m.sizeUseToken({ kind, reason: match.messageId, found, tokens: match.names.join(", "), candidates: candidates.join(", ") }),
+      candidates,
+      recommended: null,
+    });
+  }
+  return findings;
+}
+
 function realPath(file) {
   try {
     return fs.realpathSync(file);
@@ -293,6 +336,9 @@ function groupDecisions(violations) {
     if (messageId === "useTokenClassOnly") decision.reasons.add("class-only-token");
     if (messageId === "useTokenAlpha") decision.reasons.add("translucent");
     if (messageId === "useTokenData") decision.reasons.add("not-a-style");
+    if (messageId === "useTokenUnit") decision.reasons.add("unit-conversion");
+    if (messageId === "useTokenLineHeight") decision.reasons.add("line-height");
+    if (rule.endsWith("-unknown") && rule !== "color-unknown") decision.reasons.add("no-token");
     if (messageId === "useComponentAsk") decision.reasons.add("dynamic-props");
   }
 

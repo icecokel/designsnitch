@@ -60,8 +60,12 @@ export default [
       // error: the design system has a token or component for this, and it was not used
       "designsnitch/color-use-token": "error",
       "designsnitch/use-ds-component": "error",
+      "designsnitch/radius-use-token": "error",
+      "designsnitch/font-size-use-token": "error",
       // warn: the color is not in the design system, so a person has to decide
       "designsnitch/color-unknown": "warn",
+      "designsnitch/radius-unknown": "warn",
+      "designsnitch/font-size-unknown": "warn",
     },
   },
 ];
@@ -94,7 +98,11 @@ export default [
     rules: {
       "designsnitch/color-use-token": "error",
       "designsnitch/use-ds-component": "error",
+      "designsnitch/radius-use-token": "error",
+      "designsnitch/font-size-use-token": "error",
       "designsnitch/color-unknown": "warn",
+      "designsnitch/radius-unknown": "warn",
+      "designsnitch/font-size-unknown": "warn",
     },
   },
 ];
@@ -120,7 +128,11 @@ oxlint runs the same plugin as a JS plugin. Install the package (`npm install --
   "rules": {
     "designsnitch/color-use-token": "error",
     "designsnitch/use-ds-component": "error",
-    "designsnitch/color-unknown": "warn"
+    "designsnitch/color-unknown": "warn",
+    "designsnitch/radius-use-token": "error",
+    "designsnitch/radius-unknown": "warn",
+    "designsnitch/font-size-use-token": "error",
+    "designsnitch/font-size-unknown": "warn"
   }
 }
 ```

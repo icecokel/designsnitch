@@ -134,6 +134,15 @@ Two kinds of use stay as they are:
 - Near duplicates the user chose to merge still have their old value in the code. They show up as `color-unknown` warnings. Replacing them changes what is rendered, so do it only for the merges the user approved.
 - Hex colors in strings other than classes and inline styles, such as theme objects, and default palette classes are not flagged by the check. The check counts the former in `unchecked`.
 
+## Radius and font size tokens
+
+The same approach works for radius and font size, and only when the user asks for it or the colors are done. `npx designsnitch sizes --format json` lists the font sizes, radii and spacing the code writes by hand, with how often each is used.
+
+- Propose `--radius-*` and `--text-*` tokens in `@theme` for the values that are used most, in the unit the code uses. A token in `rem` for values written in `px` makes every match a question (`unit-conversion`) instead of a replacement.
+- Values used once or twice next to a common one (13px beside 12px) are probably drift. Show them to the user as a group and ask whether they should become the common value. Do not change them yourself: that changes the screen.
+- Do not propose spacing tokens. Spacing is listed for information and is not checked.
+- Once the tokens exist, `designsnitch check` reports radius and font size the same way as colors.
+
 ## What not to do
 
 - Do not write tokens before the user approves the proposal.

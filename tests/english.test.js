@@ -165,7 +165,7 @@ describe("영어 출력 (--lang en)", () => {
       [
         "Copied 5 skills to .claude/skills.",
         "Registered the hook in .claude/settings.json.",
-        "Allowed the check commands (npx designsnitch check, colors) in .claude/settings.json, so the agent can run them without asking.",
+        "Allowed the check commands (npx designsnitch check, colors, sizes) in .claude/settings.json, so the agent can run them without asking.",
         "",
         "What to do next",
         "- Install the package in the project so the hook runs quickly every time: npm install --save-dev designsnitch",

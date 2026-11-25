@@ -5,11 +5,12 @@ import { check } from "./check.js";
 import { collectColors } from "./colors.js";
 import { CONFIG_FILE, loadConfig } from "./config.js";
 import { applyReplacements } from "./fix.js";
-import { formatColorsText, formatText } from "./format.js";
+import { formatColorsText, formatSizesText, formatText } from "./format.js";
 import { runHook } from "./hook.js";
 import { AGENT_CHOICES, install } from "./install.js";
 import { isLang, messages, resolveLang } from "./messages.js";
 import { loadTokens } from "./rules/load-tokens.js";
+import { collectSizes } from "./sizes.js";
 
 const json = (result) => `${JSON.stringify(result, null, 2)}\n`;
 
@@ -41,6 +42,16 @@ const COMMANDS = {
     const tokens = config ? loadTokens({ designsnitch: { ...config, lang } }, cwd) : undefined;
     const result = await collectColors({ cwd, paths, tokens: tokens?.colors, tokenFiles: tokens?.files });
     return { stdout: format === "json" ? json(result) : formatColorsText(result, lang), exitCode: 0 };
+  },
+
+  // 설정 파일은 선택이다. 있으면 값마다 이미 있는 토큰을 붙인다.
+  async sizes({ cwd, paths, configPath, format, flagLang }) {
+    const hasConfig = configPath !== undefined || fs.existsSync(path.resolve(cwd, CONFIG_FILE));
+    const config = hasConfig ? loadConfig(cwd, configPath, resolveLang(flagLang)) : undefined;
+    const lang = resolveLang(flagLang, config?.lang);
+    const tokens = config ? loadTokens({ designsnitch: { ...config, lang } }, cwd) : undefined;
+    const result = await collectSizes({ cwd, paths, tokens: tokens?.sizes, tokenFiles: tokens?.files });
+    return { stdout: format === "json" ? json(result) : formatSizesText(result, lang), exitCode: 0 };
   },
 
   hook({ cwd, configPath, stdin, flagLang }) {

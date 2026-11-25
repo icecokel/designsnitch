@@ -40,6 +40,8 @@ describe("플러그인", () => {
       { ruleId: "designsnitch/use-ds-component", severity: 2 },
       { ruleId: "designsnitch/color-use-token", severity: 2 },
       { ruleId: "designsnitch/color-unknown", severity: 1 },
+      // 토큰 CSS 에 --radius-* 가 있으므로, 거기 없는 5px 를 알린다. 간격(p-[16px])은 보지 않는다.
+      { ruleId: "designsnitch/radius-unknown", severity: 1 },
     ]);
   });
 
@@ -88,10 +90,14 @@ describe("플러그인", () => {
     ]);
   });
 
-  it("간격, 폰트 크기, radius 는 검사하지 않는다", () => {
+  it("색, 공용 컴포넌트, radius, 글자 크기를 검사하고 간격은 검사하지 않는다", () => {
     expect(Object.keys(designsnitch.rules).sort()).toEqual([
       "color-unknown",
       "color-use-token",
+      "font-size-unknown",
+      "font-size-use-token",
+      "radius-unknown",
+      "radius-use-token",
       "use-ds-component",
     ]);
   });

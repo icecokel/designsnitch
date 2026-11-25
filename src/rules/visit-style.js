@@ -68,6 +68,27 @@ function styleObjectKind(object, sourceCode) {
 }
 
 /**
+ * 노드가 스타일로 쓰이는 객체(JSX 의 style 속성, CSSProperties 타입)의 값이면 속성 이름을 돌려준다. 색이 아닌 속성도 받는다.
+ * @param {import("estree").Node & { parent?: any }} node
+ * @param {import("eslint").SourceCode} [sourceCode]
+ * @returns {string | null}
+ */
+export function styleProperty(node, sourceCode) {
+  while (
+    (node.parent?.type === "ConditionalExpression" && node.parent.test !== node) ||
+    node.parent?.type === "LogicalExpression"
+  ) {
+    node = node.parent;
+  }
+  const property = node.parent;
+  if (property?.type !== "Property" || property.value !== node || property.computed) return null;
+  const { key } = property;
+  const name = key.type === "Identifier" ? key.name : typeof key.value === "string" ? key.value : null;
+  if (name === null || property.parent?.type !== "ObjectExpression") return null;
+  return styleObjectKind(property.parent, sourceCode) ? name : null;
+}
+
+/**
  * 노드가 스타일 객체의 값이면 CSS 속성 이름을, 아니면 null 을 돌려준다.
  * 예: <div style={{ color: "#fff" }} /> 의 "#fff" → "color"
  * @param {import("estree").Node & { parent?: any }} node

@@ -39,6 +39,16 @@ const en = {
     `${found} has the same color as ${tokens}. It is not in a style, so check that var() works where this value is used. Candidate: ${candidates}`,
   useTokenClassOnly: ({ found, tokens }) =>
     `${found} has the same color as ${tokens}, but Tailwind makes no CSS variable for that token, so there is no var() to use here.`,
+  sizeUseToken: ({ kind, reason, found, tokens, candidates }) => {
+    const what = kind === "radius" ? "radius" : "font size";
+    if (reason === "useTokenUnit")
+      return `${found} is the same ${what} as ${tokens} only when the root font size is 16px, because one is in px and the other in rem. Candidate: ${candidates}`;
+    if (reason === "useTokenLineHeight")
+      return `${found} has the same font size as ${tokens}, but a font size class can also set the line height, so the text may move. Candidate: ${candidates}`;
+    return `${found} has the same ${what} as ${tokens}. Use instead: ${candidates}`;
+  },
+  radiusUnknown: ({ found }) => `The radius ${found} is not in the tokens.`,
+  fontSizeUnknown: ({ found }) => `The font size ${found} is not in the tokens.`,
   unknownColor: ({ found }) => `The color of ${found} is not in the tokens.`,
   unknownCssColor: ({ value }) => `The color ${value} is not in the tokens.`,
   useComponent: ({ tag, component, path }) =>
@@ -139,6 +149,14 @@ const en = {
     `Not checked: ${count(colors, "color")} in other strings in ${count(files, "file")}, such as theme objects and chart options. \`designsnitch colors\` lists them.`,
 
   // colors
+  sizesNone: ({ files }) => `No hand-written font sizes, radii or spacing found in the code. (${count(files, "file")} checked)`,
+  sizesSummary: ({ fontSizes, radii, spacing, uses, files }) =>
+    `Sizes written by hand: ${count(fontSizes, "font size")}, ${count(radii, "radius", "radii")}, ${count(spacing, "spacing value")} (${count(uses, "use")}, ${count(files, "file")} checked)`,
+  fontSizesTitle: "Font sizes",
+  radiiTitle: "Radii",
+  spacingTitle: "Spacing (collected only, not checked)",
+  sizeInClass: (n) => `class ${n}`,
+  sizeInStyle: (n) => `style ${n}`,
   colorsNone: ({ files }) => `No colors found in the code. (${count(files, "file")} checked)`,
   colorsSummary: ({ colors, paletteColors, uses, files }) =>
     `Colors used in the code: ${colors} hex, ${paletteColors} from the default palette (${count(uses, "use")}, ${count(files, "file")} checked)`,
@@ -158,7 +176,7 @@ const en = {
   hookRegistered: ({ file }) => `Registered the hook in ${file}.`,
   hookAlready: ({ file }) => `The hook is already registered in ${file}.`,
   commandsAllowed: ({ file }) =>
-    `Allowed the check commands (npx designsnitch check, colors) in ${file}, so the agent can run them without asking.`,
+    `Allowed the check commands (npx designsnitch check, colors, sizes) in ${file}, so the agent can run them without asking.`,
   codexTrust: () =>
     "Codex runs project hooks only in a trusted project, and only hooks you have approved. Open Codex in this project and approve the project and the hook when it asks.",
   geminiTrust: () =>
@@ -175,6 +193,7 @@ const en = {
 Commands
   check     Checks that UI code follows the design system.
   colors    Lists the colors the code uses. Works without a config file.
+  sizes     Lists the font sizes, radii and spacing the code writes by hand. Works without a config file.
   hook      Called from a coding agent's hook. Exits with 2 when a file just changed has errors.
   install   Installs the skills and the agent hook into the project.
 
@@ -202,6 +221,16 @@ const ko = {
     `${found}의 색은 토큰 ${tokens}의 값입니다. 스타일이 아닌 자리라서, 이 값을 쓰는 곳에서 var()가 통하는지 확인해야 합니다. 후보: ${candidates}`,
   useTokenClassOnly: ({ found, tokens }) =>
     `${found}의 색은 토큰 ${tokens}의 값이지만, Tailwind가 이 토큰의 CSS 변수를 만들지 않아서 여기에 쓸 var()가 없습니다.`,
+  sizeUseToken: ({ kind, reason, found, tokens, candidates }) => {
+    const what = kind === "radius" ? "radius" : "글자 크기";
+    if (reason === "useTokenUnit")
+      return `${found}은(는) 루트 글자 크기가 16px일 때만 토큰 ${tokens}와 같은 ${what}입니다. 한쪽은 px, 다른 쪽은 rem이기 때문입니다. 후보: ${candidates}`;
+    if (reason === "useTokenLineHeight")
+      return `${found}의 글자 크기는 토큰 ${tokens}의 값입니다. 다만 글자 크기 클래스는 줄 높이도 함께 정할 수 있어 글의 위치가 달라질 수 있습니다. 후보: ${candidates}`;
+    return `${found}의 ${what}는 토큰 ${tokens}의 값입니다. 대신 사용: ${candidates}`;
+  },
+  radiusUnknown: ({ found }) => `${found}의 radius는 토큰에 없습니다.`,
+  fontSizeUnknown: ({ found }) => `${found}의 글자 크기는 토큰에 없습니다.`,
   unknownColor: ({ found }) => `${found}의 색은 토큰에 없습니다.`,
   unknownCssColor: ({ value }) => `${value}의 색은 토큰에 없습니다.`,
   useComponent: ({ tag, component, path }) =>
@@ -294,6 +323,14 @@ const ko = {
   unchecked: ({ colors, files }) =>
     `검사하지 못함: 테마 객체나 차트 옵션 같은 다른 문자열에 색 ${colors}개 (파일 ${files}개). \`designsnitch colors\`로 볼 수 있습니다.`,
 
+  sizesNone: ({ files }) => `코드에서 직접 쓴 글자 크기, radius, 간격을 찾지 못했습니다. (파일 ${files}개 검사)`,
+  sizesSummary: ({ fontSizes, radii, spacing, uses, files }) =>
+    `직접 쓴 크기: 글자 크기 ${fontSizes}종, radius ${radii}종, 간격 ${spacing}종 (사용 ${uses}곳, 파일 ${files}개 검사)`,
+  fontSizesTitle: "글자 크기",
+  radiiTitle: "radius",
+  spacingTitle: "간격 (모으기만 하고 검사하지 않음)",
+  sizeInClass: (n) => `클래스 ${n}`,
+  sizeInStyle: (n) => `스타일 ${n}`,
   colorsNone: ({ files }) => `코드에서 색을 찾지 못했습니다. (파일 ${files}개 검사)`,
   colorsSummary: ({ colors, paletteColors, uses, files }) =>
     `코드에서 쓰는 색: hex ${colors}개, 기본 팔레트 ${paletteColors}개 (사용 ${uses}곳, 파일 ${files}개 검사)`,
@@ -310,7 +347,7 @@ const ko = {
   skillsCopied: ({ n, dir }) => `스킬 ${n}개를 ${dir} 에 복사했습니다.`,
   hookRegistered: ({ file }) => `훅을 ${file} 에 등록했습니다.`,
   hookAlready: ({ file }) => `훅은 이미 ${file} 에 등록되어 있습니다.`,
-  commandsAllowed: ({ file }) => `검사 명령(npx designsnitch check, colors)을 ${file} 의 허용 목록에 넣었습니다.`,
+  commandsAllowed: ({ file }) => `검사 명령(npx designsnitch check, colors, sizes)을 ${file} 의 허용 목록에 넣었습니다.`,
   codexTrust: () =>
     "Codex는 신뢰한 프로젝트에서, 사용자가 승인한 훅만 실행합니다. 이 프로젝트에서 Codex를 열고 프로젝트 신뢰와 훅 승인을 요청받으면 승인하세요.",
   geminiTrust: () =>
@@ -327,6 +364,7 @@ const ko = {
 명령
   check     UI 코드가 디자인 시스템을 따르는지 검사합니다.
   colors    코드에서 쓰는 색을 모아 보여줍니다. 설정 파일이 없어도 됩니다.
+  sizes     코드가 직접 쓴 글자 크기, radius, 간격을 모아 보여줍니다. 설정 파일이 없어도 됩니다.
   hook      코딩 에이전트의 훅에서 부릅니다. 방금 고친 파일에 오류가 있으면 2로 끝납니다.
   install   스킬과 에이전트 훅을 프로젝트에 설치합니다.
 

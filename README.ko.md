@@ -16,7 +16,7 @@ AI 에이전트가 코드를 쓰면 이 문제는 더 빨리 커집니다. 에�
 
 **designsnitch의 목표는 이런 프로젝트에서도 AI가 쓴 UI 코드를 관리할 수 있고 일관되게 유지하는 것입니다.** 디자이너나 Figma 파일 없이, 코드 안에서 세 가지를 합니다.
 
-1. **기준을 세웁니다.** 코드가 이미 쓰고 있는 색을 모아서 토큰으로 정리할 수 있게 합니다. 없는 기준을 새로 만들지 않고, 지금 쓰는 것에서 출발합니다.
+1. **기준을 세웁니다.** 코드가 이미 쓰고 있는 색, 글자 크기, radius를 모아서 토큰으로 정리할 수 있게 합니다. 없는 기준을 새로 만들지 않고, 지금 쓰는 것에서 출발합니다.
 2. **기준을 지킵니다.** 새 코드가 그 기준을 따르는지 확인하고, 무엇으로 바꾸면 되는지 알려줍니다. 에이전트가 코드를 쓰는 동안 막습니다.
 3. **정리합니다.** 이미 흩어진 코드를 기준에 맞게 되돌리는 일을 돕습니다.
 
@@ -55,7 +55,7 @@ src/app/Hero.tsx:2:32  bg-[#3B82F6]의 색은 토큰 --color-primary의 값입�
 
 **Tailwind CSS v4나 v3를 쓰는 React/Next.js 프로젝트**를 지원합니다. v3에서는 인라인 스타일에 직접 쓴 색에 후보가 없습니다. v3가 색에 CSS 변수를 만들지 않기 때문입니다([Tailwind v3](#tailwind-v3) 참고).
 
-> **상태:** MVP(0.7.x). 지금은 색과 공용 컴포넌트를 검사합니다. 간격, 폰트 크기, radius는 아직 검사하지 않습니다([검사 범위](#검사-범위) 참고). 메시지는 기본이 영어이고 한국어로 바꿀 수 있습니다. 이 문서의 출력 예시는 한국어로 설정했을 때의 모습입니다. [언어](#언어)를 보세요.
+> **상태:** MVP(0.7.x). 색, 공용 컴포넌트, radius, 글자 크기를 검사합니다. 간격은 검사하지 않습니다([검사 범위](#검사-범위) 참고). 메시지는 기본이 영어이고 한국어로 바꿀 수 있습니다. 이 문서의 출력 예시는 한국어로 설정했을 때의 모습입니다. [언어](#언어)를 보세요.
 
 ## 시작하기
 
@@ -156,6 +156,27 @@ Codex, Gemini CLI, Grok Build는 새 프로젝트 훅을 승인하거나 프로�
 | `color-unknown` | 경고 | 직접 쓴 색인데 맞는 토큰이 없음 |
 | `use-ds-component` | 오류 | 공용 컴포넌트가 대체하는 `<button>` 같은 raw 태그를 디자인 시스템 경로 밖에서 씀 |
 
+### radius와 글자 크기
+
+토큰 CSS가 `@theme`에 토큰을 정의한 경우에만 검사합니다. radius는 `--radius-*`, 글자 크기는 `--text-*`입니다. 그런 토큰이 없는 프로젝트에는 radius와 글자 크기를 알리지 않습니다. 비춰 볼 기준이 없기 때문입니다. `designsnitch sizes`가 코드가 직접 쓴 값을 모아 보여주므로, 그중 무엇을 토큰으로 삼을지 정할 수 있습니다.
+
+| 규칙 | 등급 | 잡는 것 |
+| --- | --- | --- |
+| `radius-use-token` | 오류 | 토큰이 있는 radius를 임의 값 클래스(`rounded-[12px]`), 인라인 스타일(`borderRadius: 12`), CSS 선언에 직접 씀 |
+| `radius-unknown` | 경고 | 직접 쓴 radius인데 맞는 토큰이 없음 |
+| `font-size-use-token` | 오류 | 토큰이 있는 글자 크기를 `text-[14px]`, 인라인 스타일, CSS 선언에 직접 씀 |
+| `font-size-unknown` | 경고 | 직접 쓴 글자 크기인데 맞는 토큰이 없음 |
+
+바꿔도 안전한지는 값을 어떻게 썼는지에 따라 다릅니다.
+
+| 경우 | 처리 |
+| --- | --- |
+| 같은 단위의 같은 값. 예: `12px`와 `12px` 토큰 | `replace`. `--fix`가 고칩니다. |
+| px와 rem을 환산해야 같은 값. 예: `8px`와 `0.5rem` 토큰 | `ask`, 이유 `unit-conversion`. 읽는 사람의 브라우저 글자 크기가 16px이 아니면 둘이 달라집니다. |
+| 글자 크기 클래스. `text-[14px]` → `text-body` | `ask`, 이유 `line-height`. 테마가 줄 높이를 정해 두면 글자 크기 클래스가 줄 높이도 함께 정하므로 글의 위치가 달라질 수 있습니다. |
+
+px와 rem으로 그대로 적은 길이만 읽습니다. `calc()`나 `var()` 안의 값, 퍼센트, `0`, `9999px` 같은 알약 모양 값은 건너뜁니다. 간격(padding, margin, gap)은 `designsnitch sizes`가 모아 보여주기만 하고 검사하지 않습니다. 값 하나만 봐서는 실수인지 의도인지 알 수 없기 때문입니다. Tailwind v3 프로젝트에는 radius와 글자 크기를 검사하지 않습니다.
+
 직접 쓴 색이란 hex, 숫자를 그대로 적은 색 함수(`rgb()`, `hsl()`, `oklch()`), `white` 같은 색 이름입니다. 표기는 상관없습니다. `#3B82F6`, `rgb(59 130 246)`, `hsl(217 91% 60%)`는 검사에서 같은 색입니다.
 
 오류에는 대신 쓸 것이 함께 나옵니다. JS와 TS 파일에서는 클래스나 컴포넌트이고, 인라인 스타일과 CSS 파일에서는 `var(--토큰)`입니다. Tailwind v4는 소스에서 `var()`로 쓴 테마 변수를 출력하므로, 인라인 스타일의 `var(--토큰)`도 같은 색으로 보입니다. Tailwind v3 프로젝트에서는 CSS 파일의 후보가 `theme("colors.토큰")`입니다.
@@ -166,6 +187,7 @@ Codex, Gemini CLI, Grok Build는 새 프로젝트 훅을 승인하거나 프로�
 | --- | --- |
 | `designsnitch install` | 스킬을 복사하고 에이전트 훅을 프로젝트에 등록합니다. Claude Code에는 `check`와 `colors` 명령도 허용해 둡니다. `--agent claude`(기본), `codex`, `gemini`, `grok`, `all`을 받습니다. |
 | `designsnitch colors` | 코드가 쓰는 색을 모아 보여줍니다. 설정 파일이 없어도 됩니다. |
+| `designsnitch sizes` | 코드가 직접 쓴 글자 크기, radius, 간격을 모아 보여줍니다. 설정 파일이 없어도 됩니다. |
 | `designsnitch check` | 코드를 기준에 비춰 검사하고, 위반마다 무엇을 하면 되는지 알려줍니다. |
 | `designsnitch check --fix` | 바꿔도 화면이 같은 것(`replace`)을 JS, TS, CSS 파일에서 고친 뒤, 남은 것을 알려줍니다. 경로를 주면 그 파일만 고칩니다. |
 | `designsnitch hook` | 에이전트의 훅에서 부릅니다. 에이전트가 방금 바꾼 파일을 검사합니다. |
@@ -429,7 +451,7 @@ src/PayButton.tsx
 | `fixed` | `--fix`를 줬을 때만 있습니다. 고친 곳의 수입니다. 결과의 나머지는 고친 뒤의 코드를 설명합니다. |
 | `violations[].recommended` | 색을 쓰는 용도에 맞는 후보입니다. `text-` 클래스면 텍스트용 이름의 토큰, 테두리면 테두리용 이름의 토큰입니다. 맞는 후보가 정확히 하나일 때만 채우고, 추천일 뿐이라 `ask`는 그대로 `ask`입니다. `replace`와 `migrate`면 그 후보입니다. |
 | `violations[].action` | 이 위반을 어떻게 다룰지입니다. `replace`: `found`를 하나뿐인 후보로 바꿔도 화면과 동작이 같습니다. 색 오류만 해당합니다. `migrate`: raw 태그를 옮길 디자인 시스템 컴포넌트가 하나뿐입니다. 컴포넌트가 같은 props를 넘기는지, 기본 스타일이 같은지는 도구가 알 수 없으므로 컴포넌트를 먼저 읽고 태그의 props를 옮기고 컴포넌트가 이미 주는 클래스는 지웁니다. 훅은 고친 직후에 알리기만 하고, 이것 때문에 에이전트가 끝내는 것을 막지는 않습니다. `ask`: 사람이 정해야 합니다. 후보가 여러 개이거나, 토큰이 없는 색이거나, 테마마다 값이 다른 토큰이거나, 컴포넌트의 속성이 동적이거나 spread된 경우입니다. `repair`: 파일을 읽지 못했습니다. |
-| `decisions` | `ask`인 위반을 질문 단위로 묶은 것입니다. 색이나 태그와 후보가 같으면 하나로 묶습니다. 각 항목에 얼마나 나오는지(`uses`, `files`), 위치 최대 다섯 곳(`locations`), 후보(`candidates`), 모든 위치에서 추천이 같을 때의 추천(`recommended`), 사람이 정해야 하는 이유(`reasons`: `multiple-candidates`, `no-token`, `themed-token`, `translucent`, `not-a-style`, `class-only-token`, `dynamic-props`)가 있습니다. 많이 나오는 순서입니다. |
+| `decisions` | `ask`인 위반을 질문 단위로 묶은 것입니다. 색이나 태그와 후보가 같으면 하나로 묶습니다. 각 항목에 얼마나 나오는지(`uses`, `files`), 위치 최대 다섯 곳(`locations`), 후보(`candidates`), 모든 위치에서 추천이 같을 때의 추천(`recommended`), 사람이 정해야 하는 이유(`reasons`: `multiple-candidates`, `no-token`, `themed-token`, `translucent`, `not-a-style`, `class-only-token`, `dynamic-props`, `unit-conversion`, `line-height`)가 있습니다. 많이 나오는 순서입니다. |
 | `next` | 이 결과를 받은 에이전트가 할 일을 순서대로 적은 것 |
 | `unchecked` | 검사하지 못한 다른 문자열 속 색의 개수(`colors`)와 파일 수(`files`). 하나라도 있으면 글 출력에 한 줄이 붙습니다. |
 
@@ -494,8 +516,12 @@ export default [
       // 오류: 디자인 시스템에 쓸 토큰이나 컴포넌트가 있는데 쓰지 않음
       "designsnitch/color-use-token": "error",
       "designsnitch/use-ds-component": "error",
+      "designsnitch/radius-use-token": "error",
+      "designsnitch/font-size-use-token": "error",
       // 경고: 디자인 시스템에 없는 값이라 사람이 판단해야 함
       "designsnitch/color-unknown": "warn",
+      "designsnitch/radius-unknown": "warn",
+      "designsnitch/font-size-unknown": "warn",
     },
   },
 ];
@@ -515,7 +541,11 @@ export default [
   "rules": {
     "designsnitch/color-use-token": "error",
     "designsnitch/use-ds-component": "error",
-    "designsnitch/color-unknown": "warn"
+    "designsnitch/color-unknown": "warn",
+    "designsnitch/radius-use-token": "error",
+    "designsnitch/radius-unknown": "warn",
+    "designsnitch/font-size-use-token": "error",
+    "designsnitch/font-size-unknown": "warn"
   }
 }
 ```
@@ -560,12 +590,16 @@ CLI와 스킬은 AI 에이전트가 제대로 할 수 있는 상태를 만들어
     ]
   },
   "permissions": {
-    "allow": ["Bash(npx designsnitch check *)", "Bash(npx designsnitch colors *)"]
+    "allow": [
+      "Bash(npx designsnitch check *)",
+      "Bash(npx designsnitch colors *)",
+      "Bash(npx designsnitch sizes *)"
+    ]
   }
 }
 ```
 
-`permissions`는 스킬이 쓰는 두 명령 `check`와 `colors`를 Claude Code가 매번 묻지 않고 실행하게 합니다. `colors`는 파일을 읽기만 합니다. `check`는 `--fix`를 줄 때만 파일을 바꾸고, 그때도 바꿔도 화면이 같은 곳만 바꿉니다. 이미 있는 규칙은 그대로 두고, `Bash(npx designsnitch *)`처럼 더 넓은 규칙이 있으면 아무것도 더하지 않습니다.
+`permissions`는 스킬이 쓰는 명령 `check`, `colors`, `sizes`를 Claude Code가 매번 묻지 않고 실행하게 합니다. `colors`와 `sizes`는 파일을 읽기만 합니다. `check`는 `--fix`를 줄 때만 파일을 바꾸고, 그때도 바꿔도 화면이 같은 곳만 바꿉니다. 이미 있는 규칙은 그대로 두고, `Bash(npx designsnitch *)`처럼 더 넓은 규칙이 있으면 아무것도 더하지 않습니다.
 
 Claude Code는 프로젝트의 `.claude/settings.json`에 있는 허용 규칙을, 그 프로젝트의 신뢰 확인을 수락한 뒤에만 씁니다. 신뢰 확인은 터미널에서 프로젝트를 처음 열 때 나옵니다. 그렇게 열어 본 적이 없는 프로젝트에서는, 예를 들어 새로 받은 저장소에서 `claude -p`로 실행하면, 이 규칙을 버리고 다시 승인을 요청합니다. 그럴 때는 `--allowedTools "Bash(npx designsnitch check *)"`를 넘기세요. Claude Code 2.1.329에서 확인했습니다. 규칙이 있을 때 신뢰한 폴더에서는 묻지 않고 실행했고, 신뢰하지 않은 폴더에서는 거부됐습니다.
 
@@ -637,7 +671,8 @@ Tailwind 기본 팔레트(`bg-slate-100`, `text-indigo-600`)를 기준으로 쓰
 - Biome. ESLint 플러그인을 돌릴 수 없고, 자체 플러그인 API는 다른 문법 트리를 쓰므로 규칙을 새로 써야 합니다.
 - 색을 뜻하지 않는 이름의 키에 적은 색(`{ primary: "#3B82F6" }`)과 배열 안의 색. `unchecked`에 개수로만 셉니다.
 - SCSS 같은 전처리기
-- 간격, 폰트 크기, radius. 이번 버전에서는 일부러 뺐습니다.
+- 간격. `designsnitch sizes`가 모아 보여주기만 합니다. 값 하나만 봐서는 실수인지 의도인지 알 수 없습니다.
+- Tailwind v3 프로젝트의 radius와 글자 크기, 그리고 Tailwind 기본 radius·글자 크기 단계. 프로젝트가 직접 정한 `--radius-*`, `--text-*` 토큰만 기준입니다.
 - 직접 만든 컴포넌트와 디자인 시스템 컴포넌트의 스타일 비교
 - Claude Code, Codex, Gemini CLI, Grok Build가 아닌 에이전트에 훅 설치하기
 

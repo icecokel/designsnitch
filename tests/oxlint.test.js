@@ -24,7 +24,7 @@ it("oxlint 의 JS 플러그인으로 돌려도 CLI 와 같은 곳을 같은 규�
       tokens: "tokens.css",
       components: { path: "src/ui", replaces: { button: "Button" } },
     }),
-    "tokens.css": "@theme {\n  --color-primary: #3b82f6;\n}\n",
+    "tokens.css": "@theme {\n  --color-primary: #3b82f6;\n  --radius-card: 12px;\n  --text-body: 14px;\n}\n",
     // settings 를 적지 않는다. 플러그인이 designsnitch.config.json 을 읽는다.
     ".oxlintrc.json": JSON.stringify({
       jsPlugins: [path.join(repo, "src", "index.js")],
@@ -34,6 +34,10 @@ it("oxlint 의 JS 플러그인으로 돌려도 CLI 와 같은 곳을 같은 규�
         "designsnitch/color-use-token": "error",
         "designsnitch/color-unknown": "warn",
         "designsnitch/use-ds-component": "error",
+        "designsnitch/radius-use-token": "error",
+        "designsnitch/radius-unknown": "warn",
+        "designsnitch/font-size-use-token": "error",
+        "designsnitch/font-size-unknown": "warn",
       },
     }),
     "src/ui/button.tsx": "export const Button = (props: object) => <button {...props} />;\n",
@@ -45,6 +49,7 @@ it("oxlint 의 JS 플러그인으로 돌려도 CLI 와 같은 곳을 같은 규�
       '    <p className={`p-2 ${on ? "border-[#3B82F6]" : ""}`} />',
       '    <p className="bg-[#3B82F5]" style={{ color: "#3B82F6" }} />',
       "    <button>x</button>",
+      '    <p className="rounded-[12px] rounded-[7px] text-[14px]" style={{ borderRadius: 12, fontSize: "15px" }} />',
       "  </div>",
       ");",
       "",
@@ -62,6 +67,6 @@ it("oxlint 의 JS 플러그인으로 돌려도 CLI 와 같은 곳을 같은 규�
   const { violations } = await check({ cwd, config: loadConfig(cwd) });
   const fromCli = violations.map(({ file, line, column, rule }) => `${file}:${line}:${column} ${rule}`).sort();
 
-  expect(fromCli).toHaveLength(7);
+  expect(fromCli).toHaveLength(12);
   expect(fromOxlint).toEqual(fromCli);
 });

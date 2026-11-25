@@ -16,7 +16,7 @@ The result is a codebase that is hard to manage and a product that is hard to ke
 
 **The goal of designsnitch is to keep AI-written UI code manageable and consistent in exactly these projects.** It works inside the code, with no designer or Figma file required, and does three things.
 
-1. **Establish a standard.** It collects the colors the code already uses so you can turn them into tokens. It starts from what is there instead of inventing a standard.
+1. **Establish a standard.** It collects the colors, font sizes and radii the code already uses so you can turn them into tokens. It starts from what is there instead of inventing a standard.
 2. **Keep to it.** It checks new code against that standard and tells you what to use instead. It blocks while the agent is writing.
 3. **Clean up.** It helps bring code that has already drifted back to the standard.
 
@@ -55,7 +55,7 @@ The agent cannot finish while this error remains, so it switches to the token cl
 
 It supports **React/Next.js projects that use Tailwind CSS v4 or v3**. In v3, a color written by hand in an inline style gets no candidate, because v3 makes no CSS variables for its colors (see [Tailwind v3](#tailwind-v3)).
 
-> **Status:** MVP (0.7.x). It checks colors and shared components for now. Spacing, font size and radius are not checked yet (see [Scope](#scope)). Messages are in English by default and can be switched to Korean. See [Language](#language).
+> **Status:** MVP (0.7.x). It checks colors, shared components, radius and font size. Spacing is not checked (see [Scope](#scope)). Messages are in English by default and can be switched to Korean. See [Language](#language).
 
 ## Getting started
 
@@ -156,6 +156,27 @@ Severity follows one rule.
 | `color-unknown` | Warning | A color written by hand with no matching token |
 | `use-ds-component` | Error | A raw tag such as `<button>` used outside the design system directory, when a shared component replaces it |
 
+### Radius and font size
+
+These are checked only when the token CSS defines tokens for them in `@theme`: `--radius-*` for radius and `--text-*` for font size. A project with no such tokens gets no radius or font size reports, because there is nothing to check against. `designsnitch sizes` lists the values the code writes by hand, so you can decide which ones become tokens.
+
+| Rule | Severity | What it catches |
+| --- | --- | --- |
+| `radius-use-token` | Error | A radius that a token has, written as an arbitrary class (`rounded-[12px]`), in an inline style (`borderRadius: 12`) or in a CSS declaration |
+| `radius-unknown` | Warning | A radius written by hand that no token has |
+| `font-size-use-token` | Error | A font size that a token has, written as `text-[14px]`, in an inline style or in a CSS declaration |
+| `font-size-unknown` | Warning | A font size written by hand that no token has |
+
+Whether the replacement is safe depends on how the value is written.
+
+| Case | Action |
+| --- | --- |
+| Same value in the same unit, such as `12px` and a `12px` token | `replace`. `--fix` changes it. |
+| Same value only after converting px and rem, such as `8px` and a `0.5rem` token | `ask`, reason `unit-conversion`. The two differ when the reader's browser font size is not 16px. |
+| A font size class, `text-[14px]` → `text-body` | `ask`, reason `line-height`. A font size class also sets the line height when the theme defines one, so the text can move. |
+
+Only plain lengths in px and rem are read. Values inside `calc()` or `var()`, percentages, `0`, and pill values such as `9999px` are skipped. Spacing (padding, margin, gap) is listed by `designsnitch sizes` and never checked: a single value cannot tell a mistake from a choice. Tailwind v3 projects are not checked for radius and font size.
+
 A color written by hand is a hex color, a color function with literal numbers (`rgb()`, `hsl()`, `oklch()`), or a color name such as `white`. Notation does not matter: `#3B82F6`, `rgb(59 130 246)` and `hsl(217 91% 60%)` are the same color to the check.
 
 Every error comes with what to use instead: a class or component in JS and TS files, and `var(--token)` in inline styles and CSS files. Tailwind v4 outputs a theme variable when the source uses it with `var()`, so `var(--token)` in an inline style renders the same color. In a Tailwind v3 project, the candidate in a CSS file is `theme("colors.token")` instead.
@@ -166,6 +187,7 @@ Every error comes with what to use instead: a class or component in JS and TS fi
 | --- | --- |
 | `designsnitch install` | Copies the skills and registers the agent hook in the project. For Claude Code it also allows the `check` and `colors` commands. `--agent claude` (default), `codex`, `gemini`, `grok` or `all`. |
 | `designsnitch colors` | Lists the colors the code uses. Works without a config file. |
+| `designsnitch sizes` | Lists the font sizes, radii and spacing the code writes by hand. Works without a config file. |
 | `designsnitch check` | Checks code against the standard and says what to do with each violation. |
 | `designsnitch check --fix` | Also fixes what can be replaced with the screen staying the same (`replace`), in JS, TS and CSS files, then reports what is left. Give paths to fix only those files. |
 | `designsnitch hook` | Called from the agent's hook. Checks the files the agent just changed. |
@@ -428,7 +450,7 @@ The first line shows how many tokens and components were read from the config. A
 | `fixed` | Only with `--fix`: how many places were replaced. The rest of the result describes the code after the fix. |
 | `violations[].recommended` | The candidate that fits how the color is used: a `text-` class gets the token named for text, a border gets the one named for borders. Only set when exactly one candidate fits, and only a suggestion: an `ask` stays an `ask`. For `replace` and `migrate`, it is the candidate. |
 | `violations[].action` | How to handle the violation. `replace`: replacing `found` with the only candidate keeps the screen and the behavior the same. Only color errors get this. `migrate`: a raw tag with exactly one design system component to move to. The tool cannot tell whether the component passes on the same props or renders the same default styles, so read the component first, then move the tag's props and drop classes the component already applies. The hook reports it after an edit but does not stop the agent from finishing over it. `ask`: a person has to decide: several candidates, a color with no token, a token whose value differs between themes, or a component whose props are dynamic or spread. `repair`: the file could not be parsed. |
-| `decisions` | The `ask` violations grouped into questions: one per color or tag with the same candidates. Each has how often it comes up (`uses`, `files`), up to five `locations`, the `candidates`, a `recommended` candidate when every location agrees, and the `reasons` a person has to decide: `multiple-candidates`, `no-token`, `themed-token`, `translucent`, `not-a-style`, `class-only-token` or `dynamic-props`. Most used first. |
+| `decisions` | The `ask` violations grouped into questions: one per color or tag with the same candidates. Each has how often it comes up (`uses`, `files`), up to five `locations`, the `candidates`, a `recommended` candidate when every location agrees, and the `reasons` a person has to decide: `multiple-candidates`, `no-token`, `themed-token`, `translucent`, `not-a-style`, `class-only-token`, `dynamic-props`, `unit-conversion` or `line-height`. Most used first. |
 | `next` | What an agent should do with this result, in order |
 | `unchecked` | Colors in other strings that were not checked (`colors`), and how many files they are in (`files`). The text output adds a line when there are any. |
 
@@ -493,8 +515,12 @@ export default [
       // error: the design system has a token or component for this, and it was not used
       "designsnitch/color-use-token": "error",
       "designsnitch/use-ds-component": "error",
+      "designsnitch/radius-use-token": "error",
+      "designsnitch/font-size-use-token": "error",
       // warn: the value is not in the design system, so a person has to decide
       "designsnitch/color-unknown": "warn",
+      "designsnitch/radius-unknown": "warn",
+      "designsnitch/font-size-unknown": "warn",
     },
   },
 ];
@@ -514,7 +540,11 @@ The same plugin runs in [oxlint](https://oxc.rs) as a JS plugin. Add it to `.oxl
   "rules": {
     "designsnitch/color-use-token": "error",
     "designsnitch/use-ds-component": "error",
-    "designsnitch/color-unknown": "warn"
+    "designsnitch/color-unknown": "warn",
+    "designsnitch/radius-use-token": "error",
+    "designsnitch/radius-unknown": "warn",
+    "designsnitch/font-size-use-token": "error",
+    "designsnitch/font-size-unknown": "warn"
   }
 }
 ```
@@ -559,12 +589,16 @@ A skill is advice that an agent may not follow. A hook is run by the agent's run
     ]
   },
   "permissions": {
-    "allow": ["Bash(npx designsnitch check *)", "Bash(npx designsnitch colors *)"]
+    "allow": [
+      "Bash(npx designsnitch check *)",
+      "Bash(npx designsnitch colors *)",
+      "Bash(npx designsnitch sizes *)"
+    ]
   }
 }
 ```
 
-The `permissions` part lets Claude Code run the two commands the skills use, `check` and `colors`, without asking each time. `colors` only reads files. `check` changes files only with `--fix`, and then only where the replacement keeps the screen the same. Rules that are already there are kept, and nothing is added when a wider rule such as `Bash(npx designsnitch *)` covers them.
+The `permissions` part lets Claude Code run the commands the skills use, `check`, `colors` and `sizes`, without asking each time. `colors` and `sizes` only read files. `check` changes files only with `--fix`, and then only where the replacement keeps the screen the same. Rules that are already there are kept, and nothing is added when a wider rule such as `Bash(npx designsnitch *)` covers them.
 
 Claude Code uses allow rules from a project's `.claude/settings.json` only after you have accepted its trust prompt for that project, which it shows the first time you open the project in the terminal. In a project that was never opened that way, for example in `claude -p` on a fresh checkout, it drops them and the agent is asked again. There, pass `--allowedTools "Bash(npx designsnitch check *)"`. Checked with Claude Code 2.1.329: with the rule, the command ran without a prompt in a trusted folder and was denied in an untrusted one.
 
@@ -636,7 +670,8 @@ These are not checked:
 - Biome. It cannot run ESLint plugins, and its own plugin API works on a different syntax tree, so the rules would have to be written again.
 - Colors under keys that do not say color, such as `{ primary: "#3B82F6" }`, and colors in arrays. They are counted in `unchecked`.
 - SCSS and other preprocessors
-- Spacing, font size and radius. They were left out of this version on purpose.
+- Spacing. `designsnitch sizes` lists it, and nothing more: a single value cannot tell a mistake from a choice.
+- Radius and font size in Tailwind v3 projects, and Tailwind's default radius and font size scales. Only the project's own `--radius-*` and `--text-*` tokens are the standard.
 - Comparing a hand-made component's styles with the design system component
 - Installing the hook for agents other than Claude Code, Codex, Gemini CLI and Grok Build
 
