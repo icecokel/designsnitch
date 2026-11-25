@@ -55,7 +55,7 @@ The agent cannot finish while this error remains, so it switches to the token cl
 
 It supports **React/Next.js projects that use Tailwind CSS v4 or v3**. In v3, a color written by hand in an inline style gets no candidate, because v3 makes no CSS variables for its colors (see [Tailwind v3](#tailwind-v3)).
 
-> **Status:** MVP (0.7.x). It checks colors, shared components, radius and font size. Spacing is not checked (see [Scope](#scope)). Messages are in English by default and can be switched to Korean. See [Language](#language).
+> **Status:** MVP (0.8.x). It checks colors, shared components, radius and font size. Spacing is not checked (see [Scope](#scope)). Messages are in English by default and can be switched to Korean. See [Language](#language).
 
 ## Getting started
 
