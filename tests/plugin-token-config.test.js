@@ -97,3 +97,48 @@ it("ESLint 제안은 역할 순서대로 나오고 선호 접두어가 한 후�
   const [invalid] = await lint({ ...tokens, exclude: ["--color-*-chart"] });
   expect(invalid.message).toContain('"tokens.exclude"');
 });
+
+it("settings 가 없으면 작업 디렉터리의 designsnitch.config.json 을 읽는다", async () => {
+  const cwd = tempProject({
+    "designsnitch.config.json": JSON.stringify({
+      tokens: "tokens.css",
+      components: { path: "src/ui", replaces: { button: "Button" } },
+      lang: "ko",
+    }),
+    "tokens.css": "@theme { --color-primary: #3b82f6; }\n",
+    "src/a.jsx": 'export const A = () => <button className="bg-[#3B82F6]" />;\n',
+  });
+  const eslint = new ESLint({
+    cwd,
+    overrideConfigFile: true,
+    overrideConfig: [
+      { files: ["**/*.jsx"], languageOptions: { parserOptions: { ecmaFeatures: { jsx: true } } } },
+      designsnitch.configs.recommended,
+    ],
+  });
+
+  const [{ messages }] = await eslint.lintFiles(["src/a.jsx"]);
+
+  expect(messages.map(({ ruleId, message }) => [ruleId, message])).toEqual([
+    ["designsnitch/use-ds-component", expect.stringContaining("Button")],
+    ["designsnitch/color-use-token", "bg-[#3B82F6]의 색은 토큰 --color-primary의 값입니다. 대신 사용: bg-primary"],
+  ]);
+});
+
+it("settings 가 있으면 설정 파일보다 settings 를 쓴다", async () => {
+  const cwd = tempProject({
+    "designsnitch.config.json": JSON.stringify({ tokens: "other.css" }),
+    "other.css": "@theme { --color-other: #3b82f6; }\n",
+    "tokens.css": "@theme { --color-primary: #3b82f6; }\n",
+    "src/a.js": 'export const a = "bg-[#3B82F6]";\n',
+  });
+  const eslint = new ESLint({
+    cwd,
+    overrideConfigFile: true,
+    overrideConfig: [designsnitch.configs.recommended, { settings: { designsnitch: { tokens: "tokens.css" } } }],
+  });
+
+  const [{ messages }] = await eslint.lintFiles(["src/a.js"]);
+
+  expect(messages[0].message).toContain("bg-primary");
+});

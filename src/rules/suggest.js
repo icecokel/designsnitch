@@ -1,11 +1,12 @@
 import { messages, resolveLang } from "../messages.js";
+import { ruleSettings } from "./settings.js";
 
 /** 규칙의 문장은 실행할 때 언어에 맞춰 만든다. meta.messages 에는 자리만 둔다. */
 export const TEXT = "{{text}}";
 
 /** 규칙이 쓸 언어의 문장들. settings.designsnitch.lang, 환경 변수, 영어 순으로 정한다. */
 export function ruleMessages(context) {
-  return messages(resolveLang(context.settings?.designsnitch?.lang));
+  return messages(resolveLang(ruleSettings(context).designsnitch?.lang));
 }
 
 /**

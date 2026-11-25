@@ -503,6 +503,27 @@ export default [
 
 같은 규칙 묶음을 `designsnitch.configs.recommended`로도 쓸 수 있습니다. 이미 위반이 많은 프로젝트에 넣으면 오류 등급 규칙 때문에 기존 lint 단계가 실패하므로, 먼저 `designsnitch check`로 개수를 확인하세요. 대체 후보는 ESLint의 제안으로 보고되어 에디터에서 빠른 수정으로 나타납니다. CSS 파일은 ESLint가 아니라 CLI에서만 검사합니다.
 
+### oxlint
+
+같은 플러그인이 [oxlint](https://oxc.rs)에서 JS 플러그인으로 돌아갑니다. `.oxlintrc.json`에 넣습니다.
+
+```json
+{
+  "jsPlugins": ["designsnitch"],
+  "rules": {
+    "designsnitch/color-use-token": "error",
+    "designsnitch/use-ds-component": "error",
+    "designsnitch/color-unknown": "warn"
+  }
+}
+```
+
+`settings`는 일부러 적지 않았습니다. `.oxlintrc.json`은 다른 파일을 불러올 수 없으므로, `settings.designsnitch`가 없으면 플러그인이 작업 디렉터리의 `designsnitch.config.json`을 읽습니다. 기준은 한 곳에만 있습니다. ESLint에서도 `settings`를 빼면 똑같이 동작합니다. 모노레포처럼 설정 파일이 다른 곳에 있으면 `settings.designsnitch`를 `root`와 함께 직접 적습니다.
+
+oxlint 1.95.0에서 확인했습니다. 같은 프로젝트에서 oxlint와 `designsnitch check`가 같은 곳을 같은 규칙으로 잡았고, 패키지의 테스트가 둘을 대조합니다. oxlint는 JS 플러그인을 알파 단계라고 하므로, oxlint 버전에 따라 달라질 수 있습니다.
+
+이 규칙에는 `oxlint --fix-suggestions`를 쓰지 마세요. 후보가 여러 개라 사람이 골라야 하는 곳까지 첫 번째 제안으로 바꿉니다.
+
 ## 위반을 막는 방법
 
 CLI와 스킬은 AI 에이전트가 제대로 할 수 있는 상태를 만들어 줍니다. 막는 일은 다른 두 곳에서 합니다.
@@ -610,6 +631,8 @@ Tailwind 기본 팔레트(`bg-slate-100`, `text-indigo-600`)를 기준으로 쓰
 
 - 색 팔레트를 뺀 Tailwind 기본 테마의 값
 - 토큰이 없는 색에 가장 가까운 토큰 제시
+- 자동 수정. `--fix`가 없습니다. 바꿔도 화면이 같은 것까지 ESLint 제안으로만 내고, 에이전트나 사람이 직접 바꿉니다.
+- Biome. ESLint 플러그인을 돌릴 수 없고, 자체 플러그인 API는 다른 문법 트리를 쓰므로 규칙을 새로 써야 합니다.
 - 색을 뜻하지 않는 이름의 키에 적은 색(`{ primary: "#3B82F6" }`)과 배열 안의 색. `unchecked`에 개수로만 셉니다.
 - SCSS 같은 전처리기
 - 간격, 폰트 크기, radius. 이번 버전에서는 일부러 뺐습니다.

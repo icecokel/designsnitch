@@ -1,5 +1,6 @@
 import path from "node:path";
 import { replacementNames } from "../config.js";
+import { ruleSettings } from "./settings.js";
 import { ruleMessages, TEXT } from "./suggest.js";
 
 /** @type {import("eslint").Rule.RuleModule} */
@@ -11,7 +12,7 @@ export default {
     messages: { useComponent: TEXT, useComponentAsk: TEXT },
   },
   create(context) {
-    const { components, root } = context.settings?.designsnitch ?? {};
+    const { components, root } = ruleSettings(context).designsnitch ?? {};
     if (!components?.path || !components.replaces) return {};
     const m = ruleMessages(context);
 

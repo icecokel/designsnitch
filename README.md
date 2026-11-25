@@ -502,6 +502,27 @@ Paths in the settings are resolved from ESLint's working directory. If `designsn
 
 The same set of rules is available as `designsnitch.configs.recommended`. In a project that already has many violations, the error-level rules will make the existing lint step fail, so run `designsnitch check` first to see how many there are. Replacement candidates appear as ESLint suggestions, which editors show as quick fixes. CSS files are checked by the CLI only, not through ESLint.
 
+### oxlint
+
+The same plugin runs in [oxlint](https://oxc.rs) as a JS plugin. Add it to `.oxlintrc.json`.
+
+```json
+{
+  "jsPlugins": ["designsnitch"],
+  "rules": {
+    "designsnitch/color-use-token": "error",
+    "designsnitch/use-ds-component": "error",
+    "designsnitch/color-unknown": "warn"
+  }
+}
+```
+
+There is no `settings` here on purpose. `.oxlintrc.json` cannot load another file, so when `settings.designsnitch` is not set, the plugin reads `designsnitch.config.json` from the working directory. The standard stays in one place. ESLint works the same way if you leave `settings` out. If the config file is somewhere else, as in a monorepo, write `settings.designsnitch` by hand with `root`.
+
+Checked with oxlint 1.95.0: on the same project, oxlint and `designsnitch check` reported the same places under the same rules, and the package's tests compare the two. oxlint calls its JS plugins alpha, so this can change with an oxlint release.
+
+Do not run `oxlint --fix-suggestions` with these rules. It applies the first suggestion everywhere, including where there are several candidates and a person has to choose.
+
 ## Blocking violations
 
 The CLI and the skills put an AI agent in a position to do the right thing. Blocking is done in two other places.
@@ -609,6 +630,8 @@ These are not checked:
 
 - Values from Tailwind's default theme other than the color palette
 - The nearest token for a color that has none
+- Automatic fixing. There is no `--fix`. Even a replacement that keeps the screen the same is reported as an ESLint suggestion, and the agent or a person applies it.
+- Biome. It cannot run ESLint plugins, and its own plugin API works on a different syntax tree, so the rules would have to be written again.
 - Colors under keys that do not say color, such as `{ primary: "#3B82F6" }`, and colors in arrays. They are counted in `unchecked`.
 - SCSS and other preprocessors
 - Spacing, font size and radius. They were left out of this version on purpose.

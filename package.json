@@ -20,6 +20,7 @@
     "postcss": "^8.4.0"
   },
   "devDependencies": {
+    "oxlint": "^1.95.0",
     "vitest": "^3.0.0"
   },
   "bin": {
@@ -43,6 +44,7 @@
     "lint",
     "eslint",
     "eslintplugin",
+    "oxlint",
     "agent-skill",
     "cli"
   ],

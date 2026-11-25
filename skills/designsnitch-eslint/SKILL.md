@@ -16,6 +16,7 @@ The ESLint plugin is how designsnitch blocks and warns. `designsnitch check` tel
 | A flat config (`eslint.config.js`, `.mjs` or `.ts`) that already has `designsnitch/` rules | Nothing. Go to step 5 and verify. |
 | A flat config without `designsnitch/` rules | Step 3A |
 | No ESLint at all | Step 3B |
+| oxlint instead of ESLint (`.oxlintrc.json` or `oxlint.config.ts`) | Step 3C |
 | A legacy config (`.eslintrc*`) | Stop. Tell the user the rules need a flat config and that converting the project's config is their decision. |
 
 ## 2. Count the existing violations
@@ -108,6 +109,23 @@ Add a lint script if the project has none.
 ```json
 { "scripts": { "lint": "eslint ." } }
 ```
+
+## 3C. Add the rules to oxlint
+
+oxlint runs the same plugin as a JS plugin. Install the package (`npm install --save-dev designsnitch`) and merge this into `.oxlintrc.json`, keeping what is already there.
+
+```json
+{
+  "jsPlugins": ["designsnitch"],
+  "rules": {
+    "designsnitch/color-use-token": "error",
+    "designsnitch/use-ds-component": "error",
+    "designsnitch/color-unknown": "warn"
+  }
+}
+```
+
+Do not add `settings`: without `settings.designsnitch`, the plugin reads `designsnitch.config.json` from the working directory. Tell the user that oxlint calls JS plugins alpha, and that `oxlint --fix-suggestions` must not be used with these rules, because it applies the first candidate even where a person has to choose.
 
 ## 4. Keep the severities
 
