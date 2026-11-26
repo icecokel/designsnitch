@@ -8,6 +8,7 @@ import { colorLabel, parseColor } from "./core/color.js";
 import { findCssColors } from "./core/css.js";
 import {
   cssColorPrefixes,
+  classableTokens,
   lookupColor,
   recommendColorCandidate,
   selectColorTokens,
@@ -194,12 +195,14 @@ function checkCss(file, source, tokens, m, options) {
       const { names: known, opacity } = lookupColor(tokens.colors, value);
       // CSS 변수가 없는 토큰도 Tailwind v3 의 CSS 에서는 theme() 으로 같은 값을 쓸 수 있다.
       const viaTheme = (name) => tokens.classOnly.has(name) && tokens.themePaths.has(name);
+      // @apply 의 클래스도 @theme 밖에만 선언된 토큰이면 그 이름의 클래스가 없다.
+      const classable = utility ? classableTokens(known, tokens, utility, opacity) : null;
       const toCandidate = (name) => {
-        if (utility) return tokenClass(utility, name, opacity);
+        if (utility) return classable.toClass(name);
         return viaTheme(name) ? themeValue(tokens.themePaths.get(name), opacity) : tokenValue(name, tokens.prefix, opacity);
       };
       // 클래스로만 쓸 수 있는 토큰은 선언의 값을 대신할 수 없다. 그래도 직접 쓴 색이라는 것은 알린다.
-      const usable = utility ? known : known.filter((name) => !tokens.classOnly.has(name) || viaTheme(name));
+      const usable = utility ? classable.names : known.filter((name) => !tokens.classOnly.has(name) || viaTheme(name));
       if (known.length > 0 && usable.length === 0) {
         return {
           file,
@@ -214,10 +217,10 @@ function checkCss(file, source, tokens, m, options) {
         };
       }
       const tokenNames = selectColorTokens(usable, tokens.prefer, prefixes);
-      const candidates = tokenNames.map(toCandidate);
+      const candidates = tokenNames.map(toCandidate).filter((candidate) => candidate !== null);
       const recommendedToken = recommendColorCandidate(tokenNames, prefixes);
       const messageId =
-        opacity !== null ? "useTokenAlpha" : tokenNames.some((name) => tokens.themed.has(name)) ? "useTokenThemed" : "useToken";
+        opacity !== null ? "useTokenAlpha" : classable?.varOnly ? "useTokenVarOnly" : tokenNames.some((name) => tokens.themed.has(name)) ? "useTokenThemed" : "useToken";
       return {
         file,
         ...location,
@@ -268,7 +271,7 @@ function checkCssSizes(file, source, tokens, m) {
       continue;
     }
     const candidates = match.names.map((name) =>
-      utility ? sizeTokenClass(kind, utility, name) : tokenVar(name, tokens.prefix),
+      utility ? sizeTokenClass(kind, utility, name, match.varOnly) : tokenVar(name, tokens.prefix),
     );
     findings.push({
       ...base,
@@ -337,6 +340,7 @@ function groupDecisions(violations) {
     if (messageId === "useTokenAlpha") decision.reasons.add("translucent");
     if (messageId === "useTokenData") decision.reasons.add("not-a-style");
     if (messageId === "useTokenUnit") decision.reasons.add("unit-conversion");
+    if (messageId === "useTokenVarOnly") decision.reasons.add("no-class");
     if (messageId === "useTokenLineHeight") decision.reasons.add("line-height");
     if (rule.endsWith("-unknown") && rule !== "color-unknown") decision.reasons.add("no-token");
     if (messageId === "useComponentAsk") decision.reasons.add("dynamic-props");

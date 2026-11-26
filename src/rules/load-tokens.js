@@ -59,8 +59,8 @@ export function loadTokens(settings, cwd) {
   const root = path.resolve(cwd, settings?.designsnitch?.root ?? ".");
   const file = path.resolve(root, tokensPath);
   const project = readProjectTokens(file, root, exclude, m);
-  const { files, prefix, classOnly, problems, themePaths, sizes } = project;
-  const shared = { prefer, files, prefix, classOnly, problems, themePaths, sizes };
+  const { files, prefix, classOnly, problems, themePaths, sizes, varOnly, tailwindV3 } = project;
+  const shared = { prefer, files, prefix, classOnly, problems, themePaths, sizes, varOnly, tailwindV3 };
   if (settings?.designsnitch?.palette !== "tailwind") {
     return { colors: project.colors, themed: project.themed, paletteNames: new Set(), ...shared };
   }

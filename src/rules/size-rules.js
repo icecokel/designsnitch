@@ -32,7 +32,7 @@ export function createSizeRule(kind, mode) {
       },
       ...(isUseToken ? { fixable: "code", hasSuggestions: true } : {}),
       schema: [],
-      messages: { useToken: TEXT, useTokenUnit: TEXT, useTokenLineHeight: TEXT, unknown: TEXT, replace: TEXT },
+      messages: { useToken: TEXT, useTokenUnit: TEXT, useTokenLineHeight: TEXT, useTokenVarOnly: TEXT, unknown: TEXT, replace: TEXT },
     },
     create(context) {
       let tokens;
@@ -64,7 +64,7 @@ export function createSizeRule(kind, mode) {
           return;
         }
         if (!isUseToken) return;
-        const candidates = match.names.map(toCandidate);
+        const candidates = match.names.map((name) => toCandidate(name, match.varOnly));
         const text = m.sizeUseToken({
           kind,
           reason: match.messageId,
@@ -90,7 +90,8 @@ export function createSizeRule(kind, mode) {
         visitStrings(
           context,
           (text) => findArbitrarySizes(text).filter((found) => found.kind === kind),
-          (found, where) => judge(found.text, found.value, where, (name) => sizeTokenClass(kind, found.utility, name), true),
+          (found, where) =>
+            judge(found.text, found.value, where, (name, varOnly) => sizeTokenClass(kind, found.utility, name, varOnly), true),
         ),
         {
           Literal(node) {

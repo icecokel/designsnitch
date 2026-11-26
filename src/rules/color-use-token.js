@@ -3,8 +3,8 @@ import { findArbitraryColors } from "../core/classes.js";
 import {
   cssColorPrefixes,
   lookupColor,
+  classableTokens,
   selectColorTokens,
-  tokenClass,
   tokenValue,
   utilityColorPrefixes,
 } from "../core/tokens.js";
@@ -28,6 +28,7 @@ export default {
       useTokenAlpha: TEXT,
       useTokenData: TEXT,
       useTokenClassOnly: TEXT,
+      useTokenVarOnly: TEXT,
       replace: TEXT,
       tokensConfig: TEXT,
     },
@@ -47,10 +48,12 @@ export default {
     const m = ruleMessages(context);
     const { colors, themed, prefer, classOnly } = tokens;
 
-    function report(found, { loc, range }, tokenNames, candidates, opacity) {
+    function report(found, { loc, range }, tokenNames, candidates, opacity, varOnly = false) {
       const messageId =
         opacity !== null
           ? "useTokenAlpha"
+          : varOnly
+            ? "useTokenVarOnly"
           : found.kind === "data"
             ? "useTokenData"
             : tokenNames.some((name) => themed.has(name))
@@ -74,8 +77,11 @@ export default {
       visitStrings(context, findArbitraryColors, (found, where) => {
         const { names, opacity } = lookupColor(colors, found.value);
         if (names.length === 0) return;
-        const tokenNames = selectColorTokens(names, prefer, utilityColorPrefixes(found.utility));
-        report(found, where, tokenNames, tokenNames.map((name) => tokenClass(found.utility, name, opacity)), opacity);
+        // @theme 밖에만 선언된 토큰은 그 이름의 클래스가 없다.
+        const classable = classableTokens(names, tokens, found.utility, opacity);
+        const tokenNames = selectColorTokens(classable.names, prefer, utilityColorPrefixes(found.utility));
+        const candidates = tokenNames.map(classable.toClass).filter((candidate) => candidate !== null);
+        report(found, where, tokenNames, candidates, opacity, classable.varOnly);
       }),
       // 스타일과 색 속성의 값은 클래스가 아니라 var(--토큰) 으로 바꾼다. Tailwind 는 소스에서 쓴 var() 의 변수를 내보낸다.
       visitInlineStyleColors(context, (found, where) => {

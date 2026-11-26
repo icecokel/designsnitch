@@ -85,7 +85,7 @@ describe("영어 출력 (--lang en)", () => {
   it("테마별 토큰으로 교체할 때 색이 바뀔 수 있음을 영어로 알린다", async () => {
     const cwd = tempProject({
       "designsnitch.config.json": `{ "tokens": "tokens.css" }`,
-      "tokens.css": `:root { --color-surface: #fff; } .dark { --color-surface: #000; }`,
+      "tokens.css": `@theme { --color-surface: #fff; } .dark { --color-surface: #000; }`,
       "src/a.tsx": `<div className="bg-[#fff]" />;`,
       "src/b.css": `.card { background: #fff; }`,
     });

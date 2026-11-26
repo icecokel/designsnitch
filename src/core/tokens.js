@@ -28,6 +28,14 @@ function isGlobal(decl) {
   return !rule || rule.selectors.every((selector) => GLOBAL_SELECTOR.test(selector.trim()));
 }
 
+/** 선언이 @theme 안에 있는지. Tailwind v4 는 @theme 의 변수로만 유틸리티 클래스를 만든다. */
+export function isInTheme(decl) {
+  for (let node = decl.parent; node && node.type !== "root"; node = node.parent) {
+    if (node.type === "atrule" && node.name === "theme") return true;
+  }
+  return false;
+}
+
 // var(--name) 또는 var(--name, 대체값)
 const VAR_REFERENCE = /^var\(\s*(--[\w-]+)\s*(?:,\s*(.+))?\)$/s;
 
@@ -47,15 +55,17 @@ export function parseColorTokens(css) {
  * 색 값 → 토큰 표와 서로 다른 최종 값이 있는 토큰 이름을 함께 읽는다.
  * @param {string} css
  * @param {string[]} [exclude] 정확한 이름 또는 끝에 *가 붙은 이름 패턴
- * @returns {{ colors: Map<string, string[]>, themed: Set<string>, names: Set<string>, resets: string[] }}
+ * @returns {{ colors: Map<string, string[]>, themed: Set<string>, names: Set<string>, resets: string[], varOnly: Set<string> }}
+ *   varOnly 는 @theme 밖에만 선언된 토큰. CSS 변수로는 있지만 Tailwind 가 클래스를 만들지 않는다
  *   names 는 값을 읽었든 못 읽었든 선언된 --color-* 이름, resets 는 initial 로 비운 네임스페이스(예: "--color-*")
  */
 export function parseColorTokenData(css, exclude = []) {
-  /** @type {Map<string, { global: string[], scoped: string[] }>} 변수 이름 → 전역에서 선언된 값들과 일부에서만 선언된 값들 */
+  /** @type {Map<string, { global: string[], scoped: string[], theme: boolean }>} 변수 이름 → 전역에서 선언된 값들과 일부에서만 선언된 값들, @theme 에 선언됐는지 */
   const declared = new Map();
   postcss.parse(css).walkDecls(/^--/, (decl) => {
-    const values = declared.get(decl.prop) ?? { global: [], scoped: [] };
+    const values = declared.get(decl.prop) ?? { global: [], scoped: [], theme: false };
     values[isGlobal(decl) ? "global" : "scoped"].push(decl.value);
+    if (isInTheme(decl)) values.theme = true;
     declared.set(decl.prop, values);
   });
 
@@ -83,7 +93,8 @@ export function parseColorTokenData(css, exclude = []) {
   const themed = new Set();
   const names = new Set();
   const resets = [];
-  for (const [name, { global, scoped }] of declared) {
+  const varOnly = new Set();
+  for (const [name, { global, scoped, theme }] of declared) {
     // Tailwind 는 --color-*: initial 처럼 네임스페이스를 비울 수 있다. 토큰이 아니라 기본 테마를 지우는 선언이다.
     if (name.endsWith("*")) {
       if ([...global, ...scoped].some((value) => value.trim() === "initial")) resets.push(name);
@@ -93,6 +104,7 @@ export function parseColorTokenData(css, exclude = []) {
     // .promo { --color-promo: ... } 처럼 일부에서만 선언된 변수는 어디서나 쓸 수 있는 토큰이 아니다.
     if (global.length === 0) continue;
     names.add(name);
+    if (!theme) varOnly.add(name);
     if (exclude.some((pattern) => pattern.endsWith("*") ? name.startsWith(pattern.slice(0, -1)) : name === pattern)) continue;
     const resolved = new Set();
     for (const value of [...global, ...scoped].flatMap((value) => resolve(value, new Set([name])))) {
@@ -107,7 +119,7 @@ export function parseColorTokenData(css, exclude = []) {
     }
     if (resolved.size > 1) themed.add(name);
   }
-  return { colors, themed, names, resets };
+  return { colors, themed, names, resets, varOnly };
 }
 
 /** 토큰을 CSS 에서 가리키는 표기. Tailwind 접두어가 있으면 변수 이름에 붙는다. 예: var(--tw-color-brand) */
@@ -149,6 +161,29 @@ export function themeValue(path, opacity) {
 export function tokenClass(utility, name, opacity) {
   const className = `${utility}-${name.replace(/^--color-/, "")}`;
   return opacity === null ? className : `${className}/${opacity}`;
+}
+
+/**
+ * 색을 클래스로 쓸 후보를 만든다. @theme 에 선언된 토큰이 있으면 그 클래스만 낸다.
+ * 모두 @theme 밖의 변수뿐이면 그 이름의 클래스는 없다. Tailwind v4 에서는 변수를 직접 가리키는 bg-(--color-x) 꼴을 내고,
+ * v3 에서는 낼 수 있는 클래스가 없다.
+ * @param {string[]} names 값이 같은 토큰 이름들
+ * @param {{ varOnly?: Set<string>, tailwindV3?: boolean }} tokens
+ * @param {string} utility
+ * @param {number | null} opacity
+ * @returns {{ names: string[], toClass: (name: string) => string | null, varOnly: boolean }}
+ */
+export function classableTokens(names, tokens, utility, opacity) {
+  const inTheme = names.filter((name) => !tokens.varOnly?.has(name));
+  if (inTheme.length > 0 || names.length === 0) {
+    return { names: inTheme, toClass: (name) => tokenClass(utility, name, opacity), varOnly: false };
+  }
+  const suffix = opacity === null ? "" : `/${opacity}`;
+  return {
+    names,
+    toClass: (name) => (tokens.tailwindV3 ? null : `${utility}-(${name})${suffix}`),
+    varOnly: true,
+  };
 }
 
 export function utilityColorPrefixes(utility) {

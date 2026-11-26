@@ -39,10 +39,16 @@ const en = {
     `${found} has the same color as ${tokens}. It is not in a style, so check that var() works where this value is used. Candidate: ${candidates}`,
   useTokenClassOnly: ({ found, tokens }) =>
     `${found} has the same color as ${tokens}, but Tailwind makes no CSS variable for that token, so there is no var() to use here.`,
+  useTokenVarOnly: ({ found, tokens, candidates }) =>
+    candidates
+      ? `${found} has the same color as ${tokens}, but that token is declared outside @theme, so Tailwind makes no class for it. Candidate: ${candidates}. Declaring it in @theme gives it a class.`
+      : `${found} has the same color as ${tokens}, but that token is only a CSS variable. Tailwind v3 makes classes from tailwind.config, so there is no class for it. Adding it to the config gives it a class.`,
   sizeUseToken: ({ kind, reason, found, tokens, candidates }) => {
     const what = kind === "radius" ? "radius" : "font size";
     if (reason === "useTokenUnit")
       return `${found} is the same ${what} as ${tokens} only when the root font size is 16px, because one is in px and the other in rem. Candidate: ${candidates}`;
+    if (reason === "useTokenVarOnly")
+      return `${found} has the same ${what} as ${tokens}, but that token is declared outside @theme, so Tailwind makes no class for it. Candidate: ${candidates}. Declaring it in @theme gives it a class.`;
     if (reason === "useTokenLineHeight")
       return `${found} has the same font size as ${tokens}, but a font size class can also set the line height, so the text may move. Candidate: ${candidates}`;
     return `${found} has the same ${what} as ${tokens}. Use instead: ${candidates}`;
@@ -221,10 +227,16 @@ const ko = {
     `${found}의 색은 토큰 ${tokens}의 값입니다. 스타일이 아닌 자리라서, 이 값을 쓰는 곳에서 var()가 통하는지 확인해야 합니다. 후보: ${candidates}`,
   useTokenClassOnly: ({ found, tokens }) =>
     `${found}의 색은 토큰 ${tokens}의 값이지만, Tailwind가 이 토큰의 CSS 변수를 만들지 않아서 여기에 쓸 var()가 없습니다.`,
+  useTokenVarOnly: ({ found, tokens, candidates }) =>
+    candidates
+      ? `${found}의 색은 토큰 ${tokens}의 값이지만, 이 토큰은 @theme 밖에 선언되어 Tailwind가 클래스를 만들지 않습니다. 후보: ${candidates}. @theme에 선언하면 클래스가 생깁니다.`
+      : `${found}의 색은 토큰 ${tokens}의 값이지만, 이 토큰은 CSS 변수로만 있습니다. Tailwind v3는 tailwind.config에서 클래스를 만들므로 이 토큰의 클래스가 없습니다. 설정에 추가하면 클래스가 생깁니다.`,
   sizeUseToken: ({ kind, reason, found, tokens, candidates }) => {
     const what = kind === "radius" ? "radius" : "글자 크기";
     if (reason === "useTokenUnit")
       return `${found}은(는) 루트 글자 크기가 16px일 때만 토큰 ${tokens}와 같은 ${what}입니다. 한쪽은 px, 다른 쪽은 rem이기 때문입니다. 후보: ${candidates}`;
+    if (reason === "useTokenVarOnly")
+      return `${found}의 ${what}는 토큰 ${tokens}의 값이지만, 이 토큰은 @theme 밖에 선언되어 Tailwind가 클래스를 만들지 않습니다. 후보: ${candidates}. @theme에 선언하면 클래스가 생깁니다.`;
     if (reason === "useTokenLineHeight")
       return `${found}의 글자 크기는 토큰 ${tokens}의 값입니다. 다만 글자 크기 클래스는 줄 높이도 함께 정할 수 있어 글의 위치가 달라질 수 있습니다. 후보: ${candidates}`;
     return `${found}의 ${what}는 토큰 ${tokens}의 값입니다. 대신 사용: ${candidates}`;

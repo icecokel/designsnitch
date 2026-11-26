@@ -438,7 +438,7 @@ describe("토큰 범위와 선호", () => {
   it("선호 후보가 테마별 토큰이면 추천해도 ask 로 유지한다", async () => {
     const result = await checkProject({ prefer: ["--color-surface"] }, {
       "tokens.css": `
-        :root { --color-surface: #abc; --color-brand: #abc; }
+        @theme { --color-surface: #abc; --color-brand: #abc; }
         .dark { --color-surface: #111; }
       `,
       "src/a.tsx": `<div className="bg-[#abc]" />;`,
@@ -592,7 +592,7 @@ describe("사용자 결정 (decisions)", () => {
   it("후보가 같으면 역할별 순서와 관계없이 묶고 모든 위치에서 추천이 같을 때만 추천한다", async () => {
     const result = await checkProject({
       "tokens.css": `
-        :root { --color-text-main: #abc; --color-border-main: #abc; --color-surface: #eee; }
+        @theme { --color-text-main: #abc; --color-border-main: #abc; --color-surface: #eee; }
         .dark { --color-surface: #111; }
       `,
       "src/a.css": ".card { color: #ABC; border-color: #aabbcc; background: #eee; }",

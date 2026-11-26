@@ -329,6 +329,7 @@ Tailwind 기본 팔레트
 
 토큰은 Tailwind가 읽는 곳에서도 읽습니다.
 
+- **`@theme` 밖의 토큰.** Tailwind v4는 `@theme`에 선언한 변수로만 유틸리티 클래스를 만듭니다. `:root { --color-brand: #3B82F6; }`처럼 다른 곳에 선언한 토큰은 CSS 변수일 뿐이고 `bg-brand` 클래스는 없습니다. 클래스가 필요한 자리에서는 변수를 직접 가리키는 `bg-(--color-brand)`를 후보로 내고, 이유 `no-class`와 함께 `ask`로 표시합니다. 토큰을 `@theme`으로 옮기는 쪽을 고를 수도 있기 때문입니다. 스타일과 CSS 선언에서는 어디에 선언했든 `var(--color-brand)`가 통합니다. `--radius-*`와 `--text-*`도 같습니다. Tailwind 4에서 확인했습니다. `:root` 변수에 대해 `bg-brand`는 CSS가 만들어지지 않았고 `bg-(--color-brand)`는 만들어졌습니다.
 - **import한 CSS.** 토큰 CSS가 다른 CSS 파일을 불러오면(`@import "../brand/theme.css"`나 패키지) 그 파일의 `@theme` 토큰도 읽습니다.
 - **접두어.** `@import "tailwindcss" prefix(tw)`를 쓰면 Tailwind가 CSS 변수 이름을 `--tw-color-*`로 만들므로, `var()` 후보도 그렇게 적습니다. 클래스 후보는 `tw:` 뒤의 부분만 바꿉니다.
 - **JavaScript 설정.** `@config "./tailwind.config.js"`가 있으면 `theme.extend.colors`(프리셋 포함)의 색이 토큰이 되고, `theme.colors`는 기본 팔레트를 대체합니다. Tailwind v4의 동작과 같습니다. 이 색들은 클래스로만 있습니다. Tailwind가 CSS 변수를 만들지 않기 때문입니다. 인라인 스타일이나 CSS 선언에 직접 쓰면 오류로 알리되 후보는 없고, 어떻게 할지는 사람이 정합니다. 설정을 읽으려면 그 파일을 실행하므로, 그 파일이 require하는 것이 설치돼 있어야 합니다. 불러오지 못하면 결과의 `problems`에 알립니다.
@@ -451,7 +452,7 @@ src/PayButton.tsx
 | `fixed` | `--fix`를 줬을 때만 있습니다. 고친 곳의 수입니다. 결과의 나머지는 고친 뒤의 코드를 설명합니다. |
 | `violations[].recommended` | 색을 쓰는 용도에 맞는 후보입니다. `text-` 클래스면 텍스트용 이름의 토큰, 테두리면 테두리용 이름의 토큰입니다. 맞는 후보가 정확히 하나일 때만 채우고, 추천일 뿐이라 `ask`는 그대로 `ask`입니다. `replace`와 `migrate`면 그 후보입니다. |
 | `violations[].action` | 이 위반을 어떻게 다룰지입니다. `replace`: `found`를 하나뿐인 후보로 바꿔도 화면과 동작이 같습니다. 색 오류만 해당합니다. `migrate`: raw 태그를 옮길 디자인 시스템 컴포넌트가 하나뿐입니다. 컴포넌트가 같은 props를 넘기는지, 기본 스타일이 같은지는 도구가 알 수 없으므로 컴포넌트를 먼저 읽고 태그의 props를 옮기고 컴포넌트가 이미 주는 클래스는 지웁니다. 훅은 고친 직후에 알리기만 하고, 이것 때문에 에이전트가 끝내는 것을 막지는 않습니다. `ask`: 사람이 정해야 합니다. 후보가 여러 개이거나, 토큰이 없는 색이거나, 테마마다 값이 다른 토큰이거나, 컴포넌트의 속성이 동적이거나 spread된 경우입니다. `repair`: 파일을 읽지 못했습니다. |
-| `decisions` | `ask`인 위반을 질문 단위로 묶은 것입니다. 색이나 태그와 후보가 같으면 하나로 묶습니다. 각 항목에 얼마나 나오는지(`uses`, `files`), 위치 최대 다섯 곳(`locations`), 후보(`candidates`), 모든 위치에서 추천이 같을 때의 추천(`recommended`), 사람이 정해야 하는 이유(`reasons`: `multiple-candidates`, `no-token`, `themed-token`, `translucent`, `not-a-style`, `class-only-token`, `dynamic-props`, `unit-conversion`, `line-height`)가 있습니다. 많이 나오는 순서입니다. |
+| `decisions` | `ask`인 위반을 질문 단위로 묶은 것입니다. 색이나 태그와 후보가 같으면 하나로 묶습니다. 각 항목에 얼마나 나오는지(`uses`, `files`), 위치 최대 다섯 곳(`locations`), 후보(`candidates`), 모든 위치에서 추천이 같을 때의 추천(`recommended`), 사람이 정해야 하는 이유(`reasons`: `multiple-candidates`, `no-token`, `themed-token`, `translucent`, `not-a-style`, `class-only-token`, `dynamic-props`, `unit-conversion`, `line-height`, `no-class`)가 있습니다. 많이 나오는 순서입니다. |
 | `next` | 이 결과를 받은 에이전트가 할 일을 순서대로 적은 것 |
 | `unchecked` | 검사하지 못한 다른 문자열 속 색의 개수(`colors`)와 파일 수(`files`). 하나라도 있으면 글 출력에 한 줄이 붙습니다. |
 
