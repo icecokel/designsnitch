@@ -694,6 +694,8 @@ Figma 같은 시안 파일과 화면을 비교하는 일은 범위 밖입니다.
 
 ## 개발
 
+버그를 제보하는 방법과 변경에 필요한 것은 [CONTRIBUTING.ko.md](./CONTRIBUTING.ko.md)에 있습니다.
+
 ```sh
 npm install
 npm test

@@ -693,6 +693,8 @@ The split between a skill and a tool that does the work follows Modern Web Guida
 
 ## Development
 
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for how to report a bug and what a change needs.
+
 ```sh
 npm install
 npm test
